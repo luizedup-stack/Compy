@@ -44,16 +44,17 @@ const textoNaoVazio = (v: unknown): string | undefined => {
   return t === '' ? undefined : t;
 };
 
-type Edicao = { ok: true; parcial: Partial<OfertaArmazenada> } | { ok: false; erro: string };
+type Edicao = { ok: true; parcial: Partial<OfertaArmazenada>; renovaPreco: boolean } | { ok: false; erro: string };
 
 /** Valida o corpo do PATCH de produto e monta só os campos que mudam. */
-function lerEdicaoProduto(corpo: unknown, agora: Date): Edicao {
+function lerEdicaoProduto(corpo: unknown): Edicao {
   if (corpo === undefined || corpo === null) return { ok: false, erro: MSG_NADA };
   if (!ehObjeto(corpo)) return { ok: false, erro: 'Corpo inválido' };
   const chaves = Object.keys(corpo);
   if (chaves.length === 0) return { ok: false, erro: MSG_NADA };
 
   const parcial: Partial<OfertaArmazenada> = {};
+  let renovaPreco = false;
   for (const chave of chaves) {
     const valor = corpo[chave];
     switch (chave) {
@@ -70,7 +71,7 @@ function lerEdicaoProduto(corpo: unknown, agora: Date): Edicao {
         const preco = typeof valor === 'number' || typeof valor === 'string' ? parsePreco(valor) : null;
         if (preco === null) return { ok: false, erro: 'Preço inválido' };
         parcial.preco = preco;
-        parcial.precoAtualizadoEm = agora; // R20: só mexer no preço renova a data
+        renovaPreco = true; // R20: só enviar o preço renova a data (mesmo igual ao atual: confirma o preço)
         break;
       }
       case 'quantidade': {
@@ -95,7 +96,7 @@ function lerEdicaoProduto(corpo: unknown, agora: Date): Edicao {
         return { ok: false, erro: `Campo não pode ser alterado: ${chave}` };
     }
   }
-  return { ok: true, parcial };
+  return { ok: true, parcial, renovaPreco };
 }
 
 export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync {
@@ -181,16 +182,29 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
     });
 
     app.patch<{ Params: { codigo: string } }>('/painel/produtos/:codigo', opcoes, async (req, reply) => {
-      const agora = new Date();
-      const edicao = lerEdicaoProduto(req.body, agora);
+      // Valida o corpo antes de abrir a transação: dentro dela só vai o que precisa ser atômico.
+      const edicao = lerEdicaoProduto(req.body);
       if (!edicao.ok) return reply.code(400).send({ erro: edicao.erro });
 
-      const atual = await repo.acharOferta(req.mercadoDoPainel.id, req.params.codigo);
-      if (!atual) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
-      // salvarOferta troca a oferta inteira; parte do que está gravado e do mercado do usuário.
-      const nova: OfertaArmazenada = { ...atual, ...edicao.parcial, mercadoId: atual.mercadoId };
-      await repo.salvarOferta(nova);
-      return aProdutoPainel(nova, agora);
+      // Achar, mesclar e salvar numa só transação (R22), só com o `r` recebido: uma importação ou outra
+      // chamada não pode entrar no meio (nem a planilha perder para um valor velho, nem um DELETE ser desfeito).
+      const mercadoId = req.mercadoDoPainel.id;
+      const resultado = await repo.transacao(async (r) => {
+        const atual = await r.acharOferta(mercadoId, req.params.codigo);
+        if (!atual) return null;
+        const agora = new Date();
+        // salvarOferta troca a oferta inteira; parte do que está gravado e do mercado do usuário.
+        const nova: OfertaArmazenada = {
+          ...atual,
+          ...edicao.parcial,
+          ...(edicao.renovaPreco ? { precoAtualizadoEm: agora } : {}),
+          mercadoId: atual.mercadoId,
+        };
+        await r.salvarOferta(nova);
+        return aProdutoPainel(nova, agora);
+      });
+      if (!resultado) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+      return resultado;
     });
 
     app.delete<{ Params: { codigo: string } }>('/painel/produtos/:codigo', opcoes, async (req, reply) => {

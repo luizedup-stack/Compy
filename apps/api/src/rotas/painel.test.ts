@@ -310,6 +310,19 @@ describe('PATCH /painel/produtos/:codigo', () => {
     expect(gravada!.precoAtualizadoEm.getTime()).toBeGreaterThanOrEqual(antes);
   });
 
+  it('o MESMO preço já gravado também renova precoAtualizadoEm (confirma o preço)', async () => {
+    const antes = Date.now();
+    const res = await patch(token, url, { preco: 25.9 });
+    expect(res.statusCode).toBe(200);
+    const corpo = res.json() as ProdutoPainel;
+    expect(corpo).toMatchObject({ preco: 25.9, desatualizado: false });
+    expect(new Date(corpo.atualizadoEm).getTime()).toBeGreaterThanOrEqual(antes);
+    const gravada = await amb.repo.acharOferta(mercadoId, CODIGO);
+    expect(gravada!.preco).toBe(25.9);
+    expect(gravada!.precoAtualizadoEm.getTime()).toBeGreaterThanOrEqual(antes);
+    expect(gravada!.precoAtualizadoEm.getTime()).not.toBe(antigo.getTime());
+  });
+
   it('preço numérico também é aceito', async () => {
     const res = await patch(token, url, { preco: 19.99 });
     expect(res.statusCode).toBe(200);
@@ -520,6 +533,156 @@ describe('edição manual e nova planilha', () => {
       preco: original.preco,
       disponivel: original.disponivel,
       desatualizado: false,
+    });
+  });
+});
+
+describe('concorrência (R22): achar, mesclar e salvar são atômicos', () => {
+  it('PATCH e DELETE simultâneos no mesmo código: se o DELETE deu 204, a oferta não existe no final', async () => {
+    const { mercado, token } = await criarMercadoComLogin('Mercado Um', 'Rua Um, 10', 'um@exemplo.com');
+    const REPETICOES = 20;
+    let patchesDepoisDoDelete = 0;
+    for (let i = 0; i < REPETICOES; i++) {
+      const codigo = String(8000000000000 + i);
+      await amb.repo.salvarOferta(oferta(mercado.id, codigo, { nome: 'Original' }));
+      const url = `/painel/produtos/${codigo}`;
+      // Defasa o início do DELETE em 0 a 7 passadas do laço de eventos para cair em pontos diferentes
+      // entre o achar e o salvar do PATCH (e nas duas ordens).
+      const promessaPatch = patch(token, url, { nome: 'Editado', preco: 12.5 });
+      for (let t = 0; t < i % 8; t++) await new Promise((ok) => setImmediate(ok));
+      const [resPatch, resDel] = await Promise.all([promessaPatch, del(token, url)]);
+      const final = await amb.repo.acharOferta(mercado.id, codigo);
+      expect(resDel.statusCode).toBe(204);
+      // O DELETE respondeu 204: a oferta não pode ter ressuscitado.
+      expect(final).toBeNull();
+      expect([200, 404]).toContain(resPatch.statusCode);
+      if (resPatch.statusCode === 404) patchesDepoisDoDelete++;
+    }
+    // As duas ordens aconteceram de fato (senão o teste não exercita a corrida).
+    expect(patchesDepoisDoDelete).toBeGreaterThan(0);
+    expect(patchesDepoisDoDelete).toBeLessThan(REPETICOES);
+  });
+
+  it('PATCH e importação de planilha simultâneos: o estado final é um resultado inteiro, nunca uma mistura velha', async () => {
+    await importarPlanilha(amb.repo, lerPlanilha('mercado-2-estrela-da-vila.xlsx'), { papel: 'admin' });
+    const [mercado] = await amb.repo.listarMercados();
+    const dono = await amb.criarComPapel('mercado', 'dono@exemplo.com');
+    await amb.repo.atualizarMercado(mercado!.id, { usuarioId: dono.id });
+    const original = (await amb.repo.listarOfertasDoMercado(mercado!.id)).sort((a, b) =>
+      a.codigoBarras < b.codigoBarras ? -1 : 1,
+    )[0]!;
+    const url = `/painel/produtos/${original.codigoBarras}`;
+    const planilha = lerPlanilha('mercado-2-estrela-da-vila.xlsx');
+
+    let patchVenceu = 0;
+    let planilhaVenceu = 0;
+    for (let i = 0; i < 12; i++) {
+      // Volta ao valor da planilha antes de cada rodada.
+      await importarPlanilha(amb.repo, planilha, { papel: 'mercado', mercadoId: mercado!.id });
+      const [resPatch, relatorio] = await (i % 2 === 0
+        ? Promise.all([
+            patch(dono.token, url, { preco: 999.99, nome: 'Editado à mão', disponivel: !original.disponivel }),
+            importarPlanilha(amb.repo, planilha, { papel: 'mercado', mercadoId: mercado!.id }),
+          ])
+        : Promise.all([
+            importarPlanilha(amb.repo, planilha, { papel: 'mercado', mercadoId: mercado!.id }),
+            patch(dono.token, url, { preco: 999.99, nome: 'Editado à mão', disponivel: !original.disponivel }),
+          ]).then(([r, p]) => [p, r] as const));
+      expect(resPatch.statusCode).toBe(200);
+      expect(relatorio.importadas).toBe(29);
+
+      const final = (await amb.repo.acharOferta(mercado!.id, original.codigoBarras))!;
+      const corpo = resPatch.json() as ProdutoPainel;
+      if (final.preco === 999.99) {
+        // O PATCH rodou por último: o gravado é exatamente o que ele devolveu.
+        patchVenceu++;
+        expect(final).toMatchObject({ nome: 'Editado à mão', disponivel: !original.disponivel });
+        expect(final.precoAtualizadoEm.toISOString()).toBe(corpo.atualizadoEm);
+      } else {
+        // A planilha rodou por último: todos os campos são os dela, sem sobra do PATCH.
+        planilhaVenceu++;
+        expect(final).toMatchObject({
+          nome: original.nome,
+          preco: original.preco,
+          disponivel: original.disponivel,
+        });
+        expect(final.precoAtualizadoEm.getTime()).toBeGreaterThanOrEqual(new Date(corpo.atualizadoEm).getTime());
+      }
+    }
+    expect(patchVenceu + planilhaVenceu).toBe(12);
+    expect((await amb.repo.listarOfertasDoMercado(mercado!.id)).length).toBe(29);
+  });
+});
+
+describe('concorrência (R22): outra escrita logo atrás da primeira leitura do PATCH', () => {
+  /**
+   * Enfileira `acao` no repositório externo logo atrás da primeira leitura do PATCH: a chamada
+   * `acharOferta` (código antigo, que lia e gravava em duas chamadas soltas) ou a `transacao`
+   * (código atual, que faz tudo dentro de uma só). Assim a escrita concorrente cai exatamente
+   * entre o achar e o salvar de uma implementação não atômica, e depois de tudo numa atômica.
+   */
+  function dispararAtrasDaPrimeiraLeitura<T>(acao: () => Promise<T>): { resultado: () => Promise<T> } {
+    let pendente: Promise<T> | null = null;
+    let disparou = false;
+    const original = { achar: amb.repo.acharOferta, transacao: amb.repo.transacao };
+    const armar = <A extends unknown[], R>(f: (...a: A) => R) =>
+      function (this: unknown, ...args: A): R {
+        const r = f.apply(amb.repo, args);
+        if (!disparou) {
+          disparou = true;
+          pendente = acao();
+        }
+        return r;
+      };
+    amb.repo.acharOferta = armar(original.achar);
+    amb.repo.transacao = armar(original.transacao);
+    return {
+      resultado: async () => {
+        amb.repo.acharOferta = original.achar;
+        amb.repo.transacao = original.transacao;
+        if (!pendente) throw new Error('o PATCH não leu a oferta');
+        return pendente;
+      },
+    };
+  }
+
+  it('DELETE enfileirado atrás da leitura: o PATCH não ressuscita a oferta apagada', async () => {
+    const { mercado, token } = await criarMercadoComLogin('Mercado Um', 'Rua Um, 10', 'um@exemplo.com');
+    await amb.repo.salvarOferta(oferta(mercado.id, '8100000000001', { nome: 'Original' }));
+    const gancho = dispararAtrasDaPrimeiraLeitura(() => amb.repo.removerOferta(mercado.id, '8100000000001'));
+
+    const res = await patch(token, '/painel/produtos/8100000000001', { nome: 'Editado', preco: 12.5 });
+    const removida = await gancho.resultado();
+
+    expect(removida).toBe(true); // o DELETE achou e apagou
+    expect([200, 404]).toContain(res.statusCode);
+    expect(await amb.repo.acharOferta(mercado.id, '8100000000001')).toBeNull();
+  });
+
+  it('gravação da planilha enfileirada atrás da leitura: a planilha vence, sem sobra velha do PATCH', async () => {
+    await importarPlanilha(amb.repo, lerPlanilha('mercado-2-estrela-da-vila.xlsx'), { papel: 'admin' });
+    const [mercado] = await amb.repo.listarMercados();
+    const dono = await amb.criarComPapel('mercado', 'dono@exemplo.com');
+    await amb.repo.atualizarMercado(mercado!.id, { usuarioId: dono.id });
+    const original = (await amb.repo.listarOfertasDoMercado(mercado!.id))[0]!;
+    // Equivale ao que a importação grava: a linha da planilha, numa transação, com a data de agora.
+    const gancho = dispararAtrasDaPrimeiraLeitura(() =>
+      amb.repo.transacao((r) => r.salvarOferta({ ...original, precoAtualizadoEm: new Date() })),
+    );
+
+    const res = await patch(dono.token, `/painel/produtos/${original.codigoBarras}`, {
+      preco: 999.99,
+      nome: 'Editado à mão',
+      disponivel: !original.disponivel,
+    });
+    await gancho.resultado();
+
+    expect(res.statusCode).toBe(200);
+    // A importação rodou depois do PATCH: o que vale é o valor da planilha.
+    expect(await amb.repo.acharOferta(mercado!.id, original.codigoBarras)).toMatchObject({
+      nome: original.nome,
+      preco: original.preco,
+      disponivel: original.disponivel,
     });
   });
 });
