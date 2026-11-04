@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { LIMITE_BYTES, LIMITE_LINHAS, normalizarTexto } from '@mercado/shared';
 import { describe, expect, it } from 'vitest';
 import type { Mercado, Repositorio } from '../repositorio';
@@ -590,5 +591,175 @@ describe('gerarModelo', () => {
     const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     const relatorio = await importarPlanilha(repo, buffer, ADMIN);
     expect(relatorio).toMatchObject({ mercadoCriado: true, importadas: 0, erros: [] });
+  });
+});
+
+describe('importarPlanilha: limites de leitura do arquivo (R14)', () => {
+  const MENSAGEM = 'grande demais';
+
+  function adicionarMesclagem(buffer: Buffer, ref: string): Buffer {
+    const arquivos = unzipSync(new Uint8Array(buffer));
+    const nome = 'xl/worksheets/sheet1.xml';
+    let xml = strFromU8(arquivos[nome]!);
+    const mescla = `<mergeCells count="1"><mergeCell ref="${ref}"/></mergeCells>`;
+    // Ordem do OOXML: mergeCells vem depois de sheetData e antes de pageMargins.
+    xml = xml.includes('<pageMargins')
+      ? xml.replace('<pageMargins', `${mescla}<pageMargins`)
+      : xml.replace('</worksheet>', `${mescla}</worksheet>`);
+    arquivos[nome] = strToU8(xml);
+    return Buffer.from(zipSync(arquivos));
+  }
+
+  it('mesclagem gigante (A1:Z1000000) é recusada rápido e nada é gravado', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = adicionarMesclagem(await montar({ produtos: [linhaBoa(EAN_A)] }), 'A1:Z1000000');
+    const inicio = Date.now();
+    const promessa = importarPlanilha(repo, buffer, ADMIN);
+    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
+    await expect(promessa).rejects.toThrow(MENSAGEM);
+    expect(Date.now() - inicio).toBeLessThan(2000);
+    expect(await mercadosGravados(repo)).toHaveLength(0);
+  });
+
+  it('a mesclagem remendada é uma planilha legítima: sem o limite, o arquivo seria carregável', async () => {
+    // Garante que o teste acima falha por causa do limite, e não por um zip malformado.
+    const buffer = adicionarMesclagem(await montar({ produtos: [linhaBoa(EAN_A)] }), 'D1:E2');
+    const relatorio = await importarPlanilha(criarRepositorioMemoria(), buffer, ADMIN);
+    expect(relatorio.importadas).toBe(1);
+  });
+
+  it('várias mesclagens que somam mais de 50.000 células são recusadas', async () => {
+    const repo = criarRepositorioMemoria();
+    const wb = new ExcelJS.Workbook();
+    const mercado = wb.addWorksheet('Mercado');
+    MERCADO_PADRAO.forEach((linha) => mercado.addRow(linha));
+    wb.addWorksheet('Produtos').addRow(CABECALHO);
+    const extra = wb.addWorksheet('Instruções');
+    // 6 mesclagens de 9.000 células (54.000 no total), cada uma abaixo do limite individual.
+    for (let i = 0; i < 6; i++) extra.mergeCells(`${String.fromCharCode(65 + i)}1:${String.fromCharCode(65 + i)}9000`);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    await expect(importarPlanilha(repo, buffer, ADMIN)).rejects.toThrow(MENSAGEM);
+  });
+
+  it('entrada de 40 MiB de zeros (poucos KB compactados) é recusada sem ser lida pelo exceljs', async () => {
+    const repo = criarRepositorioMemoria();
+    const bomba = Buffer.from(zipSync({ 'xl/worksheets/sheet1.xml': new Uint8Array(40 * 1024 * 1024) }));
+    expect(bomba.length).toBeLessThan(LIMITE_BYTES);
+    const inicio = Date.now();
+    const promessa = importarPlanilha(repo, bomba, ADMIN);
+    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
+    await expect(promessa).rejects.toThrow(MENSAGEM);
+    expect(Date.now() - inicio).toBeLessThan(2000);
+    expect(await mercadosGravados(repo)).toHaveLength(0);
+  });
+
+  it('várias entradas que somam mais de 30 MiB são recusadas', async () => {
+    const repo = criarRepositorioMemoria();
+    const arquivos: Record<string, Uint8Array> = {};
+    for (let i = 0; i < 4; i++) arquivos[`xl/extra${i}.bin`] = new Uint8Array(10 * 1024 * 1024);
+    await expect(importarPlanilha(repo, Buffer.from(zipSync(arquivos)), ADMIN)).rejects.toThrow(MENSAGEM);
+  });
+
+  it('mesclagem pequena (A1:C1 numa aba de instruções) continua aceita', async () => {
+    const repo = criarRepositorioMemoria();
+    const wb = new ExcelJS.Workbook();
+    const mercado = wb.addWorksheet('Mercado');
+    MERCADO_PADRAO.forEach((linha) => mercado.addRow(linha));
+    const produtos = wb.addWorksheet('Produtos');
+    produtos.addRow(CABECALHO);
+    produtos.addRow(linhaBoa(EAN_A));
+    const instrucoes = wb.addWorksheet('Instruções');
+    instrucoes.addRow(['Título longo']);
+    instrucoes.mergeCells('A1:C1');
+    const relatorio = await importarPlanilha(repo, Buffer.from(await wb.xlsx.writeBuffer()), ADMIN);
+    expect(relatorio).toMatchObject({ importadas: 1, erros: [] });
+  });
+});
+
+describe('importarPlanilha: casos de borda', () => {
+  it('5000 linhas de dados intercaladas com linhas em branco são aceitas', async () => {
+    const repo = criarRepositorioMemoria();
+    const produtos: unknown[][] = [];
+    for (let i = 0; i < LIMITE_LINHAS; i++) {
+      produtos.push(linhaBoa(ean13(String(100000000000 + i)), `Produto ${i}`, 1), [null, null, null]);
+    }
+    const relatorio = await importarPlanilha(repo, await montar({ produtos }), ADMIN);
+    expect(relatorio.importadas).toBe(LIMITE_LINHAS);
+    expect(relatorio.erros).toEqual([]);
+  }, 60000);
+
+  it('uma única célula na linha 1.000.000 vira erro de linha, sem travar', async () => {
+    const repo = criarRepositorioMemoria();
+    const wb = new ExcelJS.Workbook();
+    const mercado = wb.addWorksheet('Mercado');
+    MERCADO_PADRAO.forEach((linha) => mercado.addRow(linha));
+    const produtos = wb.addWorksheet('Produtos');
+    produtos.addRow(CABECALHO);
+    produtos.getCell('B1000000').value = 'solto';
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const inicio = Date.now();
+    const relatorio = await importarPlanilha(repo, buffer, ADMIN);
+    expect(Date.now() - inicio).toBeLessThan(2000);
+    expect(relatorio.importadas).toBe(0);
+    expect(relatorio.erros).toHaveLength(1);
+    expect(relatorio.erros[0]!.linha).toBe(1000000);
+  });
+
+  it('duplicado posterior inválido: a primeira linha continua salva e só a segunda vira erro', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = await montar({
+      produtos: [linhaBoa(EAN_A, 'Arroz', 10), [EAN_A, 'Arroz de novo', 'abc', null, null, null]],
+    });
+    const relatorio = await importarPlanilha(repo, buffer, ADMIN);
+    expect(relatorio.importadas).toBe(1);
+    expect(relatorio.erros).toHaveLength(1);
+    expect(relatorio.erros[0]!.linha).toBe(3);
+    expect(relatorio.erros[0]!.motivo).not.toContain('duplicado');
+    expect(await repo.acharOferta(relatorio.mercadoId, EAN_A)).toMatchObject({ nome: 'Arroz', preco: 10 });
+  });
+
+  it('código de barras texto com espaços nas pontas é aceito', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = await montar({ produtos: [[' 7890070035629 ', 'Papel Fox', 20, null, null, null]] });
+    const relatorio = await importarPlanilha(repo, buffer, ADMIN);
+    expect(relatorio.erros).toEqual([]);
+    expect(await repo.acharOferta(relatorio.mercadoId, '7890070035629')).not.toBeNull();
+  });
+
+  it('preço numérico com ruído de ponto flutuante (0.1 + 0.2) é guardado como 0.3', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = await montar({ produtos: [[EAN_A, 'Bala', 0.1 + 0.2, null, null, null]] });
+    const { mercadoId } = await importarPlanilha(repo, buffer, ADMIN);
+    expect((await repo.acharOferta(mercadoId, EAN_A))!.preco).toBe(0.3);
+  });
+
+  it('célula booleana real em Disponível: true = sim, false = não', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = await montar({
+      produtos: [
+        [EAN_A, 'Arroz', 10, null, null, true],
+        [EAN_B, 'Feijão', 8, null, null, false],
+      ],
+    });
+    const relatorio = await importarPlanilha(repo, buffer, ADMIN);
+    expect(relatorio.erros).toEqual([]);
+    expect((await repo.acharOferta(relatorio.mercadoId, EAN_A))!.disponivel).toBe(true);
+    expect((await repo.acharOferta(relatorio.mercadoId, EAN_B))!.disponivel).toBe(false);
+  });
+
+  it('fórmula cujo resultado em cache é erro (#N/A) na coluna Preço vira erro de linha', async () => {
+    const repo = criarRepositorioMemoria();
+    const buffer = await montar({
+      produtos: [
+        [EAN_A, 'Arroz', { formula: 'NA()', result: { error: '#N/A' } }, null, null, null],
+        linhaBoa(EAN_B, 'Feijão', 8),
+      ],
+    });
+    const relatorio = await importarPlanilha(repo, buffer, ADMIN);
+    expect(relatorio.importadas).toBe(1);
+    expect(relatorio.erros).toHaveLength(1);
+    expect(relatorio.erros[0]!.linha).toBe(2);
+    expect(relatorio.erros[0]!.motivo).toContain('Preço');
+    expect(await repo.acharOferta(relatorio.mercadoId, EAN_A)).toBeNull();
   });
 });
