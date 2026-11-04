@@ -1,7 +1,8 @@
 import JSZip from 'jszip';
+import { SaxesParser } from 'saxes';
 import { ErroPlanilha } from './erroPlanilha';
 
-// Limites (R14/R16): o xlsx é um zip e o exceljs cria uma célula para cada célula de cada mesclagem.
+// Limites (R14/R16/R17): o xlsx é um zip e o exceljs cria uma célula para cada célula de cada mesclagem.
 export const LIMITE_ENTRADA_BYTES = 20 * 1024 * 1024;
 export const LIMITE_TOTAL_BYTES = 30 * 1024 * 1024;
 export const LIMITE_CELULAS_MESCLAGEM = 10_000;
@@ -10,10 +11,10 @@ export const LIMITE_CELULAS_MESCLAGEM_TOTAL = 50_000;
 const ERRO_ARQUIVO_INVALIDO = 'Arquivo inválido: envie uma planilha .xlsx';
 const ERRO_MUITO_GRANDE = 'Planilha grande demais para ser importada';
 
-// Qualquer elemento mergeCell (com ou sem prefixo de namespace); ref entre aspas simples ou duplas,
-// com espaços ao redor do "=" e em qualquer posição entre os atributos.
-const PADRAO_MESCLAGEM = /<(?:[\w.-]+:)?mergeCell(?=[\s/>])[^>]{0,1000}?\sref\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
 const PADRAO_REFERENCIA = /^\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/i;
+// A mesma expressão (sem âncoras e com diferença entre maiúsculas e minúsculas) que o exceljs usa
+// para decidir se uma entrada do zip é uma planilha.
+const PADRAO_PLANILHA_EXCELJS = /xl\/worksheets\/sheet(\d+)[.]xml/;
 
 function numeroDaColuna(letras: string): number {
   return [...letras.toUpperCase()].reduce((acc, letra) => acc * 26 + letra.charCodeAt(0) - 64, 0);
@@ -45,44 +46,98 @@ interface EntradaComFluxo {
   };
 }
 
+interface Estado {
+  /** Bytes descompactados de todas as entradas até agora. */
+  bytes: number;
+  /** Células cobertas por todas as mesclagens encontradas até agora. */
+  celulas: number;
+}
+
 /**
- * Descompacta a entrada em fluxo, pedaço a pedaço, e para assim que passar do limite da
- * entrada ou do total. Só guarda os bytes das partes .xml (para a conferência das mesclagens).
+ * Descompacta a entrada em fluxo, pedaço a pedaço, e para assim que passar do limite da entrada ou do
+ * total. Cada pedaço também alimenta o mesmo tokenizador XML do exceljs (saxes), que reconhece as
+ * mesclagens (elemento mergeCell, com ou sem prefixo, com `ref` já decodificado) em qualquer entrada,
+ * seja qual for o nome. Nada é acumulado em memória além do estado do tokenizador.
  */
-function lerEntrada(entrada: EntradaComFluxo, total: { bytes: number }, guardar: boolean): Promise<Uint8Array[]> {
+function lerEntrada(entrada: EntradaComFluxo, estado: Estado): Promise<void> {
+  const ehPlanilhaDoExceljs = PADRAO_PLANILHA_EXCELJS.test(entrada.name.replace(/^\/+/, ''));
   return new Promise((resolve, reject) => {
-    const partes: Uint8Array[] = [];
-    let tamanho = 0;
     let encerrado = false;
+    let tamanho = 0;
     const fluxo = entrada.internalStream('uint8array');
+
+    const falhar = (erro: ErroPlanilha) => {
+      if (encerrado) return;
+      encerrado = true;
+      fluxo.pause();
+      reject(erro);
+    };
+
+    // Erro de sintaxe só interrompe a leitura desta entrada (peças binárias são normais).
+    // Numa planilha do exceljs, vira "arquivo inválido" no fim.
+    let erroXml = false;
+    const parser = new SaxesParser();
+    parser.on('error', () => {
+      erroXml = true;
+    });
+    parser.on('opentag', (tag) => {
+      if (tag.name.split(':').pop() !== 'mergeCell') return;
+      const ref = (tag.attributes as Record<string, string>)['ref'];
+      if (ref === undefined) return;
+      const celulas = celulasDaMesclagem(ref);
+      estado.celulas += celulas;
+      if (celulas > LIMITE_CELULAS_MESCLAGEM || estado.celulas > LIMITE_CELULAS_MESCLAGEM_TOTAL) {
+        falhar(new ErroPlanilha(ERRO_MUITO_GRANDE));
+      }
+    });
+    const decodificador = new TextDecoder('utf-8');
+
+    const alimentar = (texto: string) => {
+      if (erroXml || encerrado) return;
+      try {
+        parser.write(texto);
+      } catch {
+        erroXml = true;
+      }
+    };
+
     fluxo.on('data', (pedaco) => {
       if (encerrado) return;
       tamanho += pedaco.length;
-      total.bytes += pedaco.length;
-      if (tamanho > LIMITE_ENTRADA_BYTES || total.bytes > LIMITE_TOTAL_BYTES) {
-        encerrado = true;
-        fluxo.pause();
-        reject(new ErroPlanilha(ERRO_MUITO_GRANDE));
+      estado.bytes += pedaco.length;
+      if (tamanho > LIMITE_ENTRADA_BYTES || estado.bytes > LIMITE_TOTAL_BYTES) {
+        falhar(new ErroPlanilha(ERRO_MUITO_GRANDE));
         return;
       }
-      if (guardar) partes.push(pedaco);
+      alimentar(decodificador.decode(pedaco, { stream: true }));
     });
     fluxo.on('end', () => {
-      if (!encerrado) resolve(partes);
-    });
-    fluxo.on('error', () => {
       if (encerrado) return;
+      alimentar(decodificador.decode());
+      if (!erroXml && !encerrado) {
+        try {
+          parser.close();
+        } catch {
+          erroXml = true;
+        }
+      }
+      if (encerrado) return;
+      if (erroXml && ehPlanilhaDoExceljs) {
+        falhar(new ErroPlanilha(ERRO_ARQUIVO_INVALIDO));
+        return;
+      }
       encerrado = true;
-      reject(new ErroPlanilha(ERRO_ARQUIVO_INVALIDO));
+      resolve();
     });
+    fluxo.on('error', () => falhar(new ErroPlanilha(ERRO_ARQUIVO_INVALIDO)));
     fluxo.resume();
   });
 }
 
 /**
  * Examina o zip ANTES do exceljs, lendo-o como o exceljs (JSZip, diretório central): descompacta cada
- * entrada em fluxo contando os bytes realmente gerados (tamanhos declarados não são confiáveis) e aborta
- * ao passar dos limites; depois confere as mesclagens de todas as partes .xml, sem criar nenhuma célula.
+ * entrada em fluxo contando os bytes realmente gerados (tamanhos declarados não são confiáveis), aborta
+ * ao passar dos limites e confere o tamanho das mesclagens sem criar nenhuma célula.
  * `contador` (opcional) recebe o total de bytes descompactados, para testes.
  */
 export async function conferirZip(arquivo: Buffer, contador: { bytes: number } = { bytes: 0 }): Promise<void> {
@@ -95,18 +150,13 @@ export async function conferirZip(arquivo: Buffer, contador: { bytes: number } =
   const entradas = (Object.values(zip.files) as unknown as EntradaComFluxo[]).filter((e) => !e.dir);
   if (entradas.length === 0) throw new ErroPlanilha(ERRO_ARQUIVO_INVALIDO);
 
-  let celulasTotais = 0;
-  for (const entrada of entradas) {
-    const ehXml = entrada.name.replace(/^\/+/, '').toLowerCase().endsWith('.xml');
-    const partes = await lerEntrada(entrada, contador, ehXml);
-    if (!ehXml) continue;
-    const xml = Buffer.concat(partes).toString('utf8');
-    for (const m of xml.matchAll(PADRAO_MESCLAGEM)) {
-      const celulas = celulasDaMesclagem(m[1] ?? m[2] ?? '');
-      celulasTotais += celulas;
-      if (celulas > LIMITE_CELULAS_MESCLAGEM || celulasTotais > LIMITE_CELULAS_MESCLAGEM_TOTAL) {
-        throw new ErroPlanilha(ERRO_MUITO_GRANDE);
-      }
+  const estado: Estado = { bytes: 0, celulas: 0 };
+  try {
+    for (const entrada of entradas) {
+      await lerEntrada(entrada, estado);
+      contador.bytes = estado.bytes;
     }
+  } finally {
+    contador.bytes = estado.bytes;
   }
 }

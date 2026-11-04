@@ -869,3 +869,114 @@ describe('conferirZip (R16): lê o zip como o exceljs e limita a descompressão 
     await expect(conferirZip(Buffer.from('não sou um zip'))).rejects.toThrow('Arquivo inválido');
   });
 });
+
+describe('conferirZip (R17): tokenizador XML do exceljs em toda entrada, qualquer nome', () => {
+  const MENSAGEM = 'grande demais';
+  const MESCLAGEM_GRANDE = '<mergeCells count="1"><mergeCell ref="A1:Z400"/></mergeCells>'; // 10.400 células
+
+  async function arquivosDoModelo() {
+    return unzipSync(new Uint8Array(await montar({ produtos: [linhaBoa(EAN_A)] })));
+  }
+
+  function comTrecho(arquivos: Record<string, Uint8Array>, trecho: string): Record<string, Uint8Array> {
+    const xml = strFromU8(arquivos['xl/worksheets/sheet1.xml']!);
+    const novo = xml.includes('<pageMargins')
+      ? xml.replace('<pageMargins', `${trecho}<pageMargins`)
+      : xml.replace('</worksheet>', `${trecho}</worksheet>`);
+    return { ...arquivos, 'xl/worksheets/sheet1.xml': strToU8(novo) };
+  }
+
+  async function recusa(arquivos: Record<string, Uint8Array>, mensagem = MENSAGEM) {
+    const repo = criarRepositorioMemoria();
+    const inicio = Date.now();
+    const promessa = importarPlanilha(repo, Buffer.from(zipSync(arquivos)), ADMIN);
+    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
+    await expect(promessa).rejects.toThrow(mensagem);
+    expect(Date.now() - inicio).toBeLessThan(3000);
+    expect(await repo.listarMercados()).toHaveLength(0);
+  }
+
+  it('entrada sheet1.xml.rels carregando a mesclagem e apontada pelo rels do workbook é recusada', async () => {
+    const arquivos = await arquivosDoModelo();
+    const sheet = comTrecho(arquivos, MESCLAGEM_GRANDE)['xl/worksheets/sheet1.xml']!;
+    const rels = strFromU8(arquivos['xl/_rels/workbook.xml.rels']!).replace(
+      'worksheets/sheet1.xml',
+      'worksheets/sheet1.xml.rels',
+    );
+    const mudado: Record<string, Uint8Array> = { ...arquivos, 'xl/_rels/workbook.xml.rels': strToU8(rels), 'xl/worksheets/sheet1.xml.rels': sheet };
+    delete mudado['xl/worksheets/sheet1.xml'];
+    expect(rels).toContain('sheet1.xml.rels');
+    await recusa(mudado);
+  });
+
+  it('entradas com sufixos estranhos (.xmlx, .xml.bin, .dat) também são conferidas', async () => {
+    const arquivos = await arquivosDoModelo();
+    for (const nome of ['xl/worksheets/sheet1.xmlx', 'xl/worksheets/sheet1.xml.bin', 'xl/qualquer.dat', 'Sem-Extensao']) {
+      await recusa({ ...arquivos, [nome]: strToU8(`<worksheet>${MESCLAGEM_GRANDE}</worksheet>`) });
+    }
+  });
+
+  it.each([
+    ['referência de caractere numérico no valor (Z&#52;00 = Z400)', '<mergeCell ref="A1:Z&#52;00"/>'],
+    ['referência de caractere hexadecimal (&#x34;)', '<mergeCell ref="A1:Z&#x34;00"/>'],
+    ['">" dentro de outro atributo', '<mergeCell x=">" ref="A1:Z400"/>'],
+    ['ref depois de 1.100 caracteres de outros atributos', `<mergeCell x="${'a'.repeat(1100)}" ref="A1:Z400"/>`],
+    ['espaços ao redor do "="', '<mergeCell ref = "A1:Z400"/>'],
+    ['aspas simples', "<mergeCell ref='A1:Z400'/>"],
+    ['prefixo de namespace x:', '<x:mergeCell xmlns:x="http://exemplo" ref="A1:Z400"/>'],
+    ['referências absolutas com $', '<mergeCell ref="$A$1:$Z$400"/>'],
+    ['area que estoura a aritmética', `<mergeCell ref="A1:${'Z'.repeat(400)}99999999999999999999"/>`],
+    ['colunas idênticas gigantes', `<mergeCell ref="${'A'.repeat(400)}1:${'A'.repeat(400)}2"/>`],
+  ])('mesclagem grande com %s é recusada', async (_nome, elemento) => {
+    const arquivos = await arquivosDoModelo();
+    await recusa(comTrecho(arquivos, `<mergeCells count="1">${elemento}</mergeCells>`));
+  });
+
+  it('o elemento mergeCell dentro de comentário ou CDATA não conta', async () => {
+    const repo = criarRepositorioMemoria();
+    const arquivos = await arquivosDoModelo();
+    const comComentario = comTrecho(arquivos, `<!-- ${MESCLAGEM_GRANDE} -->`);
+    comComentario['xl/custom/dados.xml'] = strToU8(`<raiz><![CDATA[${MESCLAGEM_GRANDE}]]></raiz>`);
+    const relatorio = await importarPlanilha(repo, Buffer.from(zipSync(comComentario)), ADMIN);
+    expect(relatorio).toMatchObject({ importadas: 1, erros: [] });
+    await expect(conferirZip(Buffer.from(zipSync(comComentario)))).resolves.toBeUndefined();
+  });
+
+  it('uma entrada binária qualquer (imagem) não atrapalha uma importação válida', async () => {
+    const repo = criarRepositorioMemoria();
+    const arquivos = await arquivosDoModelo();
+    const aleatorio = new Uint8Array(50_000);
+    let semente = 12345;
+    for (let i = 0; i < aleatorio.length; i++) {
+      semente = (semente * 1103515245 + 12345) & 0x7fffffff;
+      aleatorio[i] = semente & 0xff;
+    }
+    const relatorio = await importarPlanilha(
+      repo,
+      Buffer.from(zipSync({ ...arquivos, 'xl/media/image1.png': aleatorio })),
+      ADMIN,
+    );
+    expect(relatorio).toMatchObject({ importadas: 1, erros: [] });
+  });
+
+  it.each([
+    ['XML não fechado', '<worksheet><sheetData>'],
+    ['texto que não é XML', 'isto não é uma planilha'],
+    ['sem elemento raiz', ''],
+  ])('planilha reconhecida pelo exceljs que não é XML bem formado (%s) é "Arquivo inválido"', async (_nome, conteudo) => {
+    const arquivos = await arquivosDoModelo();
+    await recusa({ ...arquivos, 'xl/worksheets/sheet1.xml': strToU8(conteudo) }, 'Arquivo inválido');
+  });
+
+  it('a mesma regra vale para o nome com barra inicial', async () => {
+    const arquivos = await arquivosDoModelo();
+    await recusa({ ...arquivos, '/xl/worksheets/sheet2.xml': strToU8('<worksheet>') }, 'Arquivo inválido');
+  });
+
+  it('parte não reconhecida pelo exceljs com XML malformado é ignorada', async () => {
+    const arquivos = await arquivosDoModelo();
+    await expect(
+      conferirZip(Buffer.from(zipSync({ ...arquivos, 'xl/custom/quebrado.xml': strToU8('<a><b></a>') }))),
+    ).resolves.toBeUndefined();
+  });
+});
