@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarEmailMemoria } from '../email';
 import { construirApp } from '../app';
 import type { Papel, Repositorio } from '../repositorio';
@@ -78,15 +78,24 @@ describe('POST /auth/cadastro', () => {
   it('senha com menos de 8 caracteres responde 400', async () => {
     const res = await cadastrar('ana@exemplo.com', '1234567');
     expect(res.statusCode).toBe(400);
-    expect(res.json()).toEqual({ erro: expect.any(String) });
+    expect(res.json()).toEqual({ erro: 'A senha deve ter pelo menos 8 caracteres' });
     expect(await repo.acharUsuarioPorEmail('ana@exemplo.com')).toBeNull();
   });
 
-  it('e-mail inválido ou corpo ausente responde 400', async () => {
-    expect((await cadastrar('nao-e-email')).statusCode).toBe(400);
+  it('e-mail inválido, senha ausente ou corpo ausente respondem 400 em português', async () => {
+    const emailRuim = await cadastrar('nao-e-email');
+    expect(emailRuim.statusCode).toBe(400);
+    expect(emailRuim.json()).toEqual({ erro: 'E-mail inválido' });
+    const semSenha = await app.inject({
+      method: 'POST',
+      url: '/auth/cadastro',
+      payload: { email: 'ana@exemplo.com' },
+    });
+    expect(semSenha.statusCode).toBe(400);
+    expect(semSenha.json()).toEqual({ erro: 'Informe a senha' });
     const semCorpo = await app.inject({ method: 'POST', url: '/auth/cadastro' });
     expect(semCorpo.statusCode).toBe(400);
-    expect(semCorpo.json()).toEqual({ erro: expect.any(String) });
+    expect(semCorpo.json()).toEqual({ erro: 'Dados inválidos' });
   });
 });
 
@@ -118,6 +127,7 @@ describe('POST /auth/login', () => {
   it('corpo inválido responde 400', async () => {
     const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'ana@exemplo.com' } });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ erro: 'Informe a senha' });
   });
 });
 
@@ -232,7 +242,22 @@ describe('POST /auth/esqueci-senha', () => {
   it('e-mail malformado responde 400', async () => {
     const res = await app.inject({ method: 'POST', url: '/auth/esqueci-senha', payload: { email: 'x' } });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ erro: 'E-mail inválido' });
   });
+});
+
+describe('código ausente', () => {
+  it.each(['/auth/verificar-email', '/auth/redefinir-senha'])(
+    '%s sem token ou com token vazio responde 400 em português',
+    async (url) => {
+      const semToken = await app.inject({ method: 'POST', url, payload: { senha: 'senha-nova-456' } });
+      expect(semToken.statusCode).toBe(400);
+      expect(semToken.json()).toEqual({ erro: 'Informe o código' });
+      const vazio = await app.inject({ method: 'POST', url, payload: { token: '  ', senha: 'senha-nova-456' } });
+      expect(vazio.statusCode).toBe(400);
+      expect(vazio.json()).toEqual({ erro: 'Informe o código' });
+    },
+  );
 });
 
 describe('POST /auth/redefinir-senha', () => {
@@ -368,5 +393,41 @@ describe('formato de erro e CORS', () => {
     expect(res.statusCode).toBe(204);
     expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
     expect(res.headers['access-control-allow-methods']).toContain('DELETE');
+  });
+});
+
+describe('log de erros', () => {
+  it('o log do Fastify fica desligado por padrão e liga com logger: true', async () => {
+    expect(app.log.level).not.toBe('info');
+    const comLog = await construirApp({ repo, email, jwtSecret: 'segredo-de-teste', logger: true });
+    expect(comLog.log.level).toBe('info');
+  });
+
+  it('falha ao enviar e-mail em esqueci-senha é registrada no log e a resposta segue 204', async () => {
+    await cadastrar();
+    const falha = new Error('provedor fora do ar');
+    const emailQuebrado = { enviar: vi.fn().mockRejectedValue(falha) };
+    const appQuebrado = await construirApp({ repo, email: emailQuebrado, jwtSecret: 'segredo-de-teste' });
+    const log = vi.spyOn(appQuebrado.log, 'error');
+    const res = await appQuebrado.inject({
+      method: 'POST',
+      url: '/auth/esqueci-senha',
+      payload: { email: 'ana@exemplo.com' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(emailQuebrado.enviar).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(falha);
+  });
+
+  it('erro inesperado é registrado no log e a resposta é um 500 genérico', async () => {
+    const falha = new Error('detalhe interno secreto');
+    app.get('/quebra', async () => {
+      throw falha;
+    });
+    const log = vi.spyOn(app.log, 'error');
+    const res = await app.inject({ method: 'GET', url: '/quebra' });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ erro: 'Erro interno do servidor' });
+    expect(log).toHaveBeenCalledWith(falha);
   });
 });

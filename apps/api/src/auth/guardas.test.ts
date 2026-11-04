@@ -2,17 +2,26 @@ import type { FastifyInstance } from 'fastify';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from '../app';
 import { criarEmailMemoria } from '../email';
+import type { Papel, Repositorio } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
 import { exigirPapel } from './guardas';
 
 let app: FastifyInstance;
+let repo: Repositorio;
+
+async function criarConta(papel: Papel) {
+  const u = await repo.criarUsuario({
+    email: `${papel}-${Math.random()}@exemplo.com`,
+    senhaHash: 'hash',
+    papel,
+    emailVerificado: true,
+  });
+  return { id: u.id, token: app.jwt.sign({ id: u.id, papel }) };
+}
 
 beforeEach(async () => {
-  app = await construirApp({
-    repo: criarRepositorioMemoria(),
-    email: criarEmailMemoria(),
-    jwtSecret: 'segredo-de-teste',
-  });
+  repo = criarRepositorioMemoria();
+  app = await construirApp({ repo, email: criarEmailMemoria(), jwtSecret: 'segredo-de-teste' });
   app.get('/so-admin', { preHandler: exigirPapel('admin') }, async (req) => req.usuario);
   app.get('/mercado-ou-admin', { preHandler: exigirPapel('mercado', 'admin') }, async (req) => req.usuario);
 });
@@ -39,20 +48,47 @@ describe('exigirPapel', () => {
   });
 
   it('papel não permitido responde 403', async () => {
-    const res = await get('/so-admin', app.jwt.sign({ id: 7, papel: 'cliente' }));
+    const { token } = await criarConta('cliente');
+    const res = await get('/so-admin', token);
     expect(res.statusCode).toBe(403);
     expect(res.json()).toEqual({ erro: expect.any(String) });
   });
 
   it('papel permitido passa e preenche req.usuario com { id, papel }', async () => {
-    const res = await get('/so-admin', app.jwt.sign({ id: 7, papel: 'admin' }));
+    const { id, token } = await criarConta('admin');
+    const res = await get('/so-admin', token);
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ id: 7, papel: 'admin' });
+    expect(res.json()).toEqual({ id, papel: 'admin' });
   });
 
   it('aceita qualquer um dos papéis listados', async () => {
-    const res = await get('/mercado-ou-admin', app.jwt.sign({ id: 3, papel: 'mercado' }));
-    expect(res.json()).toEqual({ id: 3, papel: 'mercado' });
-    expect((await get('/mercado-ou-admin', app.jwt.sign({ id: 4, papel: 'cliente' }))).statusCode).toBe(403);
+    const mercado = await criarConta('mercado');
+    expect((await get('/mercado-ou-admin', mercado.token)).json()).toEqual({ id: mercado.id, papel: 'mercado' });
+    const cliente = await criarConta('cliente');
+    expect((await get('/mercado-ou-admin', cliente.token)).statusCode).toBe(403);
+  });
+
+  it('token de uma conta excluída depois responde 401 "Sessão inválida"', async () => {
+    const { id, token } = await criarConta('admin');
+    expect((await get('/so-admin', token)).statusCode).toBe(200);
+    await repo.excluirUsuario(id);
+    const res = await get('/so-admin', token);
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ erro: 'Sessão inválida' });
+  });
+
+  it('usa o papel guardado no repositório: token de admin rebaixado responde 403', async () => {
+    const { id, token } = await criarConta('admin');
+    await repo.atualizarUsuario(id, { papel: 'cliente' });
+    const res = await get('/so-admin', token);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('usa o papel guardado no repositório: token de cliente promovido passa e req.usuario traz o papel novo', async () => {
+    const { id, token } = await criarConta('cliente');
+    await repo.atualizarUsuario(id, { papel: 'admin' });
+    const res = await get('/so-admin', token);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ id, papel: 'admin' });
   });
 });

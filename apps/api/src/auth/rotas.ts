@@ -12,9 +12,19 @@ const VALIDADE: Record<TipoToken, number> = {
   redefinir_senha: 1 * HORA,
 };
 
-const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
-const senhaNovaSchema = z.string().min(8, 'A senha deve ter pelo menos 8 caracteres');
-const tokenSchema = z.object({ token: z.string().trim().min(1) });
+const MSG_EMAIL = 'E-mail inválido';
+const MSG_SENHA = 'Informe a senha';
+const MSG_CODIGO = 'Informe o código';
+const MSG_CORPO = 'Dados inválidos';
+
+const emailSchema = z.string({ error: MSG_EMAIL }).trim().toLowerCase().pipe(z.email({ error: MSG_EMAIL }));
+const senhaNovaSchema = z
+  .string({ error: MSG_SENHA })
+  .min(8, 'A senha deve ter pelo menos 8 caracteres');
+const codigoSchema = z.string({ error: MSG_CODIGO }).trim().min(1, MSG_CODIGO);
+
+// Corpo ausente ou que não é objeto cai na mensagem do próprio objeto.
+const objeto = <T extends z.ZodRawShape>(forma: T) => z.object(forma, { error: MSG_CORPO });
 
 const sha256 = (texto: string) => createHash('sha256').update(texto).digest('hex');
 
@@ -26,7 +36,7 @@ const hashFalso = hashSenha('senha-que-ninguem-tem');
 function lerCorpo<T extends z.ZodType>(schema: T, corpo: unknown, reply: FastifyReply): z.output<T> | null {
   const r = schema.safeParse(corpo);
   if (r.success) return r.data;
-  void reply.code(400).send({ erro: r.error.issues[0]?.message ?? 'Dados inválidos' });
+  void reply.code(400).send({ erro: r.error.issues[0]?.message ?? MSG_CORPO });
   return null;
 }
 
@@ -82,7 +92,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
 
   return async (app) => {
     app.post('/auth/cadastro', async (req, reply) => {
-      const dados = lerCorpo(z.object({ email: emailSchema, senha: senhaNovaSchema }), req.body, reply);
+      const dados = lerCorpo(objeto({ email: emailSchema, senha: senhaNovaSchema }), req.body, reply);
       if (!dados) return reply;
       let usuario: Usuario;
       try {
@@ -101,7 +111,8 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     });
 
     app.post('/auth/login', async (req, reply) => {
-      const dados = lerCorpo(z.object({ email: emailSchema, senha: z.string().min(1) }), req.body, reply);
+      const schema = objeto({ email: emailSchema, senha: z.string({ error: MSG_SENHA }).min(1, MSG_SENHA) });
+      const dados = lerCorpo(schema, req.body, reply);
       if (!dados) return reply;
       const usuario = await repo.acharUsuarioPorEmail(dados.email);
       const confere = await conferirSenha(dados.senha, usuario ? usuario.senhaHash : await hashFalso);
@@ -111,7 +122,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     });
 
     app.post('/auth/verificar-email', async (req, reply) => {
-      const dados = lerCorpo(tokenSchema, req.body, reply);
+      const dados = lerCorpo(objeto({ token: codigoSchema }), req.body, reply);
       if (!dados) return reply;
       const usuarioId = await repo.consumirToken('verificar_email', sha256(dados.token), new Date());
       if (usuarioId === null) return reply.code(400).send({ erro: 'Código inválido ou expirado' });
@@ -131,7 +142,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     );
 
     app.post('/auth/esqueci-senha', async (req, reply) => {
-      const dados = lerCorpo(z.object({ email: emailSchema }), req.body, reply);
+      const dados = lerCorpo(objeto({ email: emailSchema }), req.body, reply);
       if (!dados) return reply;
       const usuario = await repo.acharUsuarioPorEmail(dados.email);
       if (usuario) {
@@ -146,7 +157,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     });
 
     app.post('/auth/redefinir-senha', async (req, reply) => {
-      const dados = lerCorpo(z.object({ token: tokenSchema.shape.token, senha: senhaNovaSchema }), req.body, reply);
+      const dados = lerCorpo(objeto({ token: codigoSchema, senha: senhaNovaSchema }), req.body, reply);
       if (!dados) return reply;
       const usuarioId = await repo.consumirToken('redefinir_senha', sha256(dados.token), new Date());
       if (usuarioId === null) return reply.code(400).send({ erro: 'Código inválido ou expirado' });

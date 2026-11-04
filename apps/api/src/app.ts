@@ -9,10 +9,12 @@ export interface OpcoesApp {
   repo: Repositorio;
   email: EmailSender;
   jwtSecret: string;
+  /** Liga o log do Fastify (o servidor liga; os testes ficam em silêncio). */
+  logger?: boolean;
 }
 
-export async function construirApp({ repo, email, jwtSecret }: OpcoesApp): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+export async function construirApp({ repo, email, jwtSecret, logger = false }: OpcoesApp): Promise<FastifyInstance> {
+  const app = Fastify({ logger });
 
   // Liberado para qualquer origem: serve ao desenvolvimento (painel web e app mobile).
   await app.register(cors, {
@@ -20,6 +22,7 @@ export async function construirApp({ repo, email, jwtSecret }: OpcoesApp): Promi
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });
+  app.decorate('repo', repo);
   app.decorateRequest('usuario', null as never);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ erro: 'Rota não encontrada' }));
