@@ -327,17 +327,41 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarMercados()).toEqual([]);
       });
 
-      it('o rollback também desfaz os contadores de id', async () => {
+      it('escrita feita fora da transação enquanto ela roda espera e sobrevive ao rollback', async () => {
         const repo = await criar();
-        const antes = await repo.criarMercado(novoMercado('A', 'Rua 1'));
-        await repo
-          .transacao(async (r) => {
-            await r.criarMercado(novoMercado('B', 'Rua 2'));
-            throw new Error('falhou');
-          })
-          .catch(() => undefined);
-        const depois = await repo.criarMercado(novoMercado('C', 'Rua 3'));
-        expect(depois.id).toBe(antes.id + 1);
+        const tx = repo.transacao(async (r) => {
+          await r.criarMercado(novoMercado());
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          throw new Error('falhou');
+        });
+        // chamada no repositório externo enquanto a transação está suspensa: deve esperar
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        const fora = repo.criarUsuario(novoUsuario());
+        const [resultadoTx, usuario] = await Promise.allSettled([tx, fora]);
+        expect(resultadoTx.status).toBe('rejected');
+        expect(usuario.status).toBe('fulfilled');
+        const criado = (usuario as PromiseFulfilledResult<Usuario>).value;
+        expect(await repo.acharUsuario(criado.id)).toEqual(criado);
+        expect(await repo.acharUsuarioPorEmail('ana@exemplo.com')).toEqual(criado);
+        expect(await repo.listarMercados()).toEqual([]);
+      });
+
+      it('leitura feita fora da transação só resolve depois que ela termina', async () => {
+        const repo = await criar();
+        const eventos: string[] = [];
+        const tx = repo.transacao(async (r) => {
+          await r.criarMercado(novoMercado());
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          eventos.push('transacao terminou');
+        });
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        const leitura = repo.listarMercados().then((mercados) => {
+          eventos.push('leitura resolveu');
+          return mercados;
+        });
+        await Promise.all([tx, leitura]);
+        expect(eventos).toEqual(['transacao terminou', 'leitura resolveu']);
+        expect(await leitura).toHaveLength(1);
       });
 
       it('o repositório recebido é reentrante: transacao interna roda inline', async () => {

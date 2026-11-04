@@ -174,12 +174,27 @@ export function criarRepositorioMemoria(): Repositorio {
     },
   };
 
+  // Fila única: transações de nível superior e chamadas avulsas ao repositório externo
+  // passam por ela, uma por vez. Assim, uma escrita feita fora de uma transação espera
+  // a transação em andamento terminar e nunca é descartada por um rollback.
+  function enfileirar<R>(tarefa: () => Promise<R>): Promise<R> {
+    const execucao = fila.then(tarefa);
+    fila = execucao.catch(() => undefined);
+    return execucao;
+  }
+
+  const externo = {} as Record<string, unknown>;
+  for (const [nome, metodo] of Object.entries(dentroDaTransacao)) {
+    if (nome === 'transacao') continue;
+    externo[nome] = (...args: unknown[]) =>
+      enfileirar(() => (metodo as (...a: unknown[]) => Promise<unknown>)(...args));
+  }
+
   return {
-    ...dentroDaTransacao,
-    // Transações de nível superior entram numa fila (uma por vez); se fn lançar erro,
-    // os dados voltam ao estado anterior (incluindo os contadores de id).
+    ...(externo as unknown as Omit<Repositorio, 'transacao'>),
+    // Se fn lançar erro, os dados voltam ao estado anterior (incluindo os contadores de id).
     transacao<R>(fn: (r: Repositorio) => Promise<R>): Promise<R> {
-      const execucao = fila.then(async () => {
+      return enfileirar(async () => {
         const antes = copia(dados);
         try {
           return await fn(dentroDaTransacao);
@@ -188,8 +203,6 @@ export function criarRepositorioMemoria(): Repositorio {
           throw erro;
         }
       });
-      fila = execucao.catch(() => undefined);
-      return execucao;
     },
   };
 }

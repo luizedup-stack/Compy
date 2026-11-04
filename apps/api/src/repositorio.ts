@@ -62,6 +62,16 @@ export class ErroMercadoDuplicado extends Error {
 }
 
 export interface Repositorio {
+  /**
+   * Executa `fn` de forma atômica: se ela lançar erro, tudo o que gravou é desfeito.
+   * Transações e chamadas avulsas feitas neste repositório são serializadas: uma chamada
+   * feita fora de uma transação em andamento espera ela terminar.
+   *
+   * Dentro de `fn`, use SEMPRE o repositório recebido (`r`), nunca o repositório
+   * externo: chamar o externo de dentro da transação espera por ela mesma, para sempre.
+   * O repositório recebido é reentrante: `r.transacao(...)` roda a função inline, sem
+   * savepoint. Um erro interno que a função externa capture NÃO desfaz as escritas internas.
+   */
   transacao<R>(fn: (r: Repositorio) => Promise<R>): Promise<R>;
   criarUsuario(u: Omit<Usuario, 'id'>): Promise<Usuario>;
   acharUsuarioPorEmail(email: string): Promise<Usuario | null>;
