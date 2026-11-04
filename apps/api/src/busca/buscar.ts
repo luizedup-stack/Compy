@@ -1,12 +1,14 @@
 import { normalizarTexto, precoPorUnidade, type GrupoProduto, type Oferta, type Unidade } from '@mercado/shared';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 import { diasDesde, precoDesatualizado } from '../tempo';
-import { similaridade } from './similaridade';
+import { similaridadeDeTrigramas, trigramas } from './similaridade';
 
 export type OrdemBusca = 'unidade' | 'embalagem';
 
 const MIN_CARACTERES = 2;
 const MAX_CARACTERES = 100;
+/** Texto bruto maior que isto é recusado antes mesmo de normalizar. */
+const MAX_BRUTO = 1000;
 const MAX_PALAVRAS = 8;
 const MAX_TERMO_REGISTRADO = 200;
 const MIN_LETRAS_APROXIMADA = 4;
@@ -32,24 +34,48 @@ export function precoPorUnidadeDaOferta(o: OfertaArmazenada): {
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-function palavraCasa(palavra: string, nomeNorm: string, palavrasDoNome: string[]): boolean {
-  if (nomeNorm.includes(palavra)) return true;
-  if (palavra.length < MIN_LETRAS_APROXIMADA) return false;
-  return palavrasDoNome.some((w) => similaridade(palavra, w) >= LIMITE_SIMILARIDADE);
+/** Nomes comparados sem depender de caixa ou acento; só então o texto cru decide. */
+const compararNomes = (a: string, b: string) =>
+  comparar(normalizarTexto(a), normalizarTexto(b)) || comparar(a, b);
+
+/** Uma oferta do grupo com a chave de ordenação por unidade (preço bruto por unidade). */
+interface Entrada {
+  oferta: Oferta;
+  /** `preco / quantidadeValor` em milionésimos (inteiro): sem o arredondamento de 2 casas mostrado ao usuário e sem ruído de ponto flutuante. `null` sem unidade. */
+  chaveUnidade: number | null;
+}
+
+const ESCALA_CHAVE = 1e6;
+
+function chaveUnidadeDaOferta(o: OfertaArmazenada, mostrado: number | null): number | null {
+  if (mostrado === null || o.quantidadeValor === null) return null;
+  return Math.round((o.preco / o.quantidadeValor) * ESCALA_CHAVE);
 }
 
 /** Por preço por unidade: com unidade primeiro (kg, L, un, rolo; a mais barata antes), depois as sem, por preço. */
-function compararPorUnidade(a: Oferta, b: Oferta): number {
-  if (a.precoPorUnidade !== null && a.unidade !== null) {
-    if (b.precoPorUnidade === null || b.unidade === null) return -1;
-    const porUnidade = ORDEM_UNIDADES.indexOf(a.unidade) - ORDEM_UNIDADES.indexOf(b.unidade);
-    return porUnidade !== 0 ? porUnidade : a.precoPorUnidade - b.precoPorUnidade;
+function compararPorUnidade(a: Entrada, b: Entrada): number {
+  const oa = a.oferta;
+  const ob = b.oferta;
+  if (a.chaveUnidade !== null && oa.unidade !== null) {
+    if (b.chaveUnidade === null || ob.unidade === null) return -1;
+    const porUnidade = ORDEM_UNIDADES.indexOf(oa.unidade) - ORDEM_UNIDADES.indexOf(ob.unidade);
+    return porUnidade !== 0 ? porUnidade : a.chaveUnidade - b.chaveUnidade;
   }
-  if (b.precoPorUnidade !== null && b.unidade !== null) return 1;
-  return a.preco - b.preco;
+  if (b.chaveUnidade !== null && ob.unidade !== null) return 1;
+  return oa.preco - ob.preco;
 }
 
-const compararPorEmbalagem = (a: Oferta, b: Oferta) => a.preco - b.preco;
+const compararPorEmbalagem = (a: Entrada, b: Entrada) => a.oferta.preco - b.oferta.preco;
+
+function ofertaCasa(palavras: { texto: string; trigramas: Set<string> | null }[], nomeNorm: string): boolean {
+  let palavrasDoNome: string[] | null = null;
+  return palavras.every((p) => {
+    if (nomeNorm.includes(p.texto)) return true;
+    if (p.trigramas === null) return false;
+    palavrasDoNome ??= nomeNorm.split(' ');
+    return palavrasDoNome.some((w) => similaridadeDeTrigramas(p.trigramas!, trigramas(w)) >= LIMITE_SIMILARIDADE);
+  });
+}
 
 /**
  * Busca produtos pelo nome (um código casa se alguma oferta dele casa), agrupa o mesmo código de barras entre os mercados e ordena pelo preço
@@ -61,6 +87,7 @@ export async function buscar(
   repo: Repositorio,
   { q, ordem, usuarioId }: { q: string; ordem: OrdemBusca; usuarioId?: number },
 ): Promise<GrupoProduto[]> {
+  if (q.length > MAX_BRUTO) return [];
   const normalizada = normalizarTexto(q);
   const palavras = normalizada === '' ? [] : normalizada.split(' ');
   if (normalizada.length < MIN_CARACTERES || normalizada.length > MAX_CARACTERES || palavras.length > MAX_PALAVRAS) {
@@ -68,20 +95,24 @@ export async function buscar(
   }
 
   const agora = new Date();
+  const consulta = palavras.map((texto) => ({
+    texto,
+    trigramas: texto.length >= MIN_LETRAS_APROXIMADA ? trigramas(texto) : null,
+  }));
   // R24: casa por código de barras. O código entra na busca se ALGUMA oferta disponível dele casa;
   // então todas as ofertas disponíveis de mercados ativos desse código entram no grupo, mesmo as
   // que escrevem o nome de outro jeito (ex.: "Papel Hig. Neve").
-  const porCodigo = new Map<string, { nome: string; nomeMercadoId: number; ofertas: Oferta[] }>();
+  const porCodigo = new Map<string, { nome: string; nomeMercadoId: number; ofertas: Entrada[] }>();
   const codigosQueCasam = new Set<string>();
   const todas = await repo.listarOfertasParaBusca();
   for (const { oferta: o } of todas) {
     if (codigosQueCasam.has(o.codigoBarras)) continue;
-    const palavrasDoNome = o.nomeNorm.split(' ');
-    if (palavras.every((p) => palavraCasa(p, o.nomeNorm, palavrasDoNome))) codigosQueCasam.add(o.codigoBarras);
+    if (ofertaCasa(consulta, o.nomeNorm)) codigosQueCasam.add(o.codigoBarras);
   }
   for (const { oferta: o, mercado } of todas) {
     if (!codigosQueCasam.has(o.codigoBarras)) continue;
 
+    const calculado = precoPorUnidadeDaOferta(o);
     const item: Oferta = {
       mercadoId: mercado.id,
       mercadoNome: mercado.nome,
@@ -89,17 +120,18 @@ export async function buscar(
       nomeNoMercado: o.nome,
       preco: o.preco,
       quantidadeTexto: o.quantidadeTexto,
-      ...precoPorUnidadeDaOferta(o),
+      ...calculado,
       atualizadoEm: o.precoAtualizadoEm.toISOString(),
       diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
       desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
     };
+    const entrada: Entrada = { oferta: item, chaveUnidade: chaveUnidadeDaOferta(o, calculado.precoPorUnidade) };
     const grupo = porCodigo.get(o.codigoBarras);
     if (!grupo) {
-      porCodigo.set(o.codigoBarras, { nome: o.nome, nomeMercadoId: mercado.id, ofertas: [item] });
+      porCodigo.set(o.codigoBarras, { nome: o.nome, nomeMercadoId: mercado.id, ofertas: [entrada] });
       continue;
     }
-    grupo.ofertas.push(item);
+    grupo.ofertas.push(entrada);
     // Nome do grupo: o mais comprido; em empate, o do mercado de menor id.
     const maisComprido = o.nome.length > grupo.nome.length;
     const empateMenorId = o.nome.length === grupo.nome.length && mercado.id < grupo.nomeMercadoId;
@@ -110,19 +142,22 @@ export async function buscar(
   }
 
   const compararOfertas = ordem === 'embalagem' ? compararPorEmbalagem : compararPorUnidade;
-  const grupos = [...porCodigo].map(
-    ([codigoBarras, g]): GrupoProduto => ({
-      codigoBarras,
-      nome: g.nome,
-      ofertas: g.ofertas.sort((a, b) => compararOfertas(a, b) || a.mercadoId - b.mercadoId),
-    }),
-  );
-  grupos.sort(
+  const ordenadas = [...porCodigo].map(([codigoBarras, g]) => ({
+    codigoBarras,
+    nome: g.nome,
+    entradas: g.ofertas.sort((a, b) => compararOfertas(a, b) || a.oferta.mercadoId - b.oferta.mercadoId),
+  }));
+  ordenadas.sort(
     (a, b) =>
-      compararOfertas(a.ofertas[0], b.ofertas[0]) ||
-      comparar(a.nome, b.nome) ||
+      compararOfertas(a.entradas[0], b.entradas[0]) ||
+      compararNomes(a.nome, b.nome) ||
       comparar(a.codigoBarras, b.codigoBarras),
   );
+  const grupos: GrupoProduto[] = ordenadas.map((g) => ({
+    codigoBarras: g.codigoBarras,
+    nome: g.nome,
+    ofertas: g.entradas.map((e) => e.oferta),
+  }));
 
   const mercados = new Set<number>();
   for (const g of grupos) for (const o of g.ofertas) mercados.add(o.mercadoId);

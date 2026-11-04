@@ -223,6 +223,11 @@ describe('buscar: consultas inválidas', () => {
     expect(await repo.listarBuscas()).toHaveLength(1);
   });
 
+  it('texto bruto com mais de 1000 caracteres: [] sem erro e sem registro', async () => {
+    expect(await buscar(repo, { q: `papel ${' '.repeat(1000)}`, ordem: 'unidade' })).toEqual([]);
+    expect(await repo.listarBuscas()).toHaveLength(0);
+  });
+
   it('100 caracteres é aceito; 101 não', async () => {
     await buscar(repo, { q: 'a'.repeat(100), ordem: 'unidade' });
     expect(await repo.listarBuscas()).toHaveLength(1);
@@ -298,5 +303,86 @@ describe('buscar: ordenação com várias unidades', () => {
     await r.salvarOferta(oferta(1, '10', { nome: 'Item C' }));
     await r.salvarOferta(oferta(1, '40', { nome: 'Item A' }));
     expect(codigos(await buscar(r, { q: 'item', ordem: 'unidade' }))).toEqual(['40', '20', '30', '10']);
+  });
+});
+
+const rolos = (n: number) => ({ quantidadeTexto: `${n} rolos`, quantidadeValor: n, quantidadeUnidade: 'rolo' as const });
+const semQuantidade = { quantidadeTexto: null, quantidadeValor: null, quantidadeUnidade: null };
+const mercadosDe = (g: { ofertas: { mercadoId: number }[] }) => g.ofertas.map((o) => o.mercadoId);
+
+describe('buscar: preço por unidade x preço da embalagem dentro de um grupo', () => {
+  it('(a) mesma unidade, embalagens diferentes: a menor por rolo vem primeiro em unidade; a mais barata em embalagem', async () => {
+    const r = await repoComMercados(2);
+    await r.salvarOferta(oferta(1, '500', { nome: 'Papel teste', preco: 9, ...rolos(6) })); // 1,50/rolo
+    await r.salvarOferta(oferta(2, '500', { nome: 'Papel teste', preco: 15, ...rolos(12) })); // 1,25/rolo
+    const [porUnidade] = await buscar(r, { q: 'papel teste', ordem: 'unidade' });
+    expect(mercadosDe(porUnidade)).toEqual([2, 1]);
+    expect(porUnidade.ofertas.map((o) => o.precoPorUnidade)).toEqual([1.25, 1.5]);
+    const [porEmbalagem] = await buscar(r, { q: 'papel teste', ordem: 'embalagem' });
+    expect(mercadosDe(porEmbalagem)).toEqual([1, 2]);
+  });
+
+  it('(b) unidades misturadas: ordem fixa kg, L, un, rolo, depois preço por unidade; sem quantidade por último', async () => {
+    const r = await repoComMercados(6);
+    const q = (texto: string, valor: number, unidade: 'kg' | 'L' | 'un') => ({
+      quantidadeTexto: texto,
+      quantidadeValor: valor,
+      quantidadeUnidade: unidade,
+    });
+    await r.salvarOferta(oferta(1, '600', { nome: 'Misto', preco: 5, ...q('1 kg', 1, 'kg') })); // 5,00/kg
+    await r.salvarOferta(oferta(2, '600', { nome: 'Misto', preco: 1, ...rolos(2) })); // 0,50/rolo
+    await r.salvarOferta(oferta(3, '600', { nome: 'Misto', preco: 0.5, ...semQuantidade }));
+    await r.salvarOferta(oferta(4, '600', { nome: 'Misto', preco: 9, ...q('1 L', 1, 'L') })); // 9,00/L
+    await r.salvarOferta(oferta(5, '600', { nome: 'Misto', preco: 3, ...q('3 un', 3, 'un') })); // 1,00/un
+    await r.salvarOferta(oferta(6, '600', { nome: 'Misto', preco: 2, ...q('500 g', 0.5, 'kg') })); // 4,00/kg
+    const [g] = await buscar(r, { q: 'misto', ordem: 'unidade' });
+    expect(mercadosDe(g)).toEqual([6, 1, 4, 5, 2, 3]);
+    const [e] = await buscar(r, { q: 'misto', ordem: 'embalagem' });
+    expect(mercadosDe(e)).toEqual([3, 2, 6, 5, 1, 4]);
+  });
+
+  it('(c) grupos: a embalagem mais barata pode ter o maior preço por unidade', async () => {
+    const r = await repoComMercados(1);
+    await r.salvarOferta(oferta(1, '701', { nome: 'Item P', preco: 5, ...rolos(2) })); // embalagem 5, 2,50/rolo
+    await r.salvarOferta(oferta(1, '702', { nome: 'Item Q', preco: 12, ...rolos(12) })); // embalagem 12, 1,00/rolo
+    expect(codigos(await buscar(r, { q: 'item', ordem: 'unidade' }))).toEqual(['702', '701']);
+    expect(codigos(await buscar(r, { q: 'item', ordem: 'embalagem' }))).toEqual(['701', '702']);
+  });
+});
+
+describe('buscar: desempate pelo valor bruto (R25)', () => {
+  it('mesmo preço por unidade mostrado, valores brutos diferentes: ordena pelo bruto, nas ofertas', async () => {
+    const r = await repoComMercados(2);
+    // 14,79/12 = 1,2325 e 14,70/12 = 1,225: os dois aparecem como 1,23
+    await r.salvarOferta(oferta(1, '800', { nome: 'Rolo teste', preco: 14.79, ...rolos(12) }));
+    await r.salvarOferta(oferta(2, '800', { nome: 'Rolo teste', preco: 14.7, ...rolos(12) }));
+    const [g] = await buscar(r, { q: 'rolo teste', ordem: 'unidade' });
+    expect(g.ofertas.map((o) => o.precoPorUnidade)).toEqual([1.23, 1.23]);
+    expect(mercadosDe(g)).toEqual([2, 1]); // o id diria [1, 2]
+  });
+
+  it('mesmo preço por unidade mostrado, valores brutos diferentes: ordena pelo bruto, nos grupos', async () => {
+    const r = await repoComMercados(1);
+    await r.salvarOferta(oferta(1, '801', { nome: 'Aaa rolo teste', preco: 14.79, ...rolos(12) })); // 1,2325
+    await r.salvarOferta(oferta(1, '802', { nome: 'Zzz rolo teste', preco: 14.7, ...rolos(12) })); // 1,225
+    const grupos = await buscar(r, { q: 'rolo teste', ordem: 'unidade' });
+    expect(grupos.map((g) => g.ofertas[0].precoPorUnidade)).toEqual([1.23, 1.23]);
+    expect(codigos(grupos)).toEqual(['802', '801']); // o nome diria ['801', '802']
+  });
+
+  it('valores brutos matematicamente iguais (mesmo com ruído de ponto flutuante) caem nos desempates fixos', async () => {
+    const r = await repoComMercados(2);
+    // 14,7/12 dá 1,2250000000000001 e 29,4/24 dá 1,225: iguais de verdade
+    await r.salvarOferta(oferta(1, '810', { nome: 'Igual teste', preco: 14.7, ...rolos(12) }));
+    await r.salvarOferta(oferta(2, '810', { nome: 'Igual teste', preco: 29.4, ...rolos(24) }));
+    const [g] = await buscar(r, { q: 'igual teste', ordem: 'unidade' });
+    expect(mercadosDe(g)).toEqual([1, 2]);
+    // grupos iguais: nome sem depender de caixa/acento, depois código
+    await r.salvarOferta(oferta(1, '811', { nome: 'Beta igual teste', preco: 12, ...rolos(12) }));
+    await r.salvarOferta(oferta(1, '812', { nome: 'alfa igual teste', preco: 6, ...rolos(6) }));
+    await r.salvarOferta(oferta(1, '813', { nome: 'Álfa igual teste', preco: 24, ...rolos(24) }));
+    const grupos = await buscar(r, { q: 'igual teste', ordem: 'unidade' });
+    // 1,00/rolo nos três: 'alfa' = 'álfa' normalizados -> o texto cru decide ('Álfa' vem depois de 'alfa'); depois 'beta'
+    expect(codigos(grupos)).toEqual(['812', '813', '811', '810']);
   });
 });
