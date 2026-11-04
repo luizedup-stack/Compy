@@ -11,6 +11,11 @@ describe('parsePreco', () => {
     expect(parsePreco('R$ 1.234,56')).toBe(1234.56);
   });
 
+  it('ponto isolado é separador decimal, mesmo com 3 casas', () => {
+    expect(parsePreco('1.234')).toBe(1.23);
+    expect(parsePreco('12.990')).toBe(12.99);
+  });
+
   it('aceita número', () => {
     expect(parsePreco(14.9)).toBe(14.9);
   });

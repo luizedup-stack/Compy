@@ -15,6 +15,8 @@ export function parsePreco(entrada: string | number): number | null {
       const milhar = decimal === '.' ? ',' : '.';
       texto = texto.split(milhar).join('').replace(decimal, '.');
     } else {
+      // Só vírgula ou só ponto: é o separador decimal (decisão R9). Um ponto isolado nunca é milhar,
+      // então '12.990' vira 12.99 e '1.234' vira 1.23.
       texto = texto.replace(',', '.');
     }
     valor = Number(texto);
