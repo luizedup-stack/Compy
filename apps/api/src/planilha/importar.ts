@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { Unzip, UnzipInflate } from 'fflate';
 import {
   ABA_MERCADO,
   ABA_PRODUTOS,
@@ -13,86 +12,18 @@ import {
   type RelatorioImportacao,
 } from '@mercado/shared';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
+import { conferirZip } from './conferirZip';
+import { ErroPlanilha } from './erroPlanilha';
 
+export { ErroPlanilha };
+export {
+  LIMITE_CELULAS_MESCLAGEM,
+  LIMITE_CELULAS_MESCLAGEM_TOTAL,
+  LIMITE_ENTRADA_BYTES,
+  LIMITE_TOTAL_BYTES,
+} from './conferirZip';
 export type { RelatorioImportacao };
 export type Ator = { papel: 'admin' } | { papel: 'mercado'; mercadoId: number };
-
-/** Erro do arquivo inteiro: a mensagem está em português e pode ser mostrada ao usuário. */
-export class ErroPlanilha extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ErroPlanilha';
-  }
-}
-
-// Limites de R14: o xlsx é um zip e o exceljs cria uma célula para cada célula de cada mesclagem.
-export const LIMITE_ENTRADA_BYTES = 20 * 1024 * 1024;
-export const LIMITE_TOTAL_BYTES = 30 * 1024 * 1024;
-export const LIMITE_CELULAS_MESCLAGEM = 10_000;
-export const LIMITE_CELULAS_MESCLAGEM_TOTAL = 50_000;
-
-const ERRO_ARQUIVO_INVALIDO = 'Arquivo inválido: envie uma planilha .xlsx';
-const ERRO_MUITO_GRANDE = 'Planilha grande demais para ser importada';
-const PADRAO_MESCLAGEM = /<(?:\w+:)?mergeCell\b[^>]*?\sref=["']([^"']+)["']/g;
-
-function numeroDaColuna(letras: string): number {
-  return [...letras].reduce((acc, letra) => acc * 26 + letra.charCodeAt(0) - 64, 0);
-}
-
-function celulasDaMesclagem(ref: string): number {
-  const m = /^\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/i.exec(ref.trim());
-  if (!m) return 0;
-  const [c1, l1] = [numeroDaColuna(m[1]!.toUpperCase()), Number(m[2])];
-  const [c2, l2] = m[3] ? [numeroDaColuna(m[3].toUpperCase()), Number(m[4])] : [c1, l1];
-  return (Math.abs(c2 - c1) + 1) * (Math.abs(l2 - l1) + 1);
-}
-
-/**
- * Examina o zip ANTES do exceljs: descompacta em fluxo contando os bytes realmente gerados
- * (o tamanho declarado no cabeçalho pode mentir) e aborta ao passar dos limites; depois
- * confere o tamanho das mesclagens nas planilhas, sem criar nenhuma célula.
- */
-function conferirZip(arquivo: Buffer): void {
-  const planilhas: Uint8Array[][] = [];
-  let total = 0;
-  let entradas = 0;
-  try {
-    const zip = new Unzip();
-    zip.register(UnzipInflate);
-    zip.onfile = (entrada) => {
-      entradas++;
-      const partes: Uint8Array[] = [];
-      let tamanho = 0;
-      const ehPlanilha = /^xl\/worksheets\/[^/]+\.xml$/i.test(entrada.name);
-      if (ehPlanilha) planilhas.push(partes);
-      entrada.ondata = (erro, pedaco) => {
-        if (erro) throw erro;
-        tamanho += pedaco.length;
-        total += pedaco.length;
-        if (tamanho > LIMITE_ENTRADA_BYTES || total > LIMITE_TOTAL_BYTES) throw new ErroPlanilha(ERRO_MUITO_GRANDE);
-        if (ehPlanilha) partes.push(pedaco.slice());
-      };
-      entrada.start();
-    };
-    zip.push(new Uint8Array(arquivo), true);
-  } catch (erro) {
-    if (erro instanceof ErroPlanilha) throw erro;
-    throw new ErroPlanilha(ERRO_ARQUIVO_INVALIDO);
-  }
-  if (entradas === 0) throw new ErroPlanilha(ERRO_ARQUIVO_INVALIDO);
-
-  let celulasTotais = 0;
-  for (const partes of planilhas) {
-    const xml = Buffer.concat(partes).toString('utf8');
-    for (const m of xml.matchAll(PADRAO_MESCLAGEM)) {
-      const celulas = celulasDaMesclagem(m[1]!);
-      celulasTotais += celulas;
-      if (celulas > LIMITE_CELULAS_MESCLAGEM || celulasTotais > LIMITE_CELULAS_MESCLAGEM_TOTAL) {
-        throw new ErroPlanilha(ERRO_MUITO_GRANDE);
-      }
-    }
-  }
-}
 
 type Primitivo = string | number | null;
 
@@ -271,12 +202,12 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
   }
 
   // Toda a leitura e validação acontece antes da transação; dentro dela só há escritas.
-  conferirZip(arquivo);
+  await conferirZip(arquivo);
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(arquivo as unknown as ArrayBuffer);
   } catch {
-    throw new ErroPlanilha(ERRO_ARQUIVO_INVALIDO);
+    throw new ErroPlanilha('Arquivo inválido: envie uma planilha .xlsx');
   }
   const dadosMercado = lerMercado(encontrarAba(wb, ABA_MERCADO));
   const { ofertas, erros } = lerProdutos(encontrarAba(wb, ABA_PRODUTOS));

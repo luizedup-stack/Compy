@@ -6,7 +6,8 @@ import { LIMITE_BYTES, LIMITE_LINHAS, normalizarTexto } from '@mercado/shared';
 import { describe, expect, it } from 'vitest';
 import type { Mercado, Repositorio } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
-import { ErroPlanilha, importarPlanilha } from './importar';
+import { conferirZip } from './conferirZip';
+import { ErroPlanilha, importarPlanilha, LIMITE_ENTRADA_BYTES, LIMITE_TOTAL_BYTES } from './importar';
 import { gerarModelo } from './modelo';
 
 const PASTA_DADOS = path.resolve(__dirname, '../../../../dados-de-teste');
@@ -761,5 +762,110 @@ describe('importarPlanilha: casos de borda', () => {
     expect(relatorio.erros[0]!.linha).toBe(2);
     expect(relatorio.erros[0]!.motivo).toContain('Preço');
     expect(await repo.acharOferta(relatorio.mercadoId, EAN_A)).toBeNull();
+  });
+});
+
+describe('conferirZip (R16): lê o zip como o exceljs e limita a descompressão em fluxo', () => {
+  const MENSAGEM = 'grande demais';
+
+  /** Troca o elemento mergeCells da planilha por um trecho livre (para escrever variações de sintaxe). */
+  async function comTrecho(trecho: string, nomeParte = 'xl/worksheets/sheet1.xml', nomeFinal = nomeParte) {
+    const arquivos = unzipSync(new Uint8Array(await montar({ produtos: [linhaBoa(EAN_A)] })));
+    let xml = strFromU8(arquivos[nomeParte] ?? new Uint8Array());
+    if (xml === '') xml = '<worksheet><sheetData/></worksheet>';
+    xml = xml.includes('<pageMargins')
+      ? xml.replace('<pageMargins', `${trecho}<pageMargins`)
+      : xml.replace('</worksheet>', `${trecho}</worksheet>`);
+    delete arquivos[nomeParte];
+    arquivos[nomeFinal] = strToU8(xml);
+    return Buffer.from(zipSync(arquivos));
+  }
+
+  async function recusa(buffer: Buffer) {
+    const repo = criarRepositorioMemoria();
+    const inicio = Date.now();
+    const promessa = importarPlanilha(repo, buffer, ADMIN);
+    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
+    await expect(promessa).rejects.toThrow(MENSAGEM);
+    expect(Date.now() - inicio).toBeLessThan(3000);
+    expect(await repo.listarMercados()).toHaveLength(0);
+  }
+
+  it('bomba de 64 MiB de zeros (DEFLATE, alguns KB) é recusada em poucos segundos', async () => {
+    const bomba = Buffer.from(zipSync({ 'xl/worksheets/sheet1.xml': new Uint8Array(64 * 1024 * 1024) }, { level: 9 }));
+    expect(bomba.length).toBeLessThan(200 * 1024);
+    await recusa(bomba);
+  });
+
+  it('a descompressão para cedo: bem menos bytes contados do que o tamanho real da entrada', async () => {
+    const tamanhoReal = 64 * 1024 * 1024;
+    const bomba = Buffer.from(zipSync({ 'xl/worksheets/sheet1.xml': new Uint8Array(tamanhoReal) }, { level: 9 }));
+    const contador = { bytes: 0 };
+    await expect(conferirZip(bomba, contador)).rejects.toBeInstanceOf(ErroPlanilha);
+    expect(contador.bytes).toBeGreaterThan(LIMITE_ENTRADA_BYTES);
+    // Passou do limite por poucos pedaços, nunca pelo tamanho da bomba.
+    expect(contador.bytes).toBeLessThan(LIMITE_ENTRADA_BYTES + 4 * 1024 * 1024);
+    expect(contador.bytes).toBeLessThan(tamanhoReal / 2);
+  });
+
+  it('o total entre entradas também para cedo', async () => {
+    const arquivos: Record<string, Uint8Array> = {};
+    for (let i = 0; i < 6; i++) arquivos[`xl/extra${i}.bin`] = new Uint8Array(15 * 1024 * 1024);
+    const contador = { bytes: 0 };
+    await expect(conferirZip(Buffer.from(zipSync(arquivos)), contador)).rejects.toThrow(MENSAGEM);
+    expect(contador.bytes).toBeLessThan(LIMITE_TOTAL_BYTES + 4 * 1024 * 1024);
+  });
+
+  it.each([
+    ['espaços ao redor do "="', '<mergeCells count="1"><mergeCell ref = "A1:Z4000"/></mergeCells>'],
+    ['aspas simples', "<mergeCells count=\"1\"><mergeCell ref='A1:Z4000'/></mergeCells>"],
+    ['prefixo de namespace x:', '<x:mergeCells count="1"><x:mergeCell ref="A1:Z4000"/></x:mergeCells>'],
+    ['ref depois de outro atributo, com quebra de linha', '<mergeCells><mergeCell\n  id="1"\n  ref\n=\n"A1:Z4000"/></mergeCells>'],
+    ['referências absolutas com $', '<mergeCells><mergeCell ref="$A$1:$Z$4000"/></mergeCells>'],
+  ])('mesclagem grande escrita com %s é recusada', async (_nome, trecho) => {
+    await recusa(await comTrecho(trecho));
+  });
+
+  it('planilha guardada com nome de entrada começando por "/" também é conferida', async () => {
+    const buffer = await comTrecho(
+      '<mergeCells count="1"><mergeCell ref="A1:Z4000"/></mergeCells>',
+      'xl/worksheets/sheet1.xml',
+      '/xl/worksheets/sheet1.xml',
+    );
+    await recusa(buffer);
+  });
+
+  it('a conferência cobre qualquer parte .xml, mesmo fora de xl/worksheets', async () => {
+    const buffer = await comTrecho(
+      '<mergeCells count="1"><mergeCell ref="A1:Z4000"/></mergeCells>',
+      'xl/outra/parte-estranha.xml',
+    );
+    await recusa(buffer);
+  });
+
+  it.each([
+    ['soma de colunas e linhas que estoura a conta ingênua', 'A1:' + 'Z'.repeat(400) + '99999999999999999999'],
+    ['colunas idênticas gigantes (Infinity - Infinity)', 'A'.repeat(400) + '1:' + 'A'.repeat(400) + '2'],
+    ['linhas com centenas de dígitos', 'A1:B' + '9'.repeat(400)],
+  ])('mesclagem cuja área estoura a aritmética (%s) é recusada', async (_nome, ref) => {
+    await recusa(await comTrecho(`<mergeCells count="1"><mergeCell ref="${ref}"/></mergeCells>`));
+  });
+
+  it('referência que não é faixa nem célula é ignorada', async () => {
+    const buffer = await comTrecho('<mergeCells count="1"><mergeCell ref="isto-nao-e-faixa"/></mergeCells>');
+    await expect(conferirZip(buffer)).resolves.toBeUndefined();
+  });
+
+  it('um .xml sem fim de tag e com milhares de "<mergeCell " não trava a conferência (regex limitada)', async () => {
+    const lixo = '<mergeCell '.repeat(200_000);
+    const buffer = Buffer.from(zipSync({ 'xl/lixo.xml': strToU8(lixo) }));
+    const inicio = Date.now();
+    await expect(conferirZip(buffer)).resolves.toBeUndefined();
+    expect(Date.now() - inicio).toBeLessThan(3000);
+  });
+
+  it('zip sem entradas e arquivo que não é zip dão "Arquivo inválido"', async () => {
+    await expect(conferirZip(Buffer.from(zipSync({})))).rejects.toThrow('Arquivo inválido');
+    await expect(conferirZip(Buffer.from('não sou um zip'))).rejects.toThrow('Arquivo inválido');
   });
 });
