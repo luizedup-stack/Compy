@@ -72,9 +72,9 @@ describe('GET /busca', () => {
     const emb = (await get('/busca?q=papel%20higienico&ordem=embalagem')).json() as GrupoProduto[];
     expect(emb.map((g) => g.codigoBarras)).toEqual([
       '7890070036992',
+      '7890070038361',
       '7890070035629',
       '7890070039733',
-      '7890070038361',
     ]);
   });
 
@@ -112,7 +112,7 @@ describe('GET /busca', () => {
     const { id, token: tk } = await amb.criarComPapel('cliente', 'outro@exemplo.com');
     await get('/busca?q=papel%20higienico', tk);
     expect(await amb.repo.listarBuscas()).toEqual([
-      { usuarioId: id, termo: 'papel higienico', resultados: 4, mercadosDistintos: 3 },
+      { usuarioId: id, termo: 'papel higienico', resultados: 4, mercadosDistintos: 4 },
     ]);
   });
 });

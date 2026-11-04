@@ -68,9 +68,33 @@ async function repoComMercados(quantos: number): Promise<Repositorio> {
 describe('buscar: papel higiênico (dados de teste)', () => {
   it('devolve os quatro grupos, do menor preço por unidade ao maior', async () => {
     const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
-    // Fox 12: 14,70/12 = 1,23; Neve 12: 15,49/12 = 1,29; X 12: 16,60/12 = 1,38; Fox 4: 5,79/4 = 1,45.
+    // Melhor oferta de cada grupo: Fox 12 14,70/12 = 1,23; Neve 12 14,79/12 = 1,23 (Estrela);
+    // X 12 16,60/12 = 1,38; Fox 4 5,79/4 = 1,45. Fox 12 e Neve empatam: vale o nome do grupo
+    // ('PAPEL HIGIENICO FOX...' antes de 'Papel Higiênico Neve...', maiúsculas antes).
     expect(codigos(grupos)).toEqual([FOX_12, NEVE_12, X_12, FOX_4]);
-    expect(grupos.map((g) => g.ofertas.length)).toEqual([2, 2, 1, 2]);
+    expect(grupos.map((g) => g.ofertas.length)).toEqual([2, 3, 2, 2]);
+  });
+
+  it('R24: o código casa se alguma oferta casa; entram também as ofertas com nome abreviado', async () => {
+    const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
+    const neve = grupos.find((g) => g.codigoBarras === NEVE_12)!;
+    expect(neve.nome).toBe('Papel Higiênico Neve Folha Dupla'); // empate de tamanho: mercado de menor id (Bom Preço)
+    expect(neve.ofertas.map((o) => [o.mercadoNome, o.nomeNoMercado, o.preco, o.precoPorUnidade])).toEqual([
+      ['Supermercado Estrela da Vila', 'Papel Hig. Neve Folha Dupla', 14.79, 1.23],
+      ['Mercado Bom Preço', 'Papel Higiênico Neve Folha Dupla', 15.49, 1.29],
+      ['Empório Sonia', 'PAPEL HIGIENICO NEVE FOLHA DUPLA', 16.2, 1.35],
+    ]);
+    const x = grupos.find((g) => g.codigoBarras === X_12)!;
+    expect(x.ofertas.map((o) => [o.mercadoNome, o.nomeNoMercado, o.precoPorUnidade])).toEqual([
+      ['Empório Sonia', 'PAPEL HIGIENICO X FOLHA SIMPLES', 1.38],
+      ['Supermercado Estrela da Vila', 'Papel Hig. X Folha Simples', null],
+    ]);
+  });
+
+  it('código sem nenhuma oferta que case não aparece', async () => {
+    const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
+    expect(grupos).toHaveLength(4);
+    expect(codigos(await buscar(repo, { q: 'arroz', ordem: 'unidade' }))).not.toContain(NEVE_12);
   });
 
   it('dentro de Fox 12 rolos o Atacarejo Econômico vem antes do Empório Sonia', async () => {
@@ -112,17 +136,18 @@ describe('buscar: papel higiênico (dados de teste)', () => {
 
   it('ordem=embalagem ordena grupos e ofertas pelo preço da embalagem', async () => {
     const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'embalagem' });
-    expect(codigos(grupos)).toEqual([FOX_4, FOX_12, NEVE_12, X_12]);
+    expect(codigos(grupos)).toEqual([FOX_4, X_12, FOX_12, NEVE_12]);
     expect(grupos[0].ofertas.map((o) => o.preco)).toEqual([5.79, 6.89]);
-    expect(grupos[1].ofertas.map((o) => o.preco)).toEqual([14.7, 18.5]);
-    expect(grupos[2].ofertas.map((o) => o.preco)).toEqual([15.49, 16.2]);
+    expect(grupos[1].ofertas.map((o) => o.preco)).toEqual([14, 16.6]);
+    expect(grupos[2].ofertas.map((o) => o.preco)).toEqual([14.7, 18.5]);
+    expect(grupos[3].ofertas.map((o) => o.preco)).toEqual([14.79, 15.49, 16.2]);
   });
 });
 
 describe('buscar: agrupamento por código de barras', () => {
   it('o mesmo código com nomes diferentes forma um grupo só e o nome é o mais comprido', async () => {
     const grupos = await buscar(repo, { q: 'papel folha simples', ordem: 'unidade' });
-    expect(grupos).toHaveLength(1);
+    expect(grupos).toHaveLength(1); // 'papel folha simples' casa só o código X
     const [x] = grupos;
     expect(x.codigoBarras).toBe(X_12);
     expect(x.nome).toBe('PAPEL HIGIENICO X FOLHA SIMPLES');
@@ -151,11 +176,28 @@ describe('buscar: disponibilidade e mercados removidos', () => {
     expect(grupos.flatMap((g) => g.ofertas.map((o) => o.mercadoId))).not.toContain(3);
   });
 
+  it('oferta indisponível ou de mercado removido não entra no grupo, mesmo com o código casando', async () => {
+    const r = await repoComMercados(3);
+    await r.salvarOferta(oferta(1, '111', { nome: 'Feijao Preto', preco: 8 }));
+    await r.salvarOferta(oferta(2, '111', { nome: 'Fj Pt', preco: 1, disponivel: false }));
+    await r.salvarOferta(oferta(3, '111', { nome: 'Fj Pt Extra Longo Demais Para Nome', preco: 2 }));
+    await r.atualizarMercado(3, { status: 'removido' });
+    const grupos = await buscar(r, { q: 'feijao', ordem: 'unidade' });
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].nome).toBe('Feijao Preto'); // o nome longo do mercado removido não conta
+    expect(grupos[0].ofertas.map((o) => o.mercadoId)).toEqual([1]);
+    // se a única oferta que casa some, o código inteiro some (a que sobra tem outro nome)
+    await r.salvarOferta(oferta(2, '111', { nome: 'Fj Pt', preco: 1, disponivel: true }));
+    await r.salvarOferta(oferta(1, '111', { nome: 'Feijao Preto', preco: 8, disponivel: false }));
+    expect(await buscar(r, { q: 'feijao', ordem: 'unidade' })).toEqual([]);
+  });
+
   it('mercado removido some da busca', async () => {
     await repo.atualizarMercado(4, { status: 'removido' });
     const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
     expect(grupos.flatMap((g) => g.ofertas.map((o) => o.mercadoId))).not.toContain(4);
     expect(grupos.find((g) => g.codigoBarras === FOX_12)!.ofertas).toHaveLength(1);
+    expect(grupos.find((g) => g.codigoBarras === NEVE_12)!.ofertas).toHaveLength(3);
   });
 });
 
@@ -194,7 +236,7 @@ describe('buscar: registro da busca', () => {
     await buscar(repo, { q: '  papel higienico ', ordem: 'unidade', usuarioId: 42 });
     await buscar(repo, { q: 'zzzzzzz', ordem: 'unidade' });
     expect(await repo.listarBuscas()).toEqual([
-      { usuarioId: 42, termo: 'papel higienico', resultados: 4, mercadosDistintos: 3 },
+      { usuarioId: 42, termo: 'papel higienico', resultados: 4, mercadosDistintos: 4 },
       { usuarioId: null, termo: 'zzzzzzz', resultados: 0, mercadosDistintos: 0 },
     ]);
   });
@@ -203,7 +245,7 @@ describe('buscar: registro da busca', () => {
     await repo.atualizarMercado(4, { status: 'removido' });
     await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
     expect(await repo.listarBuscas()).toEqual([
-      { usuarioId: null, termo: 'papel higienico', resultados: 4, mercadosDistintos: 2 },
+      { usuarioId: null, termo: 'papel higienico', resultados: 4, mercadosDistintos: 3 },
     ]);
   });
 });

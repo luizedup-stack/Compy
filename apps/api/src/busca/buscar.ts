@@ -52,7 +52,7 @@ function compararPorUnidade(a: Oferta, b: Oferta): number {
 const compararPorEmbalagem = (a: Oferta, b: Oferta) => a.preco - b.preco;
 
 /**
- * Busca produtos pelo nome, agrupa o mesmo código de barras entre os mercados e ordena pelo preço
+ * Busca produtos pelo nome (um código casa se alguma oferta dele casa), agrupa o mesmo código de barras entre os mercados e ordena pelo preço
  * (por unidade ou da embalagem). Uma consulta curta demais, longa demais ou com palavras demais
  * devolve `[]` e não é registrada; toda outra busca é registrada, mesmo sem resultado.
  * Varre todas as ofertas em memória: aceitável no piloto (com banco, o filtro iria para a consulta).
@@ -68,10 +68,19 @@ export async function buscar(
   }
 
   const agora = new Date();
+  // R24: casa por código de barras. O código entra na busca se ALGUMA oferta disponível dele casa;
+  // então todas as ofertas disponíveis de mercados ativos desse código entram no grupo, mesmo as
+  // que escrevem o nome de outro jeito (ex.: "Papel Hig. Neve").
   const porCodigo = new Map<string, { nome: string; nomeMercadoId: number; ofertas: Oferta[] }>();
-  for (const { oferta: o, mercado } of await repo.listarOfertasParaBusca()) {
+  const codigosQueCasam = new Set<string>();
+  const todas = await repo.listarOfertasParaBusca();
+  for (const { oferta: o } of todas) {
+    if (codigosQueCasam.has(o.codigoBarras)) continue;
     const palavrasDoNome = o.nomeNorm.split(' ');
-    if (!palavras.every((p) => palavraCasa(p, o.nomeNorm, palavrasDoNome))) continue;
+    if (palavras.every((p) => palavraCasa(p, o.nomeNorm, palavrasDoNome))) codigosQueCasam.add(o.codigoBarras);
+  }
+  for (const { oferta: o, mercado } of todas) {
+    if (!codigosQueCasam.has(o.codigoBarras)) continue;
 
     const item: Oferta = {
       mercadoId: mercado.id,
