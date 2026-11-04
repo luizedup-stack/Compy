@@ -7,6 +7,8 @@ import { rotasAuth } from './auth/rotas';
 import type { EmailSender } from './email';
 import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
+import { rotasBusca } from './rotas/busca';
+import { rotasMercados } from './rotas/mercados';
 import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
 
@@ -46,5 +48,7 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
   await app.register(rotasPlanilhas({ repo }));
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo }));
+  await app.register(rotasBusca({ repo }));
+  await app.register(rotasMercados({ repo }));
   return app;
 }

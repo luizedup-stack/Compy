@@ -1,0 +1,61 @@
+import type { ProdutoMercado } from '@mercado/shared';
+import type { FastifyPluginAsync } from 'fastify';
+import { exigirPapel } from '../auth/guardas';
+import { precoPorUnidadeDaOferta } from '../busca/buscar';
+import type { OfertaArmazenada, Repositorio } from '../repositorio';
+import { diasDesde, precoDesatualizado } from '../tempo';
+
+const POR_PAGINA = 50;
+const MSG_NAO_ACHOU = 'Mercado não encontrado';
+
+const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+const aProdutoMercado = (o: OfertaArmazenada, agora: Date): ProdutoMercado => ({
+  codigoBarras: o.codigoBarras,
+  nome: o.nome,
+  preco: o.preco,
+  quantidadeTexto: o.quantidadeTexto,
+  ...precoPorUnidadeDaOferta(o),
+  atualizadoEm: o.precoAtualizadoEm.toISOString(),
+  diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
+  desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
+});
+
+export function rotasMercados({ repo }: { repo: Repositorio }): FastifyPluginAsync {
+  return async (app) => {
+    const opcoes = { preHandler: exigirPapel('cliente') };
+
+    app.get('/mercados', opcoes, async () => {
+      const ativos = (await repo.listarMercados()).filter((m) => m.status === 'ativo');
+      ativos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.id - b.id);
+      return Promise.all(
+        ativos.map(async (m) => ({
+          id: m.id,
+          nome: m.nome,
+          endereco: m.endereco,
+          totalProdutos: (await repo.listarOfertasDoMercado(m.id)).filter((o) => o.disponivel).length,
+        })),
+      );
+    });
+
+    app.get('/mercados/:id/produtos', opcoes, async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const mercado = /^\d+$/.test(id) ? await repo.acharMercado(Number(id)) : null;
+      if (!mercado || mercado.status !== 'ativo') return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+
+      const { pagina: texto = '1' } = req.query as { pagina?: unknown };
+      const pagina = typeof texto === 'string' && /^[1-9]\d*$/.test(texto) ? Number(texto) : NaN;
+      if (!Number.isSafeInteger(pagina)) return reply.code(400).send({ erro: 'Página inválida' });
+
+      const ofertas = (await repo.listarOfertasDoMercado(mercado.id))
+        .filter((o) => o.disponivel)
+        .sort((a, b) => comparar(a.nomeNorm, b.nomeNorm) || comparar(a.codigoBarras, b.codigoBarras));
+      const agora = new Date();
+      const inicio = (pagina - 1) * POR_PAGINA;
+      return {
+        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora)),
+        total: ofertas.length,
+      };
+    });
+  };
+}

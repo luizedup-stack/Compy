@@ -36,6 +36,20 @@ export interface GrupoProduto {
   ofertas: Oferta[];
 }
 
+/** Produto de um mercado como o cliente o vê (resposta de /mercados/:id/produtos). */
+export interface ProdutoMercado {
+  codigoBarras: string;
+  nome: string;
+  preco: number;
+  quantidadeTexto: string | null;
+  precoPorUnidade: number | null;
+  unidade: Unidade | null;
+  /** Data (ISO 8601) em que o preço foi atualizado pela última vez. */
+  atualizadoEm: string;
+  diasDesdeAtualizacao: number;
+  desatualizado: boolean;
+}
+
 export interface RelatorioImportacao {
   mercadoId: number;
   mercadoCriado: boolean;
