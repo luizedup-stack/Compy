@@ -851,9 +851,8 @@ describe('conferirZip (R16): lê o zip como o exceljs e limita a descompressão 
     await recusa(await comTrecho(`<mergeCells count="1"><mergeCell ref="${ref}"/></mergeCells>`));
   });
 
-  it('referência que não é faixa nem célula é ignorada', async () => {
-    const buffer = await comTrecho('<mergeCells count="1"><mergeCell ref="isto-nao-e-faixa"/></mergeCells>');
-    await expect(conferirZip(buffer)).resolves.toBeUndefined();
+  it('referência que não é faixa nem célula é recusada (falha fechada, R18a)', async () => {
+    await recusa(await comTrecho('<mergeCells count="1"><mergeCell ref="isto-nao-e-faixa"/></mergeCells>'));
   });
 
   it('um .xml sem fim de tag e com milhares de "<mergeCell " não trava a conferência (regex limitada)', async () => {
@@ -978,5 +977,107 @@ describe('conferirZip (R17): tokenizador XML do exceljs em toda entrada, qualque
     await expect(
       conferirZip(Buffer.from(zipSync({ ...arquivos, 'xl/custom/quebrado.xml': strToU8('<a><b></a>') }))),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('conferirZip (R18): referências estritas e profundidade limitada', () => {
+  async function arquivosDoModelo() {
+    return unzipSync(new Uint8Array(await montar({ produtos: [linhaBoa(EAN_A)] })));
+  }
+
+  function comTrecho(arquivos: Record<string, Uint8Array>, trecho: string): Record<string, Uint8Array> {
+    const xml = strFromU8(arquivos['xl/worksheets/sheet1.xml']!);
+    const novo = xml.includes('<pageMargins')
+      ? xml.replace('<pageMargins', `${trecho}<pageMargins`)
+      : xml.replace('</worksheet>', `${trecho}</worksheet>`);
+    return { ...arquivos, 'xl/worksheets/sheet1.xml': strToU8(novo) };
+  }
+
+  async function recusa(arquivos: Record<string, Uint8Array>, mensagem: string, limiteMs = 3000) {
+    const repo = criarRepositorioMemoria();
+    const inicio = Date.now();
+    const promessa = importarPlanilha(repo, Buffer.from(zipSync(arquivos)), ADMIN);
+    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
+    await expect(promessa).rejects.toThrow(mensagem);
+    expect(Date.now() - inicio).toBeLessThan(limiteMs);
+    expect(await repo.listarMercados()).toHaveLength(0);
+  }
+
+  // O exceljs (colCache.decodeAddress) lê cada uma destas como A1:Z400 (10.400 células) ou pior.
+  it.each([
+    'A1:Z400x',
+    'A1:Z400;',
+    'A1:Z400,',
+    'A1:Z400#',
+    'Sheet1!A1:Z400',
+    '!A1:Z400',
+    'A1B:Z400',
+    'A1:Z400:A2',
+    'A1:Z400:B5',
+    'A1:XFD1048576x',
+  ])('referência fora da forma estrita (%s) recusa o arquivo como "grande demais"', async (ref) => {
+    const arquivos = await arquivosDoModelo();
+    await recusa(comTrecho(arquivos, `<mergeCells count="1"><mergeCell ref="${ref}"/></mergeCells>`), 'grande demais');
+  });
+
+  it.each(['a1:b2', ' A1:B2', 'A1:B2 ', 'A0:B2', 'XFE1', 'A1048577', 'A01:B2', ''])(
+    'outras referências não estritas (%j) também são recusadas',
+    async (ref) => {
+      const arquivos = await arquivosDoModelo();
+      await expect(
+        conferirZip(Buffer.from(zipSync(comTrecho(arquivos, `<mergeCells><mergeCell ref="${ref}"/></mergeCells>`)))),
+      ).rejects.toThrow('grande demais');
+    },
+  );
+
+  it('mergeCell sem atributo ref não recusa o arquivo', async () => {
+    const arquivos = await arquivosDoModelo();
+    await expect(
+      conferirZip(Buffer.from(zipSync(comTrecho(arquivos, '<mergeCells count="1"><mergeCell/></mergeCells>')))),
+    ).resolves.toBeUndefined();
+  });
+
+  it.each(['A1', '$A$1:$C$3', 'XFD1048576', 'A1:A10000'])('referência estrita pequena (%s) passa', async (ref) => {
+    const arquivos = await arquivosDoModelo();
+    await expect(
+      conferirZip(Buffer.from(zipSync(comTrecho(arquivos, `<mergeCells count="1"><mergeCell ref="${ref}"/></mergeCells>`)))),
+    ).resolves.toBeUndefined();
+  });
+
+  it('faixa estrita que cobre a planilha toda (A1:XFD1048576) é recusada', async () => {
+    const arquivos = await arquivosDoModelo();
+    await recusa(comTrecho(arquivos, '<mergeCells count="1"><mergeCell ref="A1:XFD1048576"/></mergeCells>'), 'grande demais');
+  });
+
+  const BOMBA_ANINHADA = '<a>'.repeat(Math.floor((2 * 1024 * 1024) / 3)); // ~2 MiB, ~700 mil níveis
+
+  it.each(['x/a.bin', 'xl/worksheets/sheet1.xml', 'xl/worksheets/sheet7.xml'])(
+    'bomba de aninhamento na entrada %s é "Arquivo inválido" em pouco tempo',
+    async (nome) => {
+      const arquivos = await arquivosDoModelo();
+      const comBomba = { ...arquivos, [nome]: strToU8(BOMBA_ANINHADA) };
+      const inicio = Date.now();
+      await expect(conferirZip(Buffer.from(zipSync(comBomba)))).rejects.toThrow('Arquivo inválido');
+      expect(Date.now() - inicio).toBeLessThan(1000);
+      await recusa(comBomba, 'Arquivo inválido', 2000);
+    },
+  );
+
+  it('documento profundo mas razoável (100 níveis) e o limite exato (128) passam; 129 é recusado', async () => {
+    const arquivos = await arquivosDoModelo();
+    const aninhado = (n: number) => strToU8('<a>'.repeat(n) + 'x' + '</a>'.repeat(n));
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': aninhado(100) })))).resolves.toBeUndefined();
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': aninhado(128) })))).resolves.toBeUndefined();
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': aninhado(129) })))).rejects.toThrow(
+      'Arquivo inválido',
+    );
+  });
+
+  it('muitos elementos irmãos rasos não são recusados e a conferência é rápida', async () => {
+    const arquivos = await arquivosDoModelo();
+    const raso = strToU8('<r>' + '<a b="c"/>'.repeat(200_000) + '</r>');
+    const inicio = Date.now();
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': raso })))).resolves.toBeUndefined();
+    expect(Date.now() - inicio).toBeLessThan(3000);
   });
 });
