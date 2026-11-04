@@ -32,6 +32,7 @@ Valores copiados do spec; valem para todas as tarefas.
 - Aba **Cobrança** no painel dizendo "Gratuito por enquanto"; o modelo de dados já tem `contaSituacao` e campos de promoção, sem uso.
 - Registrar as buscas feitas, sem painel de métricas.
 - Textos de tela e mensagens em português do Brasil.
+- Nome do produto: **Bolso Certo** (logo em `marca/`). Aparece em todo texto visível ao usuário: título do painel, nome do app, assunto e corpo dos e-mails, política de privacidade e README. Os pacotes internos continuam `@mercado/*`.
 - **Nada de banco de dados** nesta fase: nenhuma dependência de `pg`, PGlite, SQL ou migrações.
 
 ## Foco da revisão

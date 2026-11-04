@@ -153,7 +153,7 @@ O construtor pode trocar qualquer um desses se tiver um bom motivo, desde que o 
 
 ## 12. Ainda em aberto
 
-- Nome do produto/marca do app.
+- ~~Nome do produto/marca do app.~~ Resolvido: o nome é **Bolso Certo** (escolhido pelo Luiz). O logo está em `marca/` (bolso com sinal de certo e moeda, verde). Falta conferir o nome no INPI, no Google Play, na App Store e se há domínio livre.
 - Valor e forma da cobrança futura.
 - Se a lista de compras com total fica para a versão 2.
 - Como medir se o piloto deu certo. Sugestão minha: pelo menos 3 mercados com algumas centenas de produtos cada, de modo que uma busca comum retorne mais de um mercado. A primeira versão registra as buscas feitas (para medir isso depois), sem painel de métricas. (minha decisão)
