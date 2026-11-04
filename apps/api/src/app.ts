@@ -11,6 +11,7 @@ import { rotasBusca } from './rotas/busca';
 import { rotasMercados } from './rotas/mercados';
 import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
+import { rotasPrivacidade } from './rotas/privacidade';
 
 export interface OpcoesApp {
   repo: Repositorio;
@@ -50,5 +51,6 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
   await app.register(rotasPainel({ repo }));
   await app.register(rotasBusca({ repo }));
   await app.register(rotasMercados({ repo }));
+  await app.register(rotasPrivacidade());
   return app;
 }
