@@ -7,6 +7,7 @@ import { rotasAuth } from './auth/rotas';
 import type { EmailSender } from './email';
 import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
+import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
 
 export interface OpcoesApp {
@@ -44,5 +45,6 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
   await app.register(rotasAuth({ repo, email }));
   await app.register(rotasPlanilhas({ repo }));
   await app.register(rotasAdmin({ repo }));
+  await app.register(rotasPainel({ repo }));
   return app;
 }

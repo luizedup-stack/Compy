@@ -42,3 +42,16 @@ export interface RelatorioImportacao {
   importadas: number;
   erros: { linha: number; motivo: string }[];
 }
+
+/** Produto como o painel do mercado o vê (resposta de /painel/produtos). */
+export interface ProdutoPainel {
+  codigoBarras: string;
+  nome: string;
+  preco: number;
+  quantidadeTexto: string | null;
+  categoria: string | null;
+  disponivel: boolean;
+  /** Data (ISO 8601) em que o preço foi atualizado pela última vez. */
+  atualizadoEm: string;
+  desatualizado: boolean;
+}
