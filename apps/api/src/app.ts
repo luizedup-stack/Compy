@@ -1,9 +1,13 @@
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
+import { LIMITE_BYTES } from '@mercado/shared';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { rotasAuth } from './auth/rotas';
 import type { EmailSender } from './email';
 import type { Repositorio } from './repositorio';
+import { rotasAdmin } from './rotas/admin';
+import { rotasPlanilhas } from './rotas/planilhas';
 
 export interface OpcoesApp {
   repo: Repositorio;
@@ -22,6 +26,8 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });
+  // O limite vale por arquivo; acima dele a rota responde 422 (veja rotas/planilhas.ts).
+  await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1 } });
   app.decorate('repo', repo);
   app.decorateRequest('usuario', null as never);
 
@@ -36,5 +42,7 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
   });
 
   await app.register(rotasAuth({ repo, email }));
+  await app.register(rotasPlanilhas({ repo }));
+  await app.register(rotasAdmin({ repo }));
   return app;
 }
