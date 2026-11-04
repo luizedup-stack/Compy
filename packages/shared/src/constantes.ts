@@ -35,3 +35,10 @@ export interface GrupoProduto {
   nome: string;
   ofertas: Oferta[];
 }
+
+export interface RelatorioImportacao {
+  mercadoId: number;
+  mercadoCriado: boolean;
+  importadas: number;
+  erros: { linha: number; motivo: string }[];
+}

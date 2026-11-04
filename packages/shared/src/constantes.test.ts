@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { ABA_MERCADO, COLUNAS_PRODUTOS, DIAS_PRECO_VELHO } from './constantes';
+import type { RelatorioImportacao } from './index';
 
 describe('constantes', () => {
   it('COLUNAS_PRODUTOS segue a ordem do spec', () => {
@@ -19,5 +20,23 @@ describe('constantes', () => {
 
   it('ABA_MERCADO é Mercado', () => {
     expect(ABA_MERCADO).toBe('Mercado');
+  });
+});
+
+describe('RelatorioImportacao', () => {
+  it('é exportado pelo índice do shared com o formato combinado', () => {
+    const relatorio: RelatorioImportacao = {
+      mercadoId: 1,
+      mercadoCriado: true,
+      importadas: 2,
+      erros: [{ linha: 3, motivo: 'Preço inválido' }],
+    };
+    expectTypeOf(relatorio).toEqualTypeOf<{
+      mercadoId: number;
+      mercadoCriado: boolean;
+      importadas: number;
+      erros: { linha: number; motivo: string }[];
+    }>();
+    expect(relatorio.erros[0]).toEqual({ linha: 3, motivo: 'Preço inválido' });
   });
 });
