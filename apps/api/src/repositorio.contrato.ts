@@ -346,6 +346,9 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarMercados()).toEqual([]);
       });
 
+      // Comportamento da implementação em memória (fila única), não exigência do contrato: no
+      // PostgreSQL esta leitura poderia rodar em paralelo e ver o estado anterior. A implementação
+      // com banco pode trocar este teste por um que confira só que ela não vê dados não confirmados.
       it('leitura feita fora da transação só resolve depois que ela termina', async () => {
         const repo = await criar();
         const eventos: string[] = [];
@@ -386,6 +389,9 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarMercados()).toEqual([]);
       });
 
+      // Exigência de projeto (vale para qualquer implementação): no PostgreSQL, as leituras que
+      // antecedem uma escrita dentro da transação precisam de trava (`SELECT ... FOR UPDATE`) ou
+      // lock equivalente; sem isso as duas transações leriam 0 e o resultado seria 1.
       it('duas transacoes simultâneas rodam uma depois da outra', async () => {
         const repo = await criar();
         const m = await repo.criarMercado(novoMercado());

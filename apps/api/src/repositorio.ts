@@ -71,6 +71,14 @@ export interface Repositorio {
    * externo: chamar o externo de dentro da transação espera por ela mesma, para sempre.
    * O repositório recebido é reentrante: `r.transacao(...)` roda a função inline, sem
    * savepoint. Um erro interno que a função externa capture NÃO desfaz as escritas internas.
+   *
+   * Para a fase do banco de dados:
+   * - "Uma leitura de fora espera a transação em andamento" é um comportamento da implementação em
+   *   memória (fila única), não uma exigência: no PostgreSQL uma leitura de fora pode rodar em
+   *   paralelo e ver o estado anterior à transação (isolamento READ COMMITTED).
+   * - Já "ler, alterar e gravar em duas transações simultâneas dá 2" (teste do contrato) É uma
+   *   exigência de projeto: a implementação no PostgreSQL precisa cumpri-la com trava de linha
+   *   (`SELECT ... FOR UPDATE`) ou um lock equivalente nas leituras que antecedem uma escrita.
    */
   transacao<R>(fn: (r: Repositorio) => Promise<R>): Promise<R>;
   criarUsuario(u: Omit<Usuario, 'id'>): Promise<Usuario>;

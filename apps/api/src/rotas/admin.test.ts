@@ -77,6 +77,7 @@ describe('POST /admin/mercados/:id/acesso', () => {
 
     const res = await acesso(admin.token, id, { email: ' Dono@Mercado.com ' });
     expect(res.statusCode).toBe(201);
+    expect(res.headers['cache-control']).toBe('no-store'); // a senha temporária não pode ficar em cache
     const { senhaTemporaria } = res.json() as { senhaTemporaria: string };
     expect(senhaTemporaria).toMatch(/^[A-Za-z0-9_-]{12}$/);
 

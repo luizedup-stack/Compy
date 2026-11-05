@@ -36,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   Reflect.deleteProperty(URL, 'createObjectURL');
   Reflect.deleteProperty(URL, 'revokeObjectURL');
@@ -208,7 +209,8 @@ describe('envio de planilha', () => {
 });
 
 describe('planilha-modelo', () => {
-  it('baixa o modelo com o token e dispara o download', async () => {
+  it('baixa o modelo com o token, dispara o download e só revoga o endereço 1 s depois', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     comSessao();
     fetchMock.mockResolvedValue(
       new Response(new Blob(['xlsx']), {
@@ -225,13 +227,19 @@ describe('planilha-modelo', () => {
     });
 
     abrir('/planilha');
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Baixar planilha-modelo' }));
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByRole('button', { name: 'Baixar planilha-modelo' }));
 
     await waitFor(() => expect(baixados).toEqual(['modelo-bolso-certo.xlsx|blob:modelo']));
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toMatch(/\/planilhas\/modelo$/);
     expect(init.headers.Authorization).toBe('Bearer tok-123');
+    // Revogar logo depois do clique pode cancelar o download em alguns navegadores (Firefox, Safari).
+    expect(revogarUrl).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
     expect(revogarUrl).toHaveBeenCalledWith('blob:modelo');
+    vi.useRealTimers();
   });
 
   it('falha ao baixar mostra a mensagem do servidor', async () => {

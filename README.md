@@ -80,13 +80,14 @@ Com a API e o painel rodando, siga na ordem. As planilhas de teste estão em `da
 **2. Como mercado**
 
 1. Entre com o e-mail e a senha temporária do passo anterior.
-2. Em **Produtos**, procure o "Papel Higiênico Neve Folha Dupla" (preço da planilha: R$ 15,49), use **Editar** e mude o preço (por exemplo, para 13,20). O novo preço aparece na lista.
+2. Em **Produtos**, ache na lista o "Papel Higiênico Neve Folha Dupla" (preço da planilha: R$ 15,49), use **Editar** e mude o preço (por exemplo, para 13,20). O novo preço aparece na lista.
 3. Em **Enviar planilha**, envie de novo `mercado-1-bom-preco.xlsx`. O preço **volta a R$ 15,49**: a planilha sempre vence a correção feita à mão.
-4. Para testar um produto indisponível, abra a planilha no Excel, escreva `não` na coluna **Disponível** de uma linha, salve uma cópia e envie. Esse produto deixa de aparecer para os clientes. (Na planilha do Empório Sonia, o óleo de soja já vem assim.)
+4. Se esquecer a senha, use **Esqueci minha senha** na tela de entrar do painel. Enquanto os e-mails só vão para o log da API, quem cuida do sistema lê o código no terminal da API, na linha do `[e-mail]`.
+5. Para testar um produto indisponível, abra a planilha no Excel, escreva `não` na coluna **Disponível** de uma linha, salve uma cópia e envie. Esse produto deixa de aparecer para os clientes. (Na planilha do Empório Sonia, o óleo de soja já vem assim.)
 
 **3. Como cliente (no app)**
 
-1. Toque em cadastrar, informe um e-mail e uma senha (com pelo menos 8 caracteres).
+1. Toque em Criar conta, marque a caixa de aceite da política e informe e-mail e senha (com pelo menos 8 caracteres).
 2. O **código de confirmação** aparece no terminal da API, na linha do `[e-mail]`. Copie e cole no app.
 3. Na aba **Buscar**, procure `papel higienico`. Você verá o papel Fox (12 e 4 rolos), o X e o Neve, com o preço de cada mercado e o preço por rolo, do mais barato ao mais caro. O produto sem quantidade informada aparece com o aviso "sem quantidade informada".
 4. Na aba **Mercados**, veja os mercados e toque em um para ver os produtos dele.
@@ -102,7 +103,7 @@ Na pasta do projeto:
 npm test
 ```
 
-Isso roda os testes das quatro partes (pacote compartilhado, API, painel e app). Um deles, em `apps/api/src/fimafim.test.ts`, é um **roteiro completo**: envia as 4 planilhas, cria o acesso de um mercado, corrige e reenvia preços, cadastra um cliente, busca papel higiênico, remove um mercado e exclui a conta, tudo contra a API de verdade (com os dados na memória).
+Isso roda os testes das quatro partes (pacote compartilhado, API, painel e app). Um deles, em `apps/api/src/fimafim.test.ts`, é um **roteiro completo**: envia as 4 planilhas, cria o acesso de um mercado, corrige e reenvia preços, cadastra um cliente, busca papel higiênico, remove um mercado e exclui a conta, tudo contra a API (sem abrir porta), com os dados na memória.
 
 ## Onde estão os documentos do projeto
 
@@ -128,7 +129,16 @@ Hoje o Bolso Certo serve para **testar e mostrar**, não para o público usar. F
   npm start -w @mercado/api
   ```
 
-  Em produção a API **não liga** se faltar alguma dessas variáveis, e não carrega os dados de teste. Nunca guarde esses valores em arquivos do projeto.
+  Em produção a API **não liga** se faltar alguma dessas variáveis, e não carrega os dados de teste. Nunca guarde esses valores em arquivos do projeto. Depois de usar `$env:` para testar, abra um terminal novo: as variáveis continuam valendo no terminal em que foram definidas.
+- [ ] **E-mail em produção sem provedor.** Enquanto não houver provedor de e-mail, a API só liga em produção com `$env:PERMITIR_EMAIL_NO_LOG="1"`, sabendo que os códigos de confirmação e de redefinição de senha (inclusive do administrador) aparecem no log do servidor: quem lê o log consegue redefinir qualquer senha.
+- [ ] **Limites de requisições.** Já existem (login e demais rotas de conta: 20 por minuto por endereço; busca: 60 por minuto), mas os números precisam ser ajustados com o uso real.
+- [ ] **CORS aberto.** Hoje a API aceita chamadas de qualquer origem (`origin: true`). Ao hospedar, restrinja ao endereço do painel.
+- [ ] **Endereço da API nos clientes.** `VITE_API_URL` (painel) e `EXPO_PUBLIC_API_URL` (app) precisam apontar para o endereço HTTPS da API; as versões de produção bloqueiam `http://`.
+- [ ] **Instalação na hospedagem.** `npm start` usa o `tsx`, que é uma dependência de desenvolvimento: a instalação no servidor não pode omitir as dependências de desenvolvimento.
+- [ ] **Log do servidor.** Guarda o endereço de quem acessa e as rotas (sem o texto das buscas). Defina por quanto tempo esse log fica guardado.
+- [ ] **Sessões depois de trocar a senha.** Redefinir a senha **não** derruba os logins já emitidos (lacuna conhecida), nem invalida outros códigos ainda pendentes.
+- [ ] **Reinício da API.** Depois de um reinício, todos precisam entrar de novo (a sessão é presa a cada início da API) e todos os dados se perdem até a fase do banco de dados.
+- [ ] **Métrica do piloto.** O registro de buscas ainda não tem data e hora: acrescente `feitaEm` antes de medir o uso do piloto.
 - [ ] **Ícone do app e contas nas lojas.** Gerar o ícone em PNG a partir de `marca/icone-bolso-certo.svg`; preencher `scheme`, `android.package` e `ios.bundleIdentifier` em `apps/mobile/app.json`; e abrir as contas de desenvolvedor do **Google Play** e da **App Store** (pagas, com revisão).
 - [ ] **Conferir o nome "Bolso Certo"**: registro no INPI, disponibilidade no Google Play e na App Store, e se há domínio livre.
 - [ ] **Decisões de produto ainda em aberto** (seção 12 do documento de design): o valor e a forma da cobrança futura dos mercados, se a lista de compras com total fica para a versão 2, e como medir se o piloto deu certo (a sugestão é pelo menos 3 mercados com algumas centenas de produtos cada).

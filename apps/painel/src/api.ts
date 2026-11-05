@@ -120,7 +120,8 @@ export async function baixarModelo(): Promise<void> {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revogar na hora pode cancelar o download em alguns navegadores (Firefox, Safari): espera 1 s.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Sessão recusada pelo servidor (a sessão já foi limpa): a tela deve voltar para o login. */

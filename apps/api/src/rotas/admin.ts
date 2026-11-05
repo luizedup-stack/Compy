@@ -68,7 +68,8 @@ export function rotasAdmin({ repo }: { repo: Repositorio }): FastifyPluginAsync 
           throw e;
         }
         if (!resultado.ok) return reply.code(resultado.status).send({ erro: resultado.erro });
-        return reply.code(201).send({ senhaTemporaria });
+        // A senha temporária só existe nesta resposta: nenhum cache (navegador, proxy) pode guardá-la.
+        return reply.code(201).header('cache-control', 'no-store').send({ senhaTemporaria });
       },
     );
 
