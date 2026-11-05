@@ -333,6 +333,47 @@ input:disabled {
   margin-top: 0;
 }
 
+/* Administração de mercados */
+.tabela-mercados .endereco {
+  display: block;
+  font-size: 0.875rem;
+  color: #52606d;
+}
+
+.tabela-mercados label {
+  margin-top: 0;
+}
+
+.tabela-mercados td input[type='email'] {
+  min-width: 12rem;
+  padding: 6px 8px;
+}
+
+.tabela-mercados td form .acoes-botoes {
+  margin-top: 8px;
+}
+
+.senha-painel p {
+  margin: 0 0 8px;
+}
+
+.senha-painel .acoes-botoes {
+  margin-bottom: 8px;
+}
+
+.senha-temporaria {
+  display: inline-block;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 /* Telas estreitas: cada produto vira um bloco, com o nome da coluna antes de cada valor. */
 @media (max-width: 799px) {
   .tabela-produtos thead {
@@ -381,6 +422,10 @@ input:disabled {
   }
 
   .tabela-produtos td.acoes::before {
+    display: none;
+  }
+
+  .tabela-produtos td.acoes:empty {
     display: none;
   }
 }

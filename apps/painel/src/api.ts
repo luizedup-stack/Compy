@@ -182,3 +182,32 @@ export async function obterCobranca(): Promise<Cobranca> {
   const resposta = await pedir('/painel/cobranca');
   return (await resposta.json()) as Cobranca;
 }
+
+export interface MercadoAdmin {
+  id: number;
+  nome: string;
+  endereco: string;
+  status: 'ativo' | 'removido';
+  totalProdutos: number;
+  temLogin: boolean;
+}
+
+export async function listarMercadosAdmin(): Promise<MercadoAdmin[]> {
+  const resposta = await pedir('/admin/mercados');
+  return (await resposta.json()) as MercadoAdmin[];
+}
+
+/** Cria o login do mercado; a senha temporária só vem nesta resposta e não existe em nenhum outro lugar. */
+export async function criarAcesso(id: number, email: string): Promise<{ senhaTemporaria: string }> {
+  const resposta = await pedir(`/admin/mercados/${id}/acesso`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ email }),
+  });
+  return (await resposta.json()) as { senhaTemporaria: string };
+}
+
+/** O servidor responde 204, sem corpo: não há o que ler. */
+export async function removerMercado(id: number): Promise<void> {
+  await pedir(`/admin/mercados/${id}/remover`, { method: 'POST' });
+}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import Mercados from './admin/Mercados';
 import { lerSessao, limparSessao, type Papel } from './api';
 import Cobranca from './Cobranca';
 import EnviarPlanilha from './EnviarPlanilha';
@@ -21,8 +22,10 @@ const ITENS_MERCADO = [
   { para: '/meu-mercado', texto: 'Meu mercado' },
   { para: '/cobranca', texto: 'Cobrança' },
 ];
-// Administração entra na Tarefa 13; por ora o admin só envia planilha.
-const ITENS_ADMIN = ITENS_MERCADO.slice(0, 1);
+const ITENS_ADMIN = [
+  { para: '/planilha', texto: 'Enviar planilha' },
+  { para: '/admin/mercados', texto: 'Administração' },
+];
 
 function Cabecalho() {
   const navigate = useNavigate();
@@ -99,6 +102,14 @@ export default function App() {
             element={
               <RotaProtegida papel="mercado">
                 <Cobranca />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/admin/mercados"
+            element={
+              <RotaProtegida papel="admin">
+                <Mercados />
               </RotaProtegida>
             }
           />

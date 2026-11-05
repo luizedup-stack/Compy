@@ -25,12 +25,12 @@ describe('navegação por papel', () => {
     expect(within(nav).getByRole('link', { name: 'Enviar planilha' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('admin vê só Enviar planilha', () => {
+  it('admin vê Enviar planilha e Administração', () => {
     comSessao('admin');
     abrir('/planilha');
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Enviar planilha']);
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Enviar planilha', 'Administração']);
   });
 
   it('sem sessão não há navegação', () => {
