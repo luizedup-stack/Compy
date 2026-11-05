@@ -103,3 +103,26 @@ describe('lerConfig: LIMITAR_REQUISICOES (R32)', () => {
     expect(lerConfig({ LIMITAR_REQUISICOES: '' }).limitarRequisicoes).toBe(true);
   });
 });
+
+describe('lerConfig: NODE_ENV estrito (R33a)', () => {
+  it.each(['Production', ' production ', 'PRODUCTION'])('%j vale como produção (com todas as exigências)', (valor) => {
+    expect(lerConfig(producao({ NODE_ENV: valor })).producao).toBe(true);
+    expect(() => lerConfig({ NODE_ENV: valor })).toThrow(/JWT_SECRET/);
+  });
+
+  it.each(['prod', 'staging', 'dev', 'producao'])('%j é recusado com erro que cita a variável', (valor) => {
+    expect(() => lerConfig(producao({ NODE_ENV: valor }))).toThrow(
+      'NODE_ENV inválido: use development, test ou production',
+    );
+  });
+
+  it.each([
+    ['vazio', ''],
+    ['só espaços', '   '],
+    ['não definido', undefined],
+    ['development', 'development'],
+    ['test', ' Test '],
+  ])('%s vale como desenvolvimento', (_nome, valor) => {
+    expect(lerConfig({ NODE_ENV: valor }).producao).toBe(false);
+  });
+});

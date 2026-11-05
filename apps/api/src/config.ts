@@ -34,9 +34,21 @@ function lerPorta(env: NodeJS.ProcessEnv): number {
   return porta;
 }
 
+/**
+ * Só estes valores (sem diferença de caixa e de espaços); vazio vale como desenvolvimento (R33a).
+ * Qualquer outro faz o servidor não subir: "Production" ou "prod" não podem virar desenvolvimento.
+ */
+function lerProducao(env: NodeJS.ProcessEnv): boolean {
+  const bruto = env.NODE_ENV ?? '';
+  const valor = bruto.trim().toLowerCase();
+  if (valor === '' || valor === 'development' || valor === 'test') return false;
+  if (valor === 'production') return true;
+  throw new Error(`NODE_ENV inválido: use development, test ou production (recebido: "${bruto}").`);
+}
+
 /** Lê a configuração do ambiente. Em produção, o que falta ou é fraco faz o servidor não subir. */
 export function lerConfig(env: NodeJS.ProcessEnv): Config {
-  const producao = env.NODE_ENV === 'production';
+  const producao = lerProducao(env);
   const segredo = ler(env, 'JWT_SECRET');
   const adminEmail = ler(env, 'ADMIN_EMAIL');
   const adminSenha = ler(env, 'ADMIN_SENHA');
