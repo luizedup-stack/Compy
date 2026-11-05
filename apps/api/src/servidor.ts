@@ -35,7 +35,13 @@ export async function montarServidor(
   { logger = false, email = criarEmailConsole() }: OpcoesServidor = {},
 ): Promise<{ app: FastifyInstance; repo: Repositorio }> {
   const repo = criarRepositorioMemoria();
-  const app = await construirApp({ repo, email, jwtSecret: config.jwtSecret, logger });
+  const app = await construirApp({
+    repo,
+    email,
+    jwtSecret: config.jwtSecret,
+    logger,
+    limitarRequisicoes: config.limitarRequisicoes,
+  });
   try {
     if (config.adminEmail !== null && config.adminSenha !== null) {
       await garantirAdmin(repo, config.adminEmail, config.adminSenha);

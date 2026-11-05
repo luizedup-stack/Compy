@@ -10,6 +10,8 @@ export type Config = {
   adminSenha: string | null;
   carregarDadosDeTeste: boolean;
   pastaDadosDeTeste: string;
+  /** Limites de requisições por endereço (R32). Ligado sempre, a menos que LIMITAR_REQUISICOES=0. */
+  limitarRequisicoes: boolean;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
@@ -64,5 +66,6 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     adminSenha: completo ? adminSenha : null,
     carregarDadosDeTeste: flagDados === null ? !producao : flagDados === '1',
     pastaDadosDeTeste: ler(env, 'PASTA_DADOS_DE_TESTE') ?? PASTA_PADRAO,
+    limitarRequisicoes: ler(env, 'LIMITAR_REQUISICOES') !== '0',
   };
 }

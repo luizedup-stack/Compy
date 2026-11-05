@@ -45,6 +45,10 @@ const emailNorm = (email: string) => email.toLowerCase();
 export function criarRepositorioMemoria(): Repositorio {
   let dados = dadosVazios();
   let fila: Promise<unknown> = Promise.resolve();
+  // O registro de buscas só cresce, então fica fora da cópia de segurança da transacao (R32): o custo
+  // dela não aumenta com o número de buscas. Durante uma transacao, o que muda nas buscas fica anotado
+  // aqui para ser desfeito num rollback.
+  let desfazerBuscas: (() => void)[] | null = null;
 
   function achaColisaoDeMercado(nomeNorm: string, enderecoNorm: string, ignorarId?: number) {
     for (const m of dados.mercados.values()) {
@@ -94,11 +98,18 @@ export function criarRepositorioMemoria(): Repositorio {
         if (m.usuarioId === id) m.usuarioId = null;
       }
       for (const b of dados.buscas) {
-        if (b.usuarioId === id) b.usuarioId = null;
+        if (b.usuarioId !== id) continue;
+        b.usuarioId = null;
+        desfazerBuscas?.push(() => {
+          b.usuarioId = id;
+        });
       }
     },
 
     async guardarToken(t) {
+      // Tokens vencidos não servem mais (os usados já saíram em consumirToken): descarta antes de guardar.
+      const agora = Date.now();
+      dados.tokens = dados.tokens.filter((x) => x.expiraEm.getTime() > agora);
       dados.tokens.push(copia(t));
     },
     async consumirToken(tipo, tokenHash, agora) {
@@ -168,6 +179,9 @@ export function criarRepositorioMemoria(): Repositorio {
 
     async registrarBusca(b) {
       dados.buscas.push(copia(b));
+      desfazerBuscas?.push(() => {
+        dados.buscas.pop();
+      });
     },
     async listarBuscas() {
       return dados.buscas.map(copia);
@@ -195,12 +209,18 @@ export function criarRepositorioMemoria(): Repositorio {
     // Se fn lançar erro, os dados voltam ao estado anterior (incluindo os contadores de id).
     transacao<R>(fn: (r: Repositorio) => Promise<R>): Promise<R> {
       return enfileirar(async () => {
-        const antes = copia(dados);
+        const { buscas, ...resto } = dados;
+        const antes = copia(resto);
+        const desfazer: (() => void)[] = [];
+        desfazerBuscas = desfazer;
         try {
           return await fn(dentroDaTransacao);
         } catch (erro) {
-          dados = antes;
+          for (const passo of desfazer.reverse()) passo();
+          dados = { ...antes, buscas };
           throw erro;
+        } finally {
+          desfazerBuscas = null;
         }
       });
     },

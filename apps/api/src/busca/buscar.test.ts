@@ -4,7 +4,7 @@ import { importarPlanilha } from '../planilha/importar';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
 import { lerPlanilha } from '../rotas/apoioTeste';
-import { buscar } from './buscar';
+import { buscar, LIMITE_GRUPOS_BUSCA } from './buscar';
 
 const PLANILHAS = [
   'mercado-1-bom-preco.xlsx',
@@ -384,5 +384,33 @@ describe('buscar: desempate pelo valor bruto (R25)', () => {
     const grupos = await buscar(r, { q: 'igual teste', ordem: 'unidade' });
     // 1,00/rolo nos três: 'alfa' = 'álfa' normalizados -> o texto cru decide ('Álfa' vem depois de 'alfa'); depois 'beta'
     expect(codigos(grupos)).toEqual(['812', '813', '811', '810']);
+  });
+});
+
+describe('buscar: limite de grupos (R32)', () => {
+  it('LIMITE_GRUPOS_BUSCA vale 50', () => {
+    expect(LIMITE_GRUPOS_BUSCA).toBe(50);
+  });
+
+  it('com 60 códigos que casam devolve os 50 primeiros da ordem (o mais barato primeiro) e registra 50', async () => {
+    const r = await repoComMercados(2);
+    // Gravados do mais caro ao mais barato, para a ordem não vir de graça da inserção.
+    // Os 10 mais caros ficam só no mercado 2: fora do resultado, ele não conta.
+    for (let i = 59; i >= 0; i--) {
+      const codigo = `789${String(i).padStart(10, '0')}`;
+      await r.salvarOferta(oferta(i < 50 ? 1 : 2, codigo, { nome: `Arroz ${i}`, preco: 10 + i }));
+    }
+    const grupos = await buscar(r, { q: 'arroz', ordem: 'unidade' });
+    expect(grupos).toHaveLength(50);
+    expect(codigos(grupos)).toEqual(Array.from({ length: 50 }, (_, i) => `789${String(i).padStart(10, '0')}`));
+    expect(grupos[0]!.ofertas[0]!.preco).toBe(10);
+    expect(await r.listarBuscas()).toEqual([
+      { usuarioId: null, termo: 'arroz', resultados: 50, mercadosDistintos: 1 },
+    ]);
+  });
+
+  it('nos dados de teste nada muda: os quatro grupos de papel higiênico', async () => {
+    const grupos = await buscar(repo, { q: 'papel higienico', ordem: 'unidade' });
+    expect(codigos(grupos)).toEqual([FOX_12, NEVE_12, X_12, FOX_4]);
   });
 });

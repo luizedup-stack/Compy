@@ -89,3 +89,17 @@ describe('lerConfig: porta', () => {
     expect(() => lerConfig({ PORT: porta })).toThrow(/PORT/);
   });
 });
+
+describe('lerConfig: LIMITAR_REQUISICOES (R32)', () => {
+  it('liga por padrão, em desenvolvimento e em produção', () => {
+    expect(lerConfig({}).limitarRequisicoes).toBe(true);
+    expect(lerConfig(producao()).limitarRequisicoes).toBe(true);
+  });
+
+  it("'0' desliga; '1' ou qualquer outro valor deixa ligado", () => {
+    expect(lerConfig({ LIMITAR_REQUISICOES: '0' }).limitarRequisicoes).toBe(false);
+    expect(lerConfig(producao({ LIMITAR_REQUISICOES: ' 0 ' })).limitarRequisicoes).toBe(false);
+    expect(lerConfig({ LIMITAR_REQUISICOES: '1' }).limitarRequisicoes).toBe(true);
+    expect(lerConfig({ LIMITAR_REQUISICOES: '' }).limitarRequisicoes).toBe(true);
+  });
+});

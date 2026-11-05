@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { criarEmailMemoria } from '../email';
-import { construirApp } from '../app';
+import { construirApp, type OpcoesApp } from '../app';
 import { hashSenha } from '../auth/senha';
 import type { Papel, Repositorio } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
@@ -18,9 +18,11 @@ export interface Ambiente {
   criarComPapel(papel: Papel, email?: string): Promise<{ id: number; token: string }>;
 }
 
-export async function criarAmbiente(): Promise<Ambiente> {
+export async function criarAmbiente(
+  opcoes: Partial<Omit<OpcoesApp, 'repo' | 'email' | 'jwtSecret'>> = {},
+): Promise<Ambiente> {
   const repo = criarRepositorioMemoria();
-  const app = await construirApp({ repo, email: criarEmailMemoria(), jwtSecret: 'segredo-de-teste' });
+  const app = await construirApp({ repo, email: criarEmailMemoria(), jwtSecret: 'segredo-de-teste', ...opcoes });
   return {
     repo,
     app,

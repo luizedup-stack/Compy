@@ -409,6 +409,33 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         await expect(falha).rejects.toThrow('falhou');
         await expect(ok).resolves.toBeTypeOf('number');
       });
+
+      it('uma transacao que falha deixa intactas as buscas registradas antes (R32)', async () => {
+        const repo = await criar();
+        const u = await repo.criarUsuario(novoUsuario());
+        await repo.registrarBusca({ usuarioId: u.id, termo: 'arroz', resultados: 1, mercadosDistintos: 1 });
+        await repo.registrarBusca({ usuarioId: null, termo: 'feijão', resultados: 0, mercadosDistintos: 0 });
+        await expect(
+          repo.transacao(async (r) => {
+            await r.registrarBusca({ usuarioId: null, termo: 'dentro', resultados: 0, mercadosDistintos: 0 });
+            await r.excluirUsuario(u.id);
+            throw new Error('falhou');
+          }),
+        ).rejects.toThrow('falhou');
+        expect(await repo.acharUsuario(u.id)).not.toBeNull();
+        expect(await repo.listarBuscas()).toEqual([
+          { usuarioId: u.id, termo: 'arroz', resultados: 1, mercadosDistintos: 1 },
+          { usuarioId: null, termo: 'feijão', resultados: 0, mercadosDistintos: 0 },
+        ]);
+      });
+
+      it('busca registrada numa transacao que dá certo fica', async () => {
+        const repo = await criar();
+        await repo.transacao(async (r) => {
+          await r.registrarBusca({ usuarioId: null, termo: 'leite', resultados: 2, mercadosDistintos: 1 });
+        });
+        expect(await repo.listarBuscas()).toHaveLength(1);
+      });
     });
   });
 }

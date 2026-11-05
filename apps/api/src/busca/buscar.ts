@@ -5,6 +5,9 @@ import { similaridadeDeTrigramas, trigramas } from './similaridade';
 
 export type OrdemBusca = 'unidade' | 'embalagem';
 
+/** Máximo de grupos (códigos de barras) devolvidos por busca (R32): os primeiros da ordem. */
+export const LIMITE_GRUPOS_BUSCA = 50;
+
 const MIN_CARACTERES = 2;
 const MAX_CARACTERES = 100;
 /** Texto bruto maior que isto é recusado antes mesmo de normalizar. */
@@ -81,6 +84,7 @@ function ofertaCasa(palavras: { texto: string; trigramas: Set<string> | null }[]
  * Busca produtos pelo nome (um código casa se alguma oferta dele casa), agrupa o mesmo código de barras entre os mercados e ordena pelo preço
  * (por unidade ou da embalagem). Uma consulta curta demais, longa demais ou com palavras demais
  * devolve `[]` e não é registrada; toda outra busca é registrada, mesmo sem resultado.
+ * Devolve no máximo LIMITE_GRUPOS_BUSCA grupos; o registro conta os grupos e mercados devolvidos.
  * Varre todas as ofertas em memória: aceitável no piloto (com banco, o filtro iria para a consulta).
  */
 export async function buscar(
@@ -153,7 +157,7 @@ export async function buscar(
       compararNomes(a.nome, b.nome) ||
       comparar(a.codigoBarras, b.codigoBarras),
   );
-  const grupos: GrupoProduto[] = ordenadas.map((g) => ({
+  const grupos: GrupoProduto[] = ordenadas.slice(0, LIMITE_GRUPOS_BUSCA).map((g) => ({
     codigoBarras: g.codigoBarras,
     nome: g.nome,
     ofertas: g.entradas.map((e) => e.oferta),

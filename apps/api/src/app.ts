@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import { LIMITE_BYTES } from '@mercado/shared';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { rotasAuth } from './auth/rotas';
@@ -20,9 +21,48 @@ export interface OpcoesApp {
   jwtSecret: string;
   /** Liga o log do Fastify (o servidor liga; os testes ficam em silêncio). */
   logger?: boolean;
+  /** Liga os limites de requisições por endereço (o servidor liga; padrão desligado nos testes). */
+  limitarRequisicoes?: boolean;
 }
 
-export async function construirApp({ repo, email, jwtSecret, logger = false }: OpcoesApp): Promise<FastifyInstance> {
+/** Limites por endereço do cliente, numa janela de 1 minuto (R32). */
+export const LIMITE_AUTH_POR_MINUTO = 20;
+export const LIMITE_BUSCA_POR_MINUTO = 60;
+const MSG_LIMITE = 'Muitas tentativas. Tente de novo em alguns instantes.';
+
+/** Todas as rotas POST /auth/* contam juntas; GET /busca tem a sua conta. As outras rotas não são limitadas. */
+async function registrarLimites(app: FastifyInstance): Promise<void> {
+  await app.register(rateLimit, { global: false });
+  const limiteAuth = app.createRateLimit({
+    max: LIMITE_AUTH_POR_MINUTO,
+    timeWindow: 60_000,
+    keyGenerator: (req) => `auth|${req.ip}`,
+  });
+  const limiteBusca = app.createRateLimit({
+    max: LIMITE_BUSCA_POR_MINUTO,
+    timeWindow: 60_000,
+    keyGenerator: (req) => `busca|${req.ip}`,
+  });
+  app.addHook('onRequest', async (req, reply) => {
+    const rota = req.routeOptions.url;
+    let limite: typeof limiteAuth | null = null;
+    if (req.method === 'POST' && rota?.startsWith('/auth/')) limite = limiteAuth;
+    else if (req.method === 'GET' && rota === '/busca') limite = limiteBusca;
+    if (!limite) return;
+    const r = await limite(req);
+    if (!r.isAllowed && r.isExceeded) {
+      return reply.code(429).header('retry-after', String(Math.max(1, r.ttlInSeconds))).send({ erro: MSG_LIMITE });
+    }
+  });
+}
+
+export async function construirApp({
+  repo,
+  email,
+  jwtSecret,
+  logger = false,
+  limitarRequisicoes = false,
+}: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({ logger });
 
   // Liberado para qualquer origem: serve ao desenvolvimento (painel web e app mobile).
@@ -30,6 +70,8 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
     origin: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+  // Depois do CORS: a resposta 429 também leva os cabeçalhos de CORS.
+  if (limitarRequisicoes) await registrarLimites(app);
   await app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });
   // O limite vale por arquivo; acima dele a rota responde 422 (veja rotas/planilhas.ts).
   await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1 } });

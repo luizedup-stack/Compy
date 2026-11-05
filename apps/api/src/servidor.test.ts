@@ -16,6 +16,7 @@ const base: Config = {
   adminSenha: 'senha-do-dono-1',
   carregarDadosDeTeste: true,
   pastaDadosDeTeste: PASTA_DADOS,
+  limitarRequisicoes: true,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;
@@ -86,6 +87,21 @@ describe('montarServidor', () => {
   it('publica a política de privacidade', async () => {
     const s = await montar({ ...base, carregarDadosDeTeste: false });
     expect((await s.app.inject({ method: 'GET', url: '/privacidade' })).statusCode).toBe(200);
+  });
+});
+
+describe('montarServidor: limite de requisições (R32)', () => {
+  const tentar = (s: Servidor) => s.app.inject({ method: 'POST', url: '/auth/login', payload: {} });
+
+  it('com limitarRequisicoes, a 21ª tentativa de login responde 429', async () => {
+    const s = await montar({ ...base, carregarDadosDeTeste: false });
+    for (let i = 0; i < 20; i++) expect((await tentar(s)).statusCode).toBe(400);
+    expect((await tentar(s)).statusCode).toBe(429);
+  });
+
+  it('com limitarRequisicoes: false, nada é limitado', async () => {
+    const s = await montar({ ...base, carregarDadosDeTeste: false, limitarRequisicoes: false });
+    for (let i = 0; i < 25; i++) expect((await tentar(s)).statusCode).toBe(400);
   });
 });
 
