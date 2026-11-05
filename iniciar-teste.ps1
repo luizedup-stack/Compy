@@ -65,6 +65,9 @@ Start-Sleep -Seconds 4
 Abrir 'Bolso Certo - Painel' ("`$env:VITE_API_URL='http://localhost:3000'; npm run dev -w @mercado/painel")
 Abrir 'Bolso Certo - App (QR code)' ("`$env:EXPO_PUBLIC_API_URL='$urlApi'; npm run start -w @mercado/mobile")
 
+Start-Sleep -Seconds 6
+Start-Process 'http://localhost:5173'
+
 Write-Host ''
 Write-Host 'Bolso Certo iniciado.' -ForegroundColor Green
 Write-Host "  Planilhas carregadas : $qtd ($Dados)"
@@ -73,6 +76,7 @@ Write-Host "  Administrador        : $adminEmail  /  $adminSenha"
 Write-Host "  API para o celular   : $urlApi"
 Write-Host ''
 Write-Host 'No celular: instale o Expo Go, conecte na MESMA rede Wi-Fi e leia o QR code da janela "App".'
+Write-Host "Se o celular nao abrir o app: no Expo Go use 'Enter URL manually' e digite exp://${ip}:8081 (alguns Wi-Fi de empresa bloqueiam celular x computador; nesse caso use o roteador de casa ou o 4G do celular como ponto de acesso)."
 Write-Host 'Se o Windows perguntar sobre o firewall, permita em "Redes privadas".'
 Write-Host 'Os codigos de e-mail (confirmar conta) aparecem na janela "API", na linha [e-mail].'
 Write-Host 'Para encerrar: feche as 3 janelas. Os dados somem (ainda nao ha banco de dados).'

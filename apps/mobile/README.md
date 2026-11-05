@@ -6,6 +6,8 @@ cada um e a tela da conta (sair e excluir a conta).
 
 ## Como rodar no celular
 
+> **Versão do Expo Go:** este app usa o Expo SDK 58. O Expo Go da App Store (iPhone) só suporta até o SDK 54, então **não abre este app no iPhone**; para iPhone seria preciso um build próprio (conta Apple Developer) ou rebaixar o SDK. No **Android**, se o Expo Go do Google Play estiver desatualizado, instale a versão do SDK 58 em https://expo.dev/go.
+
 1. Na raiz do projeto, instale tudo: `npm install`.
 2. Deixe a API rodando no computador (porta 3000).
 3. Instale o aplicativo **Expo Go** no celular. O celular e o computador precisam estar na **mesma rede Wi-Fi**.
