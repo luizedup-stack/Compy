@@ -1,6 +1,7 @@
 import {
   ErroApi,
   URL_API,
+  buscar,
   cadastrar,
   definirAoExpirar,
   definirToken,
@@ -18,7 +19,17 @@ afterEach(() => {
 
 describe('api', () => {
   it('usa localhost:3000 quando EXPO_PUBLIC_API_URL não está definida', () => {
-    expect(URL_API).toBe('http://localhost:3000');
+    // Hermético: apaga a variável do ambiente e recarrega o módulo, qualquer que seja o shell de quem roda o teste.
+    const anterior = process.env.EXPO_PUBLIC_API_URL;
+    delete process.env.EXPO_PUBLIC_API_URL;
+    try {
+      jest.isolateModules(() => {
+        const { URL_API: padrao } = jest.requireActual<typeof import('./api')>('./api');
+        expect(padrao).toBe('http://localhost:3000');
+      });
+    } finally {
+      if (anterior !== undefined) process.env.EXPO_PUBLIC_API_URL = anterior;
+    }
   });
 
   it('entrar devolve token, papel e emailVerificado', async () => {
@@ -92,6 +103,36 @@ describe('api', () => {
 
     definirToken('tok-9');
     await expect(pedirAutenticado('/algo')).rejects.toMatchObject({ status: 401 });
+    expect(aoExpirar).toHaveBeenCalledTimes(1);
+  });
+
+  it('buscar chama GET /busca com q codificado, a ordem e o Bearer', async () => {
+    const api = simularApi({ 'GET /busca': { status: 200, corpo: [] } });
+    definirToken('tok-9');
+    await expect(buscar('papel higiênico & cia', 'embalagem')).resolves.toEqual([]);
+    expect(api.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = api.fetch.mock.calls[0];
+    expect(url).toBe(`${URL_API}/busca?q=papel%20higi%C3%AAnico%20%26%20cia&ordem=embalagem`);
+    expect(init?.method).toBe('GET');
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer tok-9' });
+  });
+
+  it('buscar devolve os grupos como vieram da API, na mesma ordem', async () => {
+    const grupos = [
+      { codigoBarras: '2', nome: 'B', ofertas: [] },
+      { codigoBarras: '1', nome: 'A', ofertas: [] },
+    ];
+    simularApi({ 'GET /busca': { status: 200, corpo: grupos } });
+    definirToken('tok-9');
+    await expect(buscar('arroz', 'unidade')).resolves.toEqual(grupos);
+  });
+
+  it('buscar repassa o erro da API (e o 401 chama o callback de expiração)', async () => {
+    const aoExpirar = jest.fn();
+    definirAoExpirar(aoExpirar);
+    simularApi({ 'GET /busca': { status: 401, corpo: { erro: 'Não autenticado' } } });
+    definirToken('tok-9');
+    await expect(buscar('arroz', 'unidade')).rejects.toMatchObject({ status: 401, message: 'Não autenticado' });
     expect(aoExpirar).toHaveBeenCalledTimes(1);
   });
 });

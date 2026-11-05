@@ -11,7 +11,7 @@ describe('AvisoEmail', () => {
     simularApi({});
     guardarSessao('tok-1', false);
     await abrirApp();
-    expect(screen.getByText('Buscar')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(screen.getByText(AVISO)).toBeOnTheScreen();
   });
 
@@ -19,7 +19,7 @@ describe('AvisoEmail', () => {
     simularApi({});
     guardarSessao('tok-1', true);
     await abrirApp();
-    expect(screen.getByText('Buscar')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(screen.queryByText(AVISO)).not.toBeOnTheScreen();
   });
 
@@ -38,7 +38,7 @@ describe('AvisoEmail', () => {
       autorizacao: 'Bearer tok-reenvio',
     });
     // O aviso não bloqueia: a busca continua na tela.
-    expect(screen.getByText('Buscar')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Buscar produto')).toBeOnTheScreen();
   });
 
   it('mostra o erro do servidor se o reenvio falhar', async () => {
@@ -77,7 +77,7 @@ describe('VerificarEmail', () => {
     expect(JSON.parse(lerCofre().get(CHAVE_SESSAO) as string)).toEqual({ token: 'tok-ver', emailVerificado: true });
 
     await user.press(screen.getByRole('button', { name: 'Voltar' }));
-    expect(await screen.findByText('Buscar')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(screen.queryByText(AVISO)).not.toBeOnTheScreen();
   });
 

@@ -37,7 +37,7 @@ describe('Entrar', () => {
 
     expect(await screen.findByText('Esta área é para clientes. Mercados usam o painel na web.')).toBeOnTheScreen();
     expect(lerCofre().size).toBe(0);
-    expect(screen.queryByText('Buscar')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Buscar produto')).not.toBeOnTheScreen();
   });
 
   it('guarda a sessão no cofre e mostra a busca quando o login dá certo', async () => {
@@ -49,7 +49,7 @@ describe('Entrar', () => {
     await preencher(user, 'ana@exemplo.com', '12345678');
     await user.press(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByText('Buscar')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(api.chamadas[0].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });
     expect(JSON.parse(lerCofre().get(CHAVE_SESSAO) as string)).toEqual({ token: 'tok-ok', emailVerificado: true });
   });

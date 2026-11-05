@@ -11,32 +11,36 @@ export interface RespostaFalsa {
 export interface ChamadaFalsa {
   metodo: string;
   caminho: string;
+  /** Texto depois do "?" da URL, já com a codificação original (ex.: "?q=papel%20higienico&ordem=unidade"); vazio se não há. */
+  consulta: string;
   corpo: unknown;
   autorizacao: string | null;
 }
 
-type Manipulador = RespostaFalsa | ((chamada: ChamadaFalsa) => RespostaFalsa);
+type Manipulador = RespostaFalsa | ((chamada: ChamadaFalsa) => RespostaFalsa | Promise<RespostaFalsa>);
 
 /**
  * Troca o `fetch` global por um falso. As rotas são "MÉTODO /caminho". Rota desconhecida
- * simula falha de rede, então nenhum teste fala com a internet.
+ * simula falha de rede, então nenhum teste fala com a internet. Um manipulador pode devolver uma Promise
+ * (para controlar quando a resposta chega) e o objeto `rotas` pode ser alterado depois, entre uma chamada e outra.
  */
 export function simularApi(rotas: Record<string, Manipulador>) {
   const chamadas: ChamadaFalsa[] = [];
   const falso = jest.fn(async (url: string, init?: RequestInit) => {
-    const caminho = new URL(url).pathname;
+    const { pathname: caminho, search: consulta } = new URL(url);
     const metodo = init?.method ?? 'GET';
     const cabecalhos = (init?.headers ?? {}) as Record<string, string>;
     const chamada: ChamadaFalsa = {
       metodo,
       caminho,
+      consulta,
       corpo: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
       autorizacao: cabecalhos.Authorization ?? null,
     };
     chamadas.push(chamada);
     const manipulador = rotas[`${metodo} ${caminho}`];
     if (!manipulador) throw new TypeError('Network request failed');
-    const resposta = typeof manipulador === 'function' ? manipulador(chamada) : manipulador;
+    const resposta = await (typeof manipulador === 'function' ? manipulador(chamada) : manipulador);
     return {
       ok: resposta.status >= 200 && resposta.status < 300,
       status: resposta.status,

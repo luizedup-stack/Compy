@@ -82,7 +82,7 @@ describe('Cadastrar', () => {
     await aceitarPolitica();
     await user.press(screen.getByRole('button', { name: 'Criar conta' }));
 
-    expect(await screen.findByText('Buscar')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(api.chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toEqual(['POST /auth/cadastro', 'POST /auth/login']);
     expect(api.chamadas[0].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });
     expect(api.chamadas[1].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });

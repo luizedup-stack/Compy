@@ -1,7 +1,8 @@
 # Bolso Certo — aplicativo do cliente
 
 Aplicativo de celular (Expo / React Native) para comparar preços. Nesta etapa ele tem cadastro, login,
-confirmação de e-mail e redefinição de senha. A busca e as telas de mercados e conta vêm nas próximas tarefas.
+confirmação de e-mail, redefinição de senha e a busca com comparação de preços. As telas de mercados e conta
+vêm nas próximas tarefas.
 
 ## Como rodar no celular
 
@@ -38,10 +39,27 @@ Os testes usam jest-expo e React Native Testing Library. Eles não usam a intern
 ## Como funciona
 
 - `src/api.ts`: chamadas à API (`cadastrar`, `entrar`, `esqueciSenha`, `redefinirSenha`, `verificarEmail`,
-  `reenviarVerificacao`, `excluirConta`) e `pedirAutenticado`, que as próximas telas devem reutilizar.
+  `reenviarVerificacao`, `excluirConta`, `buscar`) e `pedirAutenticado`, que as próximas telas devem reutilizar.
 - `src/sessao.tsx`: guarda `{ token, emailVerificado }` no cofre seguro do aparelho (`expo-secure-store`)
   e devolve a sessão ao abrir o app. Se a API responder 401 numa chamada autenticada, a sessão é encerrada.
 - `src/navegacao.tsx`: telas de acesso (Entrar, Cadastrar, EsqueciSenha) sem sessão; telas principais
   (Busca, VerificarEmail) com sessão. Enquanto o e-mail não é confirmado, as telas principais mostram a faixa
   "Confirme seu e-mail", que não bloqueia o uso.
 - Só contas de **cliente** entram no app. Mercados usam o painel na web.
+
+## Busca
+
+A tela inicial (`src/telas/Busca.tsx`) compara o preço de um produto entre os mercados. O app é **somente leitura**:
+não há como editar produtos, preços ou mercados.
+
+- O campo "Buscar produto" chama a API (`GET /busca`) 400 ms depois da última tecla. Com menos de 2 letras (sem contar
+  espaços das pontas) não há chamada e a tela mostra uma dica. Respostas antigas nunca sobrescrevem as mais novas, e a
+  mesma busca já mostrada não é repetida.
+- A alternância "Menor preço por unidade" / "Menor preço da embalagem" refaz a busca na hora com `ordem=unidade` ou
+  `ordem=embalagem`. A API é quem ordena: o app mostra grupos e ofertas na ordem recebida, sem reordenar.
+- Cada produto (grupo) lista as ofertas dos mercados com endereço, preço da embalagem, preço por unidade e idade do
+  preço. A primeira oferta de um grupo com mais de uma ganha a etiqueta "mais barato"; ofertas sem quantidade mostram
+  "sem quantidade informada"; preços velhos ganham a etiqueta amarela "Preço antigo" (a oferta continua visível).
+- Erros (rede ou servidor) aparecem com o botão "Tentar de novo". Se a API responder 401, a sessão é encerrada.
+- `src/formatar.ts` tem os formatadores (`formatarPreco`, `textoIdade`, `textoPorUnidade`), escritos sem `Intl` para
+  funcionar igual no celular e nos testes; `src/componentes/CartaoOferta.tsx` é a linha de uma oferta.
