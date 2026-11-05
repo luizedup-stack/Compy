@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ErroApi, guardarSessao, login } from './api';
 
 const MSG_CLIENTE = 'Esta área é para mercados. Use o aplicativo Bolso Certo.';
 
 export default function Login() {
   const navigate = useNavigate();
+  // Aviso deixado por outra tela (ex.: "Senha alterada" depois de redefinir a senha).
+  const estado: unknown = useLocation().state;
+  const aviso = (estado as { aviso?: unknown } | null)?.aviso;
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -34,6 +37,11 @@ export default function Login() {
     <section className="cartao">
       <h1>Entrar</h1>
       <p>Acesse com o e-mail e a senha da conta do seu mercado.</p>
+      {typeof aviso === 'string' && aviso && (
+        <div role="status">
+          <p className="aviso aviso-ok">{aviso}</p>
+        </div>
+      )}
       <form onSubmit={aoEnviar}>
         <label htmlFor="email">E-mail</label>
         <input
@@ -62,6 +70,9 @@ export default function Login() {
           {entrando ? 'Entrando…' : 'Entrar'}
         </button>
       </form>
+      <p>
+        <Link to="/esqueci-senha">Esqueci minha senha</Link>
+      </p>
     </section>
   );
 }

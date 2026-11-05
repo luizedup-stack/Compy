@@ -431,3 +431,21 @@ describe('log de erros', () => {
     expect(log).toHaveBeenCalledWith(falha);
   });
 });
+
+describe('texto dos e-mails (R31)', () => {
+  const NEUTRO = 'Use este código no aplicativo ou no painel do Bolso Certo';
+
+  it('a confirmação de e-mail serve ao aplicativo e ao painel', async () => {
+    await cadastrar();
+    expect(email.enviados[0]!.texto).toContain(NEUTRO);
+    expect(email.enviados[0]!.texto).not.toContain('cole no aplicativo');
+  });
+
+  it('a redefinição de senha serve ao aplicativo e ao painel', async () => {
+    await criarComPapel('mercado', 'mercado@exemplo.com');
+    await app.inject({ method: 'POST', url: '/auth/esqueci-senha', payload: { email: 'mercado@exemplo.com' } });
+    expect(email.enviados).toHaveLength(1);
+    expect(email.enviados[0]!.texto).toContain(NEUTRO);
+    expect(email.enviados[0]!.texto).not.toContain('cole no aplicativo');
+  });
+});

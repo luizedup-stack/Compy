@@ -60,7 +60,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
       [
         'Olá!',
         '',
-        'Para confirmar seu e-mail no Bolso Certo, copie o código abaixo e cole no aplicativo.',
+        'Para confirmar seu e-mail, copie o código abaixo. Use este código no aplicativo ou no painel do Bolso Certo.',
         'Ele vale por 24 horas.',
         '',
         token,
@@ -80,7 +80,8 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
         'Olá!',
         '',
         'Recebemos um pedido para redefinir a senha da sua conta no Bolso Certo.',
-        'Copie o código abaixo e cole no aplicativo. Ele vale por 1 hora.',
+        'Copie o código abaixo. Use este código no aplicativo ou no painel do Bolso Certo.',
+        'Ele vale por 1 hora.',
         '',
         token,
         '',

@@ -85,6 +85,24 @@ export async function login(
   return (await resposta.json()) as { token: string; papel: Papel; emailVerificado: boolean };
 }
 
+/** Pede o código de redefinição. Chamada pública: sem Bearer e sem derrubar a sessão num 401. */
+export async function esqueciSenha(email: string): Promise<void> {
+  await pedir(
+    '/auth/esqueci-senha',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) },
+    false,
+  );
+}
+
+/** Troca a senha com o código recebido por e-mail. Chamada pública, como esqueciSenha. */
+export async function redefinirSenha(token: string, senha: string): Promise<void> {
+  await pedir(
+    '/auth/redefinir-senha',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, senha }) },
+    false,
+  );
+}
+
 export async function enviarPlanilha(arquivo: File): Promise<RelatorioImportacao> {
   const corpo = new FormData();
   corpo.append('arquivo', arquivo);

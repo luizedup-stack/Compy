@@ -4,6 +4,7 @@ import Mercados from './admin/Mercados';
 import { lerSessao, limparSessao, type Papel } from './api';
 import Cobranca from './Cobranca';
 import EnviarPlanilha from './EnviarPlanilha';
+import EsqueciSenha from './EsqueciSenha';
 import Login from './Login';
 import MeuMercado from './MeuMercado';
 import Produtos from './Produtos';
@@ -73,6 +74,8 @@ export default function App() {
       <main className="conteudo">
         <Routes>
           <Route path="/entrar" element={<Login />} />
+          {/* Pública, como /entrar: quem está logado também pode abrir. */}
+          <Route path="/esqueci-senha" element={<EsqueciSenha />} />
           <Route
             path="/planilha"
             element={
