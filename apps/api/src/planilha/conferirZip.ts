@@ -9,6 +9,11 @@ export const LIMITE_CELULAS_MESCLAGEM = 10_000;
 export const LIMITE_CELULAS_MESCLAGEM_TOTAL = 50_000;
 /** Profundidade máxima de elementos aninhados (R18b): planilhas reais ficam abaixo de 10 níveis. */
 export const LIMITE_PROFUNDIDADE_XML = 128;
+/**
+ * Atributos por elemento (R30): o tokenizador gasta tempo com cada atributo repetido, e o exceljs lê
+ * outras entradas além das planilhas. Planilhas reais ficam em poucas dezenas por elemento.
+ */
+export const LIMITE_ATRIBUTOS_XML = 256;
 
 const ERRO_ARQUIVO_INVALIDO = 'Arquivo inválido: envie uma planilha .xlsx';
 const ERRO_MUITO_GRANDE = 'Planilha grande demais para ser importada';
@@ -92,12 +97,26 @@ function lerEntrada(entrada: EntradaComFluxo, estado: Estado): Promise<void> {
     };
 
     // Erro de sintaxe só interrompe a leitura desta entrada (peças binárias são normais).
-    // Numa planilha do exceljs, vira "arquivo inválido" no fim.
+    // Numa planilha do exceljs, vira "arquivo inválido" no fim. O primeiro erro já interrompe o
+    // tokenizador (R30a): sem isso ele seguiria, montando um Error para cada erro seguinte.
     let erroXml = false;
     let profundidade = 0;
+    let atributos = 0;
     const parser = new SaxesParser();
     parser.on('error', () => {
       erroXml = true;
+      throw interromper;
+    });
+    // Contados enquanto a tag é lida, antes da conferência de repetidos do tokenizador (R30b): acima do
+    // limite, o arquivo inteiro é recusado antes de o exceljs ver qualquer entrada.
+    parser.on('opentagstart', () => {
+      if (encerrado) throw interromper;
+      atributos = 0;
+    });
+    parser.on('attribute', () => {
+      if (encerrado) throw interromper;
+      atributos += 1;
+      if (atributos > LIMITE_ATRIBUTOS_XML) recusar(new ErroPlanilha(ERRO_ARQUIVO_INVALIDO));
     });
     parser.on('opentag', (tag) => {
       if (encerrado) throw interromper;

@@ -6,7 +6,7 @@ import { LIMITE_BYTES, LIMITE_LINHAS, normalizarTexto } from '@mercado/shared';
 import { describe, expect, it } from 'vitest';
 import type { Mercado, Repositorio } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
-import { conferirZip } from './conferirZip';
+import { conferirZip, LIMITE_ATRIBUTOS_XML } from './conferirZip';
 import { ErroPlanilha, importarPlanilha, LIMITE_ENTRADA_BYTES, LIMITE_TOTAL_BYTES } from './importar';
 import { gerarModelo } from './modelo';
 
@@ -1079,5 +1079,67 @@ describe('conferirZip (R18): referências estritas e profundidade limitada', () 
     const inicio = Date.now();
     await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': raso })))).resolves.toBeUndefined();
     expect(Date.now() - inicio).toBeLessThan(3000);
+  });
+});
+
+describe('conferirZip (R30): atributos repetidos e limite de atributos por elemento', () => {
+  async function arquivosDoModelo() {
+    return unzipSync(new Uint8Array(await montar({ produtos: [linhaBoa(EAN_A)] })));
+  }
+  const BOMBA_ATRIBUTOS = '<r><a ' + 'b=""  '.repeat(400_000) + '/></r>';
+  const comAtributos = (n: number) =>
+    '<r><a ' + Array.from({ length: n }, (_, i) => `b${i}="${i}"`).join(' ') + '/></r>';
+
+  it('o limite é exportado e vale 256', () => {
+    expect(LIMITE_ATRIBUTOS_XML).toBe(256);
+  });
+
+  it.each(['x/a.bin', 'xl/sharedStrings.xml', 'xl/worksheets/sheet1.xml'])(
+    '400 mil atributos repetidos na entrada %s: "Arquivo inválido" em pouco tempo, nada gravado',
+    async (nome) => {
+      const arquivos = await arquivosDoModelo();
+      const comBomba = Buffer.from(zipSync({ ...arquivos, [nome]: strToU8(BOMBA_ATRIBUTOS) }));
+      let inicio = Date.now();
+      await expect(conferirZip(comBomba)).rejects.toThrow('Arquivo inválido: envie uma planilha .xlsx');
+      expect(Date.now() - inicio).toBeLessThan(3000);
+
+      const repo = criarRepositorioMemoria();
+      inicio = Date.now();
+      await expect(importarPlanilha(repo, comBomba, ADMIN)).rejects.toThrow('Arquivo inválido');
+      expect(Date.now() - inicio).toBeLessThan(3000);
+      expect(await repo.listarMercados()).toHaveLength(0);
+    },
+  );
+
+  it('200 atributos distintos (abaixo do limite) passam, o limite exato (256) passa e 257 é recusado', async () => {
+    const arquivos = await arquivosDoModelo();
+    const com = (n: number) => Buffer.from(zipSync({ ...arquivos, 'x/a.bin': strToU8(comAtributos(n)) }));
+    await expect(conferirZip(com(200))).resolves.toBeUndefined();
+    await expect(conferirZip(com(256))).resolves.toBeUndefined();
+    await expect(conferirZip(com(257))).rejects.toThrow('Arquivo inválido');
+  });
+
+  it('o contador recomeça a cada elemento: muitos elementos com poucos atributos passam', async () => {
+    const arquivos = await arquivosDoModelo();
+    const muitos = '<r>' + `<a ${Array.from({ length: 200 }, (_, i) => `b${i}="1"`).join(' ')}/>`.repeat(100) + '</r>';
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': strToU8(muitos) })))).resolves.toBeUndefined();
+  });
+
+  it('erro de sintaxe numa entrada que não é planilha só para a leitura dela; numa planilha recusa', async () => {
+    const arquivos = await arquivosDoModelo();
+    const quebrado = strToU8('<r><a b="1" b="2"/></r>');
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': quebrado })))).resolves.toBeUndefined();
+    await expect(
+      conferirZip(Buffer.from(zipSync({ ...arquivos, 'xl/worksheets/sheet1.xml': quebrado }))),
+    ).rejects.toThrow('Arquivo inválido: envie uma planilha .xlsx');
+  });
+});
+
+describe('conferirZip (R30a): o primeiro erro de sintaxe interrompe o tokenizador', () => {
+  it('numa entrada que não é planilha, nada depois do primeiro erro é tokenizado', async () => {
+    const arquivos = unzipSync(new Uint8Array(await montar({ produtos: [linhaBoa(EAN_A)] })));
+    // Sem a interrupção, o tokenizador seguiria e acharia a mesclagem gigante logo depois do erro.
+    const xml = '<r><a b="1" b="2"/><mergeCells><mergeCell ref="A1:XFD1048576"/></mergeCells></r>';
+    await expect(conferirZip(Buffer.from(zipSync({ ...arquivos, 'x/a.bin': strToU8(xml) })))).resolves.toBeUndefined();
   });
 });
