@@ -7,6 +7,7 @@ const producao = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
   JWT_SECRET: SEGREDO,
   ADMIN_EMAIL: 'dono@exemplo.com',
   ADMIN_SENHA: 'senha-forte-1',
+  PERMITIR_EMAIL_NO_LOG: '1',
   ...extra,
 });
 
@@ -124,5 +125,25 @@ describe('lerConfig: NODE_ENV estrito (R33a)', () => {
     ['test', ' Test '],
   ])('%s vale como desenvolvimento', (_nome, valor) => {
     expect(lerConfig({ NODE_ENV: valor }).producao).toBe(false);
+  });
+});
+
+describe('lerConfig: e-mail no log (R33b)', () => {
+  it('em produção sem PERMITIR_EMAIL_NO_LOG=1 o servidor não sobe', () => {
+    const semFlag = { ...producao(), PERMITIR_EMAIL_NO_LOG: undefined };
+    expect(() => lerConfig(semFlag)).toThrow(
+      'Em produção é preciso configurar um serviço de e-mail. Para o piloto, defina PERMITIR_EMAIL_NO_LOG=1 sabendo que os códigos aparecerão no log do servidor.',
+    );
+    expect(() => lerConfig({ ...semFlag, PERMITIR_EMAIL_NO_LOG: '0' })).toThrow(/PERMITIR_EMAIL_NO_LOG=1/);
+  });
+
+  it('em produção com PERMITIR_EMAIL_NO_LOG=1 sobe e guarda a escolha', () => {
+    expect(lerConfig(producao({ PERMITIR_EMAIL_NO_LOG: '1' })).permitirEmailNoLog).toBe(true);
+  });
+
+  it('desenvolvimento e teste não exigem nada', () => {
+    expect(lerConfig({}).permitirEmailNoLog).toBe(false);
+    expect(lerConfig({ NODE_ENV: 'test' }).permitirEmailNoLog).toBe(false);
+    expect(lerConfig({ PERMITIR_EMAIL_NO_LOG: '1' }).permitirEmailNoLog).toBe(true);
   });
 });

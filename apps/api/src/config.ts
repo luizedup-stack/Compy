@@ -12,6 +12,11 @@ export type Config = {
   pastaDadosDeTeste: string;
   /** Limites de requisições por endereço (R32). Ligado sempre, a menos que LIMITAR_REQUISICOES=0. */
   limitarRequisicoes: boolean;
+  /**
+   * Ainda não há provedor de e-mail: os e-mails (com os códigos) só vão para o log. Em produção isso
+   * precisa ser aceito de forma explícita com PERMITIR_EMAIL_NO_LOG=1 (R33b).
+   */
+  permitirEmailNoLog: boolean;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
@@ -52,6 +57,7 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
   const segredo = ler(env, 'JWT_SECRET');
   const adminEmail = ler(env, 'ADMIN_EMAIL');
   const adminSenha = ler(env, 'ADMIN_SENHA');
+  const permitirEmailNoLog = ler(env, 'PERMITIR_EMAIL_NO_LOG') === '1';
 
   if (producao) {
     if (segredo === null) {
@@ -64,6 +70,11 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     if (adminSenha === null) throw new Error('A variável ADMIN_SENHA é obrigatória em produção.');
     if (adminSenha.length < MIN_SENHA_ADMIN) {
       throw new Error(`ADMIN_SENHA é curta demais: use pelo menos ${MIN_SENHA_ADMIN} caracteres.`);
+    }
+    if (!permitirEmailNoLog) {
+      throw new Error(
+        'Em produção é preciso configurar um serviço de e-mail. Para o piloto, defina PERMITIR_EMAIL_NO_LOG=1 sabendo que os códigos aparecerão no log do servidor.',
+      );
     }
   }
 
@@ -79,5 +90,6 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     carregarDadosDeTeste: flagDados === null ? !producao : flagDados === '1',
     pastaDadosDeTeste: ler(env, 'PASTA_DADOS_DE_TESTE') ?? PASTA_PADRAO,
     limitarRequisicoes: ler(env, 'LIMITAR_REQUISICOES') !== '0',
+    permitirEmailNoLog,
   };
 }

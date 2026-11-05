@@ -18,4 +18,13 @@ describe('GET /privacidade', () => {
     expect(html).toMatch(/vendid|compartilh/i);
     expect(html).toContain('Contato: a definir pelo Bolso Certo');
   });
+
+  it('conta dos registros técnicos do servidor, sem o texto das buscas (R33b)', async () => {
+    const { app } = await criarAmbiente();
+    const html = (await app.inject({ method: 'GET', url: '/privacidade' })).body;
+    expect(html).toMatch(/registros técnicos/i);
+    expect(html).toMatch(/endereço/i);
+    expect(html).toMatch(/sem o texto das buscas/i);
+    expect(html).toMatch(/segurança/i);
+  });
 });

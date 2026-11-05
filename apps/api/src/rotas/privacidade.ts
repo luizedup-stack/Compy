@@ -31,6 +31,9 @@ const PAGINA = `<!doctype html>
   <li>Medir o uso do serviço, para saber o que as pessoas procuram e melhorar o Bolso Certo.</li>
 </ul>
 
+<h2>Registros técnicos do servidor</h2>
+<p>O servidor guarda registros técnicos das requisições (endereço de quem acessou, a rota e o horário), sem o texto das buscas, para manter o serviço funcionando e para a segurança.</p>
+
 <h2>Compartilhamento</h2>
 <p>Não vendemos nem compartilhamos os seus dados com ninguém.</p>
 

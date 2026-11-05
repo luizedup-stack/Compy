@@ -21,8 +21,22 @@ export interface OpcoesApp {
   jwtSecret: string;
   /** Liga o log do Fastify (o servidor liga; os testes ficam em silêncio). */
   logger?: boolean;
+  /** Para onde vai o log quando ligado (padrão: saída do processo). Usado pelos testes. */
+  destinoDoLog?: { write(linha: string): void };
   /** Liga os limites de requisições por endereço (o servidor liga; padrão desligado nos testes). */
   limitarRequisicoes?: boolean;
+}
+
+/**
+ * O log de cada requisição guarda só método, caminho (sem a consulta: `/busca?q=...` traria o texto
+ * da busca) e endereço do cliente; nunca cabeçalhos (Authorization) nem a consulta (R33b).
+ */
+function resumoDaRequisicao(req: { method: string; url: string; ip?: string; socket?: { remoteAddress?: string } }) {
+  return {
+    method: req.method,
+    url: req.url.split('?')[0],
+    remoteAddress: req.ip ?? req.socket?.remoteAddress,
+  };
 }
 
 /** Limites por endereço do cliente, numa janela de 1 minuto (R32). */
@@ -62,8 +76,17 @@ export async function construirApp({
   jwtSecret,
   logger = false,
   limitarRequisicoes = false,
+  destinoDoLog,
 }: OpcoesApp): Promise<FastifyInstance> {
-  const app = Fastify({ logger });
+  const app = Fastify({
+    logger: logger
+      ? {
+          level: 'info',
+          serializers: { req: resumoDaRequisicao },
+          ...(destinoDoLog ? { stream: destinoDoLog } : {}),
+        }
+      : false,
+  });
 
   // Liberado para qualquer origem: serve ao desenvolvimento (painel web e app mobile).
   await app.register(cors, {

@@ -17,6 +17,7 @@ const base: Config = {
   carregarDadosDeTeste: true,
   pastaDadosDeTeste: PASTA_DADOS,
   limitarRequisicoes: true,
+  permitirEmailNoLog: false,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;
