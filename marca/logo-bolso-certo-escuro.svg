@@ -2,13 +2,13 @@
   <title id="t">Bolso Certo</title>
   <desc id="d">Logo do Bolso Certo para fundos escuros: ícone de um bolso com sinal de certo e moeda, ao lado do nome.</desc>
   <g transform="translate(8 8)">
-    <rect width="80" height="80" rx="18" fill="#1D9E75"/>
+    <rect width="80" height="80" rx="18" fill="#0F7D99"/>
     <circle cx="50" cy="22" r="10" fill="#EF9F27"/>
     <circle cx="50" cy="22" r="5.5" fill="none" stroke="#FAC775" stroke-width="1.5"/>
     <path d="M18 28 H62 V48 Q62 62 40 71 Q18 62 18 48 Z" fill="#FFFFFF"/>
-    <line x1="24" y1="34" x2="56" y2="34" stroke="#9FE1CB" stroke-width="1.5" stroke-dasharray="3 3"/>
-    <path d="M30 49 L37 56 L51 41" fill="none" stroke="#1D9E75" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="24" y1="34" x2="56" y2="34" stroke="#A5DDEB" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <path d="M30 49 L37 56 L51 41" fill="none" stroke="#0F7D99" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="104" y="56" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#F1EFE8">Bolso <tspan fill="#5DCAA5">Certo</tspan></text>
+  <text x="104" y="56" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#F1EFE8">Bolso <tspan fill="#5BBAD3">Certo</tspan></text>
   <text x="105" y="78" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="13" fill="#B4B2A9">compare antes de comprar</text>
 </svg>

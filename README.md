@@ -44,6 +44,17 @@ Isso abre três janelas (API, painel e app), descobre sozinho o endereço do com
 
 Se o PowerShell reclamar de "execução de scripts desabilitada", rode antes: `Set-ExecutionPolicy -Scope Process Bypass`.
 
+## Programa de computador (.exe) e aplicativo de celular (.apk)
+
+Para usar **sem abrir terminal e sem internet**, há um programa de Windows com a API e o painel dentro dele (Electron). Ele já abre com as planilhas reais de teste carregadas.
+
+- **Gerar o programa:** `npm run construir:exe`. O resultado fica em `programa/Bolso Certo-win32-x64/Bolso Certo.exe` (e a cópia compactada, `programa/Bolso-Certo-Windows.zip`, para enviar a outra pessoa; descompacte e abra o `.exe`). Essa pasta não vai para o git.
+- **Usar:** abra o `Bolso Certo.exe`. O painel aparece na janela; entre com o administrador de teste (`admin@bolsocerto.local` / `BolsoCerto-Teste-2026`). No menu **Bolso Certo → Códigos de e-mail e endereço do celular** ficam os códigos de confirmação de conta e o endereço da API para o celular (por exemplo `http://192.168.0.10:3000`).
+- **Celular:** instale `apk/bolso-certo.apk` (veja `apps/mobile/README.md`, seção "Gerar o APK") e, na tela de entrada, use **Configurar servidor** com o endereço mostrado no programa. O celular precisa estar na mesma rede do computador.
+- A API do programa usa sempre a porta **3000**; não deixe o `npm run testar` aberto ao mesmo tempo.
+- Os dados ficam só na memória: ao fechar o programa, contas e correções somem (ainda não há banco de dados). O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
+- `npm run gerar-icones` refaz os ícones (programa e app) a partir de `marca/icone-bolso-certo.svg`.
+
 ## Como rodar cada parte (manual)
 
 Abra **um terminal para cada parte**, sempre na pasta do projeto, e deixe cada um aberto enquanto estiver testando.

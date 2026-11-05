@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 
 export const cores = {
-  marca: '#1D9E75',
-  marcaEscura: '#157A5A',
+  marca: '#0F7D99',
+  marcaEscura: '#0B5F76',
   texto: '#1F2933',
   textoSuave: '#52606D',
   borda: '#CBD2D9',

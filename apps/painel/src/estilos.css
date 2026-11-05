@@ -1,12 +1,12 @@
 :root {
-  --verde: #1d9e75;
-  --verde-escuro: #0f6e56;
+  --verde: #0f7d99;
+  --verde-escuro: #0b5f76;
   --texto: #1f2933;
-  --fundo: #f4f7f6;
-  --borda: #c9d3cf;
+  --fundo: #f2f7f9;
+  --borda: #c8d6dc;
   --erro: #a32d2d;
   --erro-fundo: #fdecec;
-  --ok-fundo: #e6f6ef;
+  --ok-fundo: #e2f3f8;
   --aviso-fundo: #fff4cc;
   --aviso-borda: #b58100;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -149,7 +149,7 @@ input[type='file'] {
 
 input:disabled {
   color: #52606d;
-  background: #eef1f0;
+  background: #edf2f4;
 }
 
 .cartao-largo {
