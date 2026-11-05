@@ -28,6 +28,21 @@ então use sempre o endereço do computador na rede. Depois de mudar a variável
 
 Também existem `npm run android -w @mercado/mobile` e `npm run ios -w @mercado/mobile` (precisam do emulador instalado).
 
+## Gerar o APK (aplicativo instalável no Android)
+
+O APK de teste fica em `apk/bolso-certo.apk` (fora do git). Ele é para Android 7 ou mais novo, celulares de 64 bits, e usa a chave de teste do Android (serve para instalar direto, não para publicar na Play Store). Para instalar: copie o arquivo para o celular e abra; o Android pede para permitir "instalar apps desconhecidos".
+
+Na primeira tela do app, o link **Configurar servidor** troca o endereço da API (por exemplo `192.168.0.10:3000` ou `https://meu-servidor.com`) sem gerar o APK de novo. O APK de fábrica aponta para o endereço do computador no momento da geração. Atenção: o celular precisa alcançar essa API.
+
+Para gerar de novo no Windows (precisa de Node, Java 17 e Android SDK com `ANDROID_HOME`):
+
+1. Compile a partir de uma **cópia do projeto em um caminho curto** (por exemplo `C:\bc`): o Windows limita nomes de arquivo a 260 caracteres e a compilação nativa passa disso em pastas longas.
+2. Na cópia: `npm ci`, depois, em `apps/mobile`: `npx expo prebuild --platform android --no-install`.
+3. Em `apps/mobile/android` (com `EXPO_PUBLIC_API_URL` e `NODE_ENV=production` definidos): `.\gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a`.
+4. O arquivo sai em `android/app/build/outputs/apk/release/app-release.apk`.
+
+Requisitos que já foram resolvidos neste computador: "caminhos longos" habilitado no Windows e o `ninja` do Android SDK (`cmake/3.22.1/bin/ninja.exe`) trocado pela versão 1.13.2, porque o 1.10.2 que acompanha o SDK não suporta caminhos longos (a cópia do antigo ficou em `ninja-1.10.2.exe.bak`).
+
 ## Como rodar os testes
 
 ```
