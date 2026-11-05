@@ -1,4 +1,4 @@
-import type { RelatorioImportacao } from '@mercado/shared';
+import type { ProdutoPainel, RelatorioImportacao } from '@mercado/shared';
 
 const URL_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 const CHAVE_SESSAO = 'bolso-certo:sessao';
@@ -103,4 +103,82 @@ export async function baixarModelo(): Promise<void> {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+/** Sessão recusada pelo servidor (a sessão já foi limpa): a tela deve voltar para o login. */
+export function sessaoRecusada(e: unknown): boolean {
+  return e instanceof ErroApi && e.status === 401;
+}
+
+/** Texto do erro para mostrar ao usuário. */
+export function mensagemDoErro(e: unknown): string {
+  return e instanceof ErroApi ? e.message : MSG_SERVIDOR;
+}
+
+export interface MercadoPainel {
+  id: number;
+  nome: string;
+  endereco: string;
+  totalProdutos: number;
+  produtosDesatualizados: number;
+}
+
+export interface PaginaProdutos {
+  itens: ProdutoPainel[];
+  total: number;
+}
+
+/** Campos que o painel pode alterar num produto; `quantidade` é texto livre (o servidor interpreta). */
+export interface CamposProduto {
+  nome?: string;
+  preco?: number | string;
+  quantidade?: string | null;
+  categoria?: string | null;
+  disponivel?: boolean;
+}
+
+export type SituacaoConta = 'gratuita' | 'ativa' | 'em_atraso';
+
+export interface Cobranca {
+  situacao: SituacaoConta;
+  mensagem: string;
+}
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+export async function obterMercado(): Promise<MercadoPainel> {
+  const resposta = await pedir('/painel/mercado');
+  return (await resposta.json()) as MercadoPainel;
+}
+
+export async function atualizarMercado(campos: { nome?: string; endereco?: string }): Promise<MercadoPainel> {
+  const resposta = await pedir('/painel/mercado', {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(campos),
+  });
+  return (await resposta.json()) as MercadoPainel;
+}
+
+export async function listarProdutos(pagina: number): Promise<PaginaProdutos> {
+  const resposta = await pedir(`/painel/produtos?pagina=${pagina}`);
+  return (await resposta.json()) as PaginaProdutos;
+}
+
+export async function editarProduto(codigo: string, campos: CamposProduto): Promise<ProdutoPainel> {
+  const resposta = await pedir(`/painel/produtos/${encodeURIComponent(codigo)}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(campos),
+  });
+  return (await resposta.json()) as ProdutoPainel;
+}
+
+export async function removerProduto(codigo: string): Promise<void> {
+  await pedir(`/painel/produtos/${encodeURIComponent(codigo)}`, { method: 'DELETE' });
+}
+
+export async function obterCobranca(): Promise<Cobranca> {
+  const resposta = await pedir('/painel/cobranca');
+  return (await resposta.json()) as Cobranca;
 }

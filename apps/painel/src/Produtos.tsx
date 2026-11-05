@@ -1,0 +1,449 @@
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import type { ProdutoPainel } from '@mercado/shared';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  editarProduto,
+  listarProdutos,
+  mensagemDoErro,
+  removerProduto,
+  sessaoRecusada,
+  type CamposProduto,
+} from './api';
+
+const POR_PAGINA = 50;
+const SEM_VALOR = '—';
+
+const formatadorNumero = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatarPreco = (valor: number) => `R$ ${formatadorNumero.format(valor)}`;
+/** Data no fuso de Brasília, para o dia não mudar conforme o computador de quem olha. */
+const formatarData = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+const plural = (n: number) => `${n} ${n === 1 ? 'produto' : 'produtos'}`;
+
+/** Preço digitado como `15,90`, `15.90` ou `1.234,50` vira número; o que não der para ler segue como texto. */
+function lerPreco(texto: string): number | string {
+  const t = texto.trim().replace(/^R\$\s*/, '');
+  if (/^\d{1,3}(\.\d{3})+,\d+$/.test(t)) return Number(t.replace(/\./g, '').replace(',', '.'));
+  if (/^\d+([.,]\d+)?$/.test(t)) return Number(t.replace(',', '.'));
+  return t;
+}
+
+interface Rascunho {
+  nome: string;
+  preco: string;
+  quantidade: string;
+  categoria: string;
+  disponivel: boolean;
+}
+
+const rascunhoDe = (p: ProdutoPainel): Rascunho => ({
+  nome: p.nome,
+  preco: formatadorNumero.format(p.preco).replace(/\./g, ''),
+  quantidade: p.quantidadeTexto ?? '',
+  categoria: p.categoria ?? '',
+  disponivel: p.disponivel,
+});
+
+/** Só o que mudou em relação ao produto como está salvo. */
+function camposAlterados(p: ProdutoPainel, r: Rascunho): CamposProduto {
+  const campos: CamposProduto = {};
+  const nome = r.nome.trim();
+  if (nome !== p.nome) campos.nome = nome;
+  if (r.preco !== rascunhoDe(p).preco) {
+    const preco = lerPreco(r.preco);
+    if (preco !== p.preco) campos.preco = preco;
+  }
+  const quantidade = r.quantidade.trim();
+  if (quantidade !== (p.quantidadeTexto ?? '')) campos.quantidade = quantidade === '' ? null : quantidade;
+  const categoria = r.categoria.trim();
+  if (categoria !== (p.categoria ?? '')) campos.categoria = categoria === '' ? null : categoria;
+  if (r.disponivel !== p.disponivel) campos.disponivel = r.disponivel;
+  return campos;
+}
+
+interface LinhaProps {
+  produto: ProdutoPainel;
+  aoAtualizar: (p: ProdutoPainel) => void;
+  aoRemover: (codigo: string) => void;
+  aoSessaoRecusada: () => void;
+}
+
+function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps) {
+  const [modo, setModo] = useState<'ver' | 'editar' | 'remover'>('ver');
+  const [rascunho, setRascunho] = useState<Rascunho>(() => rascunhoDe(produto));
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const botaoEditar = useRef<HTMLButtonElement>(null);
+  const botaoRemover = useRef<HTMLButtonElement>(null);
+  const campoNome = useRef<HTMLInputElement>(null);
+  const botaoCancelarRemocao = useRef<HTMLButtonElement>(null);
+  const idNome = `nome-${produto.codigoBarras}`;
+  // Para onde o foco vai quando a linha troca de modo (o botão que o usuário apertou deixa de existir).
+  const focoPendente = useRef<RefObject<HTMLElement> | null>(null);
+
+  useEffect(() => {
+    focoPendente.current?.current?.focus();
+    focoPendente.current = null;
+  }, [modo]);
+
+  function mudar<K extends keyof Rascunho>(campo: K, valor: Rascunho[K]) {
+    setRascunho((r) => ({ ...r, [campo]: valor }));
+  }
+
+  function iniciarEdicao() {
+    setRascunho(rascunhoDe(produto));
+    setErro(null);
+    focoPendente.current = campoNome;
+    setModo('editar');
+  }
+
+  function cancelarEdicao() {
+    setErro(null);
+    focoPendente.current = botaoEditar;
+    setModo('ver');
+  }
+
+  function pedirRemocao() {
+    setErro(null);
+    focoPendente.current = botaoCancelarRemocao;
+    setModo('remover');
+  }
+
+  function cancelarRemocao() {
+    setErro(null);
+    focoPendente.current = botaoRemover;
+    setModo('ver');
+  }
+
+  async function salvar() {
+    const campos = camposAlterados(produto, rascunho);
+    if (Object.keys(campos).length === 0) {
+      cancelarEdicao();
+      return;
+    }
+    setErro(null);
+    setOcupado(true);
+    try {
+      const atualizado = await editarProduto(produto.codigoBarras, campos);
+      focoPendente.current = botaoEditar;
+      setModo('ver');
+      aoAtualizar(atualizado);
+    } catch (e) {
+      if (sessaoRecusada(e)) aoSessaoRecusada();
+      else setErro(mensagemDoErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function remover() {
+    setErro(null);
+    setOcupado(true);
+    try {
+      await removerProduto(produto.codigoBarras);
+      aoRemover(produto.codigoBarras);
+    } catch (e) {
+      if (sessaoRecusada(e)) aoSessaoRecusada();
+      else setErro(mensagemDoErro(e));
+      setOcupado(false);
+    }
+  }
+
+  const editando = modo === 'editar';
+
+  return (
+    <tr>
+      <td data-label="Código de barras">
+        {editando ? (
+          <input type="text" aria-label="Código de barras" value={produto.codigoBarras} disabled readOnly />
+        ) : (
+          produto.codigoBarras
+        )}
+      </td>
+      <td data-label="Produto" id={idNome}>
+        {editando ? (
+          <input
+            ref={campoNome}
+            type="text"
+            aria-label="Produto"
+            value={rascunho.nome}
+            onChange={(e) => mudar('nome', e.target.value)}
+          />
+        ) : (
+          produto.nome
+        )}
+      </td>
+      <td data-label="Preço">
+        {editando ? (
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label="Preço"
+            value={rascunho.preco}
+            onChange={(e) => mudar('preco', e.target.value)}
+          />
+        ) : (
+          formatarPreco(produto.preco)
+        )}
+      </td>
+      <td data-label="Quantidade">
+        {editando ? (
+          <input
+            type="text"
+            aria-label="Quantidade"
+            value={rascunho.quantidade}
+            onChange={(e) => mudar('quantidade', e.target.value)}
+          />
+        ) : (
+          (produto.quantidadeTexto ?? SEM_VALOR)
+        )}
+      </td>
+      <td data-label="Categoria">
+        {editando ? (
+          <input
+            type="text"
+            aria-label="Categoria"
+            value={rascunho.categoria}
+            onChange={(e) => mudar('categoria', e.target.value)}
+          />
+        ) : (
+          (produto.categoria ?? SEM_VALOR)
+        )}
+      </td>
+      <td data-label="Disponível">
+        {editando ? (
+          <input
+            type="checkbox"
+            aria-label="Disponível"
+            checked={rascunho.disponivel}
+            onChange={(e) => mudar('disponivel', e.target.checked)}
+          />
+        ) : produto.disponivel ? (
+          'Sim'
+        ) : (
+          'Não'
+        )}
+      </td>
+      <td data-label="Atualizado">
+        <time dateTime={produto.atualizadoEm}>{formatarData(produto.atualizadoEm)}</time>
+        {produto.desatualizado && <span className="selo">Preço antigo</span>}
+      </td>
+      <td data-label="Ações" className="acoes">
+        {modo === 'ver' && (
+          <div className="acoes-botoes">
+            <button
+              ref={botaoEditar}
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              aria-describedby={idNome}
+              onClick={iniciarEdicao}
+            >
+              Editar
+            </button>
+            <button
+              ref={botaoRemover}
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              aria-describedby={idNome}
+              onClick={pedirRemocao}
+            >
+              Remover
+            </button>
+          </div>
+        )}
+        {editando && (
+          <div className="acoes-botoes">
+            <button type="button" className="botao botao-pequeno" disabled={ocupado} onClick={salvar}>
+              {ocupado ? 'Salvando…' : 'Salvar'}
+            </button>
+            <button
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              disabled={ocupado}
+              onClick={cancelarEdicao}
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+        {modo === 'remover' && (
+          <div role="group" aria-label="Confirmar remoção">
+            <p className="confirmacao">Remover este produto?</p>
+            <div className="acoes-botoes">
+              <button type="button" className="botao botao-perigo botao-pequeno" disabled={ocupado} onClick={remover}>
+                Confirmar remoção
+              </button>
+              <button
+                ref={botaoCancelarRemocao}
+                type="button"
+                className="botao botao-secundario botao-pequeno"
+                disabled={ocupado}
+                onClick={cancelarRemocao}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+        {erro && (
+          <p role="alert" className="aviso aviso-erro">
+            {erro}
+          </p>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+export default function Produtos() {
+  const navigate = useNavigate();
+  const [pagina, setPagina] = useState(1);
+  const [itens, setItens] = useState<ProdutoPainel[]>([]);
+  const [total, setTotal] = useState(0);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState('');
+  const [tentativa, setTentativa] = useState(0);
+  const titulo = useRef<HTMLHeadingElement>(null);
+
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+
+  useEffect(() => {
+    let ativo = true;
+    setCarregando(true);
+    setErro(null);
+    listarProdutos(pagina).then(
+      (r) => {
+        if (!ativo) return;
+        setItens(r.itens);
+        setTotal(r.total);
+        setCarregando(false);
+        // Página que deixou de existir (produtos removidos): volta para a última.
+        const ultima = Math.max(1, Math.ceil(r.total / POR_PAGINA));
+        if (r.itens.length === 0 && r.total > 0 && pagina > ultima) setPagina(ultima);
+      },
+      (e: unknown) => {
+        if (!ativo) return;
+        if (sessaoRecusada(e)) {
+          navigate('/entrar', { replace: true });
+          return;
+        }
+        setErro(mensagemDoErro(e));
+        setCarregando(false);
+      },
+    );
+    return () => {
+      ativo = false;
+    };
+  }, [pagina, tentativa, navigate]);
+
+  function irParaPagina(nova: number) {
+    setMensagem('');
+    setPagina(nova);
+  }
+
+  function aoAtualizar(p: ProdutoPainel) {
+    setItens((lista) => lista.map((i) => (i.codigoBarras === p.codigoBarras ? p : i)));
+    setMensagem('Produto atualizado');
+  }
+
+  function aoRemover(codigo: string) {
+    const restantes = itens.filter((i) => i.codigoBarras !== codigo);
+    setItens(restantes);
+    setTotal((t) => Math.max(0, t - 1));
+    setMensagem('Produto removido');
+    // Página esvaziada: volta uma página. Em qualquer caso o foco não pode se perder com a linha.
+    if (restantes.length === 0 && pagina > 1) setPagina(pagina - 1);
+    titulo.current?.focus();
+  }
+
+  const aoSessaoRecusada = () => navigate('/entrar', { replace: true });
+
+  return (
+    <section className="cartao cartao-largo">
+      <h1 ref={titulo} tabIndex={-1}>
+        Produtos
+      </h1>
+      <div role="status" className="mensagem-viva">
+        {mensagem}
+      </div>
+
+      {carregando && <p>Carregando produtos…</p>}
+
+      {!carregando && erro && (
+        <>
+          <p role="alert" className="aviso aviso-erro">
+            {erro}
+          </p>
+          <p>
+            <button type="button" className="botao botao-secundario" onClick={() => setTentativa((t) => t + 1)}>
+              Tentar de novo
+            </button>
+          </p>
+        </>
+      )}
+
+      {!carregando && !erro && total === 0 && (
+        <div className="vazio">
+          <p>Nenhum produto ainda. Envie uma planilha.</p>
+          <Link to="/planilha" className="botao botao-link">
+            Enviar planilha
+          </Link>
+        </div>
+      )}
+
+      {!carregando && !erro && total > 0 && (
+        <>
+          <p className="resumo">{plural(total)}</p>
+          <div className="tabela-rolagem">
+            <table className="tabela-produtos">
+              <caption className="so-leitor">Produtos do mercado</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Código de barras</th>
+                  <th scope="col">Produto</th>
+                  <th scope="col">Preço</th>
+                  <th scope="col">Quantidade</th>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">Disponível</th>
+                  <th scope="col">Atualizado</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itens.map((p) => (
+                  <Linha
+                    key={p.codigoBarras}
+                    produto={p}
+                    aoAtualizar={aoAtualizar}
+                    aoRemover={aoRemover}
+                    aoSessaoRecusada={aoSessaoRecusada}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <nav aria-label="Páginas de produtos" className="paginacao">
+            <button
+              type="button"
+              className="botao botao-secundario"
+              disabled={pagina <= 1}
+              onClick={() => irParaPagina(pagina - 1)}
+            >
+              Anterior
+            </button>
+            <span>{`Página ${pagina} de ${paginas}`}</span>
+            <button
+              type="button"
+              className="botao botao-secundario"
+              disabled={pagina >= paginas}
+              onClick={() => irParaPagina(pagina + 1)}
+            >
+              Próxima
+            </button>
+          </nav>
+        </>
+      )}
+    </section>
+  );
+}
