@@ -13,17 +13,18 @@ import Produtos from './Produtos';
 function RotaProtegida({ children, papel }: { children: ReactNode; papel?: Papel }) {
   const sessao = lerSessao();
   if (!sessao) return <Navigate to="/entrar" replace />;
-  if (papel && sessao.papel !== papel) return <Navigate to="/planilha" replace />;
+  if (papel && sessao.papel !== papel) return <Navigate to="/produtos" replace />;
   return <>{children}</>;
 }
 
 const ITENS_MERCADO = [
-  { para: '/planilha', texto: 'Enviar planilha' },
   { para: '/produtos', texto: 'Produtos' },
+  { para: '/planilha', texto: 'Enviar planilha' },
   { para: '/meu-mercado', texto: 'Meu mercado' },
   { para: '/cobranca', texto: 'Cobrança' },
 ];
 const ITENS_ADMIN = [
+  { para: '/produtos', texto: 'Produtos' },
   { para: '/planilha', texto: 'Enviar planilha' },
   { para: '/admin/mercados', texto: 'Administração' },
 ];
@@ -87,7 +88,7 @@ export default function App() {
           <Route
             path="/produtos"
             element={
-              <RotaProtegida papel="mercado">
+              <RotaProtegida>
                 <Produtos />
               </RotaProtegida>
             }
@@ -116,7 +117,7 @@ export default function App() {
               </RotaProtegida>
             }
           />
-          <Route path="*" element={<Navigate to="/planilha" replace />} />
+          <Route path="*" element={<Navigate to="/produtos" replace />} />
         </Routes>
       </main>
     </>

@@ -585,3 +585,67 @@ describe('paginação: bordas', () => {
     ]);
   });
 });
+
+describe('busca de produtos', () => {
+  it('buscar pede à API só o que bate com o texto e Limpar busca volta à lista inteira', async () => {
+    const chamadas = simularApi(() => resposta({ itens: [arroz], total: 1 }));
+    abrir('/produtos');
+    await screen.findByText('Arroz Tipo 1 5kg');
+
+    const u = userEvent.setup();
+    await u.type(screen.getByLabelText(/Buscar por nome ou código de barras/), 'arroz  ');
+    await u.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    await waitFor(() => expect(chamadas.at(-1)?.caminho).toBe('/painel/produtos?pagina=1&q=arroz'));
+
+    await u.click(screen.getByRole('button', { name: 'Limpar busca' }));
+    await waitFor(() => expect(chamadas.at(-1)?.caminho).toBe('/painel/produtos?pagina=1'));
+  });
+
+  it('sem resultado mostra "Nenhum produto encontrado" (e não o convite para enviar planilha)', async () => {
+    simularApi((c) => resposta(c.caminho.includes('q=') ? { itens: [], total: 0 } : { itens: [arroz], total: 1 }));
+    abrir('/produtos');
+    await screen.findByText('Arroz Tipo 1 5kg');
+
+    const u = userEvent.setup();
+    await u.type(screen.getByLabelText(/Buscar por nome ou código de barras/), 'xyz');
+    await u.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText('Nenhum produto encontrado para essa busca.')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum produto ainda. Envie uma planilha.')).not.toBeInTheDocument();
+  });
+});
+
+describe('administrador em Produtos', () => {
+  const mercadosAdmin = [
+    { id: 1, nome: 'Atacadão', endereco: 'x', status: 'ativo', totalProdutos: 1919, temLogin: false },
+    { id: 2, nome: 'Carrefour', endereco: 'y', status: 'ativo', totalProdutos: 614, temLogin: false },
+    { id: 3, nome: 'Fechado', endereco: 'z', status: 'removido', totalProdutos: 0, temLogin: false },
+  ];
+
+  it('escolhe o primeiro mercado ativo, lista os produtos dele e troca de mercado pelo seletor', async () => {
+    comSessao('admin');
+    const chamadas = simularApi((c) =>
+      c.caminho.startsWith('/admin/mercados') ? resposta(mercadosAdmin) : resposta({ itens: [arroz], total: 1 }),
+    );
+    abrir('/produtos');
+
+    expect(await screen.findByText('Arroz Tipo 1 5kg')).toBeInTheDocument();
+    expect(chamadas.some((c) => c.caminho === '/painel/produtos?pagina=1&mercadoId=1')).toBe(true);
+    const seletor = screen.getByRole('combobox', { name: /Mercado/ });
+    expect(within(seletor).queryByText(/Fechado/)).not.toBeInTheDocument();
+
+    await userEvent.setup().selectOptions(seletor, '2');
+    await waitFor(() => expect(chamadas.at(-1)?.caminho).toBe('/painel/produtos?pagina=1&mercadoId=2'));
+    expect(localStorage.getItem('bolso-certo:mercado-escolhido')).toBe('2');
+  });
+
+  it('sem mercados cadastrados, convida a enviar planilha e não lista produtos', async () => {
+    comSessao('admin');
+    const chamadas = simularApi((c) => (c.caminho.startsWith('/admin/mercados') ? resposta([]) : resposta({ itens: [], total: 0 })));
+    abrir('/produtos');
+
+    expect(await screen.findByText(/Nenhum mercado cadastrado/)).toBeInTheDocument();
+    expect(chamadas.some((c) => c.caminho.startsWith('/painel/'))).toBe(false);
+  });
+});

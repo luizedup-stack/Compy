@@ -66,15 +66,15 @@ async function criarAcessoNaLinha(u: ReturnType<typeof userEvent.setup>, linha: 
 }
 
 describe('acesso à tela e navegação', () => {
-  it('mercado não vê Administração e, em /admin/mercados, cai em /planilha sem chamar o /admin', () => {
+  it('mercado não vê Administração e, em /admin/mercados, cai em /produtos sem chamar o /admin', () => {
     comSessao('mercado');
     simular();
     abrir('/admin/mercados');
 
-    expect(screen.getByRole('heading', { name: 'Enviar planilha' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Produtos' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     expect(within(nav).queryByRole('link', { name: 'Administração' })).not.toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/admin'))).toBe(false);
   });
 
   it('sem sessão, /admin/mercados redireciona para /entrar sem chamar a API', () => {
@@ -86,15 +86,15 @@ describe('acesso à tela e navegação', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('admin vê Enviar planilha e Administração, com os endereços certos', async () => {
+  it('admin vê Produtos, Enviar planilha e Administração, com os endereços certos', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Enviar planilha', 'Administração']);
-    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/planilha', '/admin/mercados']);
+    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração']);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/admin/mercados']);
     expect(within(nav).getByRole('link', { name: 'Administração' })).toHaveAttribute('aria-current', 'page');
   });
 

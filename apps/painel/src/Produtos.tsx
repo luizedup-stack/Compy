@@ -3,11 +3,16 @@ import type { ProdutoPainel } from '@mercado/shared';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   editarProduto,
+  guardarMercadoEscolhido,
+  lerMercadoEscolhido,
+  lerSessao,
+  listarMercadosAdmin,
   listarProdutos,
   mensagemDoErro,
   removerProduto,
   sessaoRecusada,
   type CamposProduto,
+  type MercadoAdmin,
 } from './api';
 
 const POR_PAGINA = 50;
@@ -330,13 +335,71 @@ export default function Produtos() {
   const [tentativa, setTentativa] = useState(0);
   const titulo = useRef<HTMLHeadingElement>(null);
 
+  // Busca por nome ou código de barras (aplicada ao enviar, para não pesar a cada tecla).
+  const [textoBusca, setTextoBusca] = useState('');
+  const [busca, setBusca] = useState('');
+
+  // O administrador escolhe de qual mercado quer ver e editar os produtos.
+  const ehAdmin = lerSessao()?.papel === 'admin';
+  const [mercados, setMercados] = useState<MercadoAdmin[]>([]);
+  const [mercadoEscolhido, setMercadoEscolhido] = useState<number | null>(() => (ehAdmin ? lerMercadoEscolhido() : null));
+  const [carregouMercados, setCarregouMercados] = useState(!ehAdmin);
+  const precisaEscolher = ehAdmin && mercadoEscolhido === null;
+
+  useEffect(() => {
+    if (!ehAdmin) return;
+    let ativo = true;
+    listarMercadosAdmin().then(
+      (lista) => {
+        if (!ativo) return;
+        const ativos = (Array.isArray(lista) ? lista : []).filter((m) => m.status === 'ativo');
+        setMercados(ativos);
+        setMercadoEscolhido((atual) => {
+          const valido = ativos.some((m) => m.id === atual) ? atual : (ativos[0]?.id ?? null);
+          guardarMercadoEscolhido(valido);
+          return valido;
+        });
+        setCarregouMercados(true);
+      },
+      (e: unknown) => {
+        if (!ativo) return;
+        if (sessaoRecusada(e)) navigate('/entrar', { replace: true });
+        else {
+          setErro(mensagemDoErro(e));
+          setCarregouMercados(true);
+        }
+      },
+    );
+    return () => {
+      ativo = false;
+    };
+  }, [ehAdmin, navigate]);
+
+  function escolherMercado(id: number) {
+    guardarMercadoEscolhido(id);
+    setMercadoEscolhido(id);
+    setPagina(1);
+    setMensagem('');
+  }
+
+  function aplicarBusca(e: React.FormEvent) {
+    e.preventDefault();
+    setPagina(1);
+    setMensagem('');
+    setBusca(textoBusca.trim());
+  }
+
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   useEffect(() => {
+    if (!carregouMercados || precisaEscolher) {
+      setCarregando(!carregouMercados);
+      return;
+    }
     let ativo = true;
     setCarregando(true);
     setErro(null);
-    listarProdutos(pagina).then(
+    listarProdutos(pagina, busca).then(
       (r) => {
         if (!ativo) return;
         setItens(r.itens);
@@ -357,7 +420,7 @@ export default function Produtos() {
     return () => {
       ativo = false;
     };
-  }, [pagina, tentativa, navigate]);
+  }, [pagina, tentativa, busca, mercadoEscolhido, carregouMercados, precisaEscolher, navigate]);
 
   // Página sem itens apesar de haver produtos (a última foi esvaziada, ou a página passou do fim): volta
   // para uma página que existe. Decide pelo estado atual, nunca por uma cópia antiga dele.
@@ -396,6 +459,63 @@ export default function Produtos() {
         {mensagem}
       </div>
 
+      {ehAdmin && carregouMercados && (
+        <p className="seletor-mercado">
+          <label>
+            Mercado:{' '}
+            <select
+              value={mercadoEscolhido ?? ''}
+              onChange={(e) => escolherMercado(Number(e.target.value))}
+              disabled={mercados.length === 0}
+            >
+              {mercados.length === 0 && <option value="">Nenhum mercado ainda</option>}
+              {mercados.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nome} ({m.totalProdutos})
+                </option>
+              ))}
+            </select>
+          </label>
+        </p>
+      )}
+
+      {ehAdmin && carregouMercados && mercados.length === 0 && (
+        <div className="vazio">
+          <p>Nenhum mercado cadastrado. Envie uma planilha para criar o primeiro.</p>
+          <Link to="/planilha" className="botao botao-link">
+            Enviar planilha
+          </Link>
+        </div>
+      )}
+
+      {!precisaEscolher && (
+        <form className="busca-produtos" role="search" onSubmit={aplicarBusca}>
+          <label>
+            Buscar por nome ou código de barras{' '}
+            <input type="search" value={textoBusca} onChange={(e) => setTextoBusca(e.target.value)} />
+          </label>{' '}
+          <button type="submit" className="botao botao-secundario">
+            Buscar
+          </button>
+          {busca !== '' && (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="botao botao-secundario"
+                onClick={() => {
+                  setTextoBusca('');
+                  setBusca('');
+                  setPagina(1);
+                }}
+              >
+                Limpar busca
+              </button>
+            </>
+          )}
+        </form>
+      )}
+
       {carregando && <p>Carregando produtos…</p>}
 
       {!carregando && erro && (
@@ -411,7 +531,11 @@ export default function Produtos() {
         </>
       )}
 
-      {!carregando && !erro && total === 0 && (
+      {!carregando && !erro && !precisaEscolher && total === 0 && busca !== '' && (
+        <p>Nenhum produto encontrado para essa busca.</p>
+      )}
+
+      {!carregando && !erro && !precisaEscolher && total === 0 && busca === '' && !(ehAdmin && mercados.length === 0) && (
         <div className="vazio">
           <p>Nenhum produto ainda. Envie uma planilha.</p>
           <Link to="/planilha" className="botao botao-link">
@@ -420,7 +544,7 @@ export default function Produtos() {
         </div>
       )}
 
-      {!carregando && !erro && total > 0 && (
+      {!carregando && !erro && !precisaEscolher && total > 0 && (
         <>
           <p className="resumo">{plural(total)}</p>
           <div className="tabela-rolagem">

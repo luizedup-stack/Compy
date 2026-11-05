@@ -2,6 +2,7 @@ import type { ProdutoPainel, RelatorioImportacao } from '@mercado/shared';
 
 const URL_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 const CHAVE_SESSAO = 'bolso-certo:sessao';
+const CHAVE_MERCADO_ESCOLHIDO = 'bolso-certo:mercado-escolhido';
 const MSG_SERVIDOR = 'Não foi possível falar com o servidor';
 
 export type Papel = 'cliente' | 'mercado' | 'admin';
@@ -41,6 +42,26 @@ export function lerSessao(): Sessao | null {
 
 export function limparSessao(): void {
   localStorage.removeItem(CHAVE_SESSAO);
+  localStorage.removeItem(CHAVE_MERCADO_ESCOLHIDO);
+}
+
+/** Mercado que o administrador está vendo/editando em Produtos (o login de mercado não usa isto). */
+export function lerMercadoEscolhido(): number | null {
+  const n = Number(localStorage.getItem(CHAVE_MERCADO_ESCOLHIDO));
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+export function guardarMercadoEscolhido(id: number | null): void {
+  if (id === null) localStorage.removeItem(CHAVE_MERCADO_ESCOLHIDO);
+  else localStorage.setItem(CHAVE_MERCADO_ESCOLHIDO, String(id));
+}
+
+/** Para o administrador, as chamadas /painel/* levam o mercado escolhido (`?mercadoId=`). */
+function comMercadoEscolhido(caminho: string): string {
+  if (!caminho.startsWith('/painel/') || lerSessao()?.papel !== 'admin') return caminho;
+  const id = lerMercadoEscolhido();
+  if (id === null) return caminho;
+  return `${caminho}${caminho.includes('?') ? '&' : '?'}mercadoId=${id}`;
 }
 
 /** Faz a chamada e converte qualquer resposta fora de 2xx em ErroApi. */
@@ -53,7 +74,7 @@ async function pedir(caminho: string, init: RequestInit = {}, autenticado = true
 
   let resposta: Response;
   try {
-    resposta = await fetch(`${URL_BASE}${caminho}`, { ...init, headers });
+    resposta = await fetch(`${URL_BASE}${comMercadoEscolhido(caminho)}`, { ...init, headers });
   } catch {
     throw new ErroApi(MSG_SERVIDOR, 0);
   }
@@ -179,8 +200,9 @@ export async function atualizarMercado(campos: { nome?: string; endereco?: strin
   return (await resposta.json()) as MercadoPainel;
 }
 
-export async function listarProdutos(pagina: number): Promise<PaginaProdutos> {
-  const resposta = await pedir(`/painel/produtos?pagina=${pagina}`);
+export async function listarProdutos(pagina: number, busca = ''): Promise<PaginaProdutos> {
+  const filtro = busca.trim() === '' ? '' : `&q=${encodeURIComponent(busca.trim())}`;
+  const resposta = await pedir(`/painel/produtos?pagina=${pagina}${filtro}`);
   return (await resposta.json()) as PaginaProdutos;
 }
 

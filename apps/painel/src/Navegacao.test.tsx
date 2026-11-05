@@ -20,17 +20,17 @@ describe('navegação por papel', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Enviar planilha', 'Produtos', 'Meu mercado', 'Cobrança']);
-    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/planilha', '/produtos', '/meu-mercado', '/cobranca']);
+    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Meu mercado', 'Cobrança']);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/meu-mercado', '/cobranca']);
     expect(within(nav).getByRole('link', { name: 'Enviar planilha' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('admin vê Enviar planilha e Administração', () => {
+  it('admin vê Produtos, Enviar planilha e Administração', () => {
     comSessao('admin');
     abrir('/planilha');
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Enviar planilha', 'Administração']);
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração']);
   });
 
   it('sem sessão não há navegação', () => {
@@ -48,12 +48,11 @@ describe('navegação por papel', () => {
 });
 
 describe('rotas só do mercado', () => {
-  it.each(['/produtos', '/meu-mercado', '/cobranca'])('admin em %s cai em /planilha', (rota) => {
+  it.each(['/meu-mercado', '/cobranca'])('admin em %s cai em /produtos', (rota) => {
     comSessao('admin');
     abrir(rota);
 
-    expect(screen.getByRole('heading', { name: 'Enviar planilha' })).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 1, name: 'Produtos' })).toBeInTheDocument();
   });
 
   it.each(['/produtos', '/meu-mercado', '/cobranca'])('sem sessão, %s redireciona para /entrar', (rota) => {

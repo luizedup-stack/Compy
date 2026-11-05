@@ -36,7 +36,7 @@ Depois do `npm install`, no PowerShell, na pasta do projeto:
 
 Isso abre três janelas (API, painel e app), descobre sozinho o endereço do computador na rede e já carrega os **preços reais de teste** (Atacadão e Carrefour, pasta `dados-reais/`). Opções: `-Dados inventados` (os 4 mercados inventados) ou `-Dados todos` (os dois grupos).
 
-- **Painel:** `http://localhost:5173`. Administrador de teste: `admin@bolsocerto.local` / `BolsoCerto-Teste-2026` (senha só para teste local).
+- **Painel:** `http://localhost:5173`. A primeira aba é **Produtos**: lista todos os itens, com busca por nome ou código de barras, e cada um pode ser corrigido à mão (nome, preço, quantidade, categoria, disponível) ou removido. O administrador escolhe de qual mercado quer ver os produtos no seletor "Mercado". Para subir uma planilha Excel, use a aba **Enviar planilha**. Administrador de teste: `admin@bolsocerto.local` / `BolsoCerto-Teste-2026` (senha só para teste local).
 - **Celular Android:** o app usa o Expo SDK 58, e o Expo Go da loja pode estar numa versão mais antiga. Se o app não abrir, instale o Expo Go do SDK 58 em https://expo.dev/go (escolha SDK 58 e Android). **iPhone:** o Expo Go da App Store só vai até o SDK 54 e não abre este app (ver `apps/mobile/README.md`).
 - **Celular:** instale o **Expo Go**, conecte o celular na mesma rede Wi-Fi do computador e leia o QR code da janela "App". Se o Windows perguntar sobre o firewall, permita em "Redes privadas".
 - **Cadastro no app:** o código de confirmação do e-mail aparece na janela "API", na linha `[e-mail]`.

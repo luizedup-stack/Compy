@@ -76,12 +76,14 @@ describe('login', () => {
     expect(screen.queryByRole('heading', { name: 'Enviar planilha' })).not.toBeInTheDocument();
   });
 
-  it('conta de mercado guarda a sessão e vai para o envio de planilha', async () => {
-    fetchMock.mockResolvedValue(resposta({ token: 'tok-mercado', papel: 'mercado', emailVerificado: true }));
+  it('conta de mercado guarda a sessão e vai para a tela de produtos', async () => {
+    fetchMock
+      .mockResolvedValueOnce(resposta({ token: 'tok-mercado', papel: 'mercado', emailVerificado: true }))
+      .mockResolvedValue(resposta({ itens: [], total: 0 }));
     abrir('/entrar');
     await entrar('mercado@exemplo.com', 'senha1234');
 
-    expect(await screen.findByRole('heading', { name: 'Enviar planilha' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Produtos' })).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem('bolso-certo:sessao')!)).toEqual({
       token: 'tok-mercado',
       papel: 'mercado',
@@ -104,10 +106,10 @@ describe('proteção da rota', () => {
     expect(screen.queryByRole('heading', { name: 'Enviar planilha' })).not.toBeInTheDocument();
   });
 
-  it('a rota padrão leva à planilha quando há sessão', () => {
+  it('a rota padrão leva à tela de produtos quando há sessão', () => {
     comSessao();
     abrir('/');
-    expect(screen.getByRole('heading', { name: 'Enviar planilha' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Produtos' })).toBeInTheDocument();
   });
 
   it('Sair limpa a sessão e volta para /entrar', async () => {

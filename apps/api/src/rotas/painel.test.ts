@@ -77,9 +77,82 @@ describe('/painel/*: acesso', () => {
     expect((await chamar(method, url, null)).statusCode).toBe(401);
   });
 
-  it.each(rotas)('%s %s com papel admin → 403', async (method, url) => {
+  it.each(rotas)('%s %s com papel admin sem mercadoId → 400 pedindo o mercado', async (method, url) => {
     const { token } = await amb.criarComPapel('admin');
-    expect((await chamar(method, url, token)).statusCode).toBe(403);
+    const res = await chamar(method, url, token);
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ erro: 'Escolha o mercado (mercadoId)' });
+  });
+
+  it.each(rotas)('%s %s com papel admin e mercadoId inexistente → 403', async (method, url) => {
+    const { token } = await amb.criarComPapel('admin');
+    const sep = url.includes('?') ? '&' : '?';
+    expect((await chamar(method, `${url}${sep}mercadoId=999`, token)).statusCode).toBe(403);
+  });
+
+  describe('administrador editando um mercado escolhido (?mercadoId=)', () => {
+    it('lista, edita e remove produtos do mercado escolhido', async () => {
+      const rel = await importarPlanilha(amb.repo, lerPlanilha('mercado-2-estrela-da-vila.xlsx'), { papel: 'admin' });
+      const { token } = await amb.criarComPapel('admin');
+      const base = `mercadoId=${rel.mercadoId}`;
+      const lista = await amb.app.inject({ method: 'GET', url: `/painel/produtos?${base}`, headers: comToken(token) });
+      expect(lista.statusCode).toBe(200);
+      const primeiro = lista.json().itens[0];
+      const edit = await amb.app.inject({
+        method: 'PATCH',
+        url: `/painel/produtos/${primeiro.codigoBarras}?${base}`,
+        headers: comToken(token),
+        payload: { nome: 'Nome Corrigido', preco: 9.99 },
+      });
+      expect(edit.statusCode).toBe(200);
+      expect(edit.json()).toMatchObject({ nome: 'Nome Corrigido', preco: 9.99 });
+      const del = await amb.app.inject({
+        method: 'DELETE',
+        url: `/painel/produtos/${primeiro.codigoBarras}?${base}`,
+        headers: comToken(token),
+      });
+      expect(del.statusCode).toBe(204);
+    });
+
+    it('?q= filtra por parte do nome (sem acento/maiúscula) ou do código de barras', async () => {
+      const rel = await importarPlanilha(amb.repo, lerPlanilha('mercado-2-estrela-da-vila.xlsx'), { papel: 'admin' });
+      const { token } = await amb.criarComPapel('admin');
+      const base = `mercadoId=${rel.mercadoId}`;
+      const todos = (await amb.app.inject({ method: 'GET', url: `/painel/produtos?${base}`, headers: comToken(token) })).json();
+      const alvo = todos.itens[0];
+
+      const porNome = (
+        await amb.app.inject({
+          method: 'GET',
+          url: `/painel/produtos?${base}&q=${encodeURIComponent(alvo.nome.toUpperCase())}`,
+          headers: comToken(token),
+        })
+      ).json();
+      expect(porNome.itens.map((i: { codigoBarras: string }) => i.codigoBarras)).toContain(alvo.codigoBarras);
+      expect(porNome.total).toBeLessThanOrEqual(todos.total);
+
+      const porCodigo = (
+        await amb.app.inject({ method: 'GET', url: `/painel/produtos?${base}&q=${alvo.codigoBarras}`, headers: comToken(token) })
+      ).json();
+      expect(porCodigo.itens).toHaveLength(1);
+
+      const nada = (
+        await amb.app.inject({ method: 'GET', url: `/painel/produtos?${base}&q=zzzzqqqq`, headers: comToken(token) })
+      ).json();
+      expect(nada).toEqual({ itens: [], total: 0 });
+    });
+
+    it('mercado removido → 403', async () => {
+      const rel = await importarPlanilha(amb.repo, lerPlanilha('mercado-2-estrela-da-vila.xlsx'), { papel: 'admin' });
+      await amb.repo.atualizarMercado(rel.mercadoId, { status: 'removido' });
+      const { token } = await amb.criarComPapel('admin');
+      const res = await amb.app.inject({
+        method: 'GET',
+        url: `/painel/produtos?mercadoId=${rel.mercadoId}`,
+        headers: comToken(token),
+      });
+      expect(res.statusCode).toBe(403);
+    });
   });
 
   it.each(rotas)('%s %s com papel cliente → 403', async (method, url) => {

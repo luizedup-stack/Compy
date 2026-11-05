@@ -25,7 +25,7 @@ export default function Login() {
         return;
       }
       guardarSessao({ token: r.token, papel: r.papel });
-      navigate('/planilha', { replace: true });
+      navigate('/produtos', { replace: true });
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível falar com o servidor');
     } finally {

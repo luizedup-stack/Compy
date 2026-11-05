@@ -11,7 +11,7 @@ const REDES = [
 
 // Procura "500g", "1,5 L", "12 x 350 ml", "12 un" no nome do produto. Devolve texto ou ''.
 const UNID = '(?:kg|g|mg|ml|l|lt|litros?|un|und|unid|unidades?|rolos?|dz)';
-const RE_QTD = new RegExp(`(?:(\d+)\s*x\s*)?(\d+(?:[.,]\d+)?)\s*(${UNID})\b`, 'gi');
+const RE_QTD = new RegExp(String.raw`(?:(\d+)\s*x\s*)?(\d+(?:[.,]\d+)?)\s*(${UNID})\b`, 'gi');
 function quantidadeDoNome(nome) {
   let ultima = null;
   for (const m of nome.matchAll(RE_QTD)) ultima = m;

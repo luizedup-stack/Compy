@@ -6,6 +6,7 @@ import { precoDesatualizado } from '../tempo';
 
 const POR_PAGINA = 50;
 const MSG_SEM_MERCADO = 'Sua conta não está ligada a um mercado ativo';
+const MSG_ESCOLHA_MERCADO = 'Escolha o mercado (mercadoId)';
 const MSG_NADA = 'Nada para alterar';
 const MSG_NAO_ACHOU = 'Produto não encontrado';
 
@@ -103,12 +104,23 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
   return async (app) => {
     app.decorateRequest('mercadoDoPainel', null as never);
 
-    const papelMercado = exigirPapel('mercado');
-    /** R19: papel `mercado` + mercado próprio existente e ativo; deixa o mercado em `req.mercadoDoPainel`. */
+    const papelPainel = exigirPapel('mercado', 'admin');
+    /**
+     * R19: papel `mercado` + mercado próprio existente e ativo. O administrador também entra, mas precisa dizer
+     * qual mercado quer ver/editar (`?mercadoId=`). Deixa o mercado em `req.mercadoDoPainel`.
+     */
     const exigirMercadoAtivo: preHandlerAsyncHookHandler = async (req, reply) => {
-      await papelMercado.call(app, req, reply);
+      await papelPainel.call(app, req, reply);
       if (reply.sent) return reply;
-      const mercado = await repo.acharMercadoDoUsuario(req.usuario.id);
+      let mercado: Mercado | null;
+      if (req.usuario.papel === 'admin') {
+        const bruto = (req.query as { mercadoId?: unknown }).mercadoId;
+        const id = typeof bruto === 'string' && /^\d+$/.test(bruto) ? Number(bruto) : null;
+        if (id === null || !Number.isSafeInteger(id)) return reply.code(400).send({ erro: MSG_ESCOLHA_MERCADO });
+        mercado = await repo.acharMercado(id);
+      } else {
+        mercado = await repo.acharMercadoDoUsuario(req.usuario.id);
+      }
       if (!mercado || mercado.status !== 'ativo') return reply.code(403).send({ erro: MSG_SEM_MERCADO });
       req.mercadoDoPainel = mercado;
     };
@@ -163,16 +175,18 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
       return resumoDoMercado({ ...mercado, ...parcial });
     });
 
-    app.get<{ Querystring: { pagina?: unknown } }>('/painel/produtos', opcoes, async (req, reply) => {
+    app.get<{ Querystring: { pagina?: unknown; q?: unknown } }>('/painel/produtos', opcoes, async (req, reply) => {
       const bruto = req.query.pagina;
       let pagina = 1;
       if (bruto !== undefined) {
         pagina = typeof bruto === 'string' && /^\d+$/.test(bruto) ? Number(bruto) : 0;
         if (!Number.isSafeInteger(pagina) || pagina < 1) return reply.code(400).send({ erro: 'Página inválida' });
       }
-      const ofertas = (await repo.listarOfertasDoMercado(req.mercadoDoPainel.id)).sort(
-        (a, b) => comparar(a.nomeNorm, b.nomeNorm) || comparar(a.codigoBarras, b.codigoBarras),
-      );
+      // `q` filtra por parte do nome (sem acento/maiúscula) ou do código de barras.
+      const busca = typeof req.query.q === 'string' ? normalizarTexto(req.query.q) : '';
+      const ofertas = (await repo.listarOfertasDoMercado(req.mercadoDoPainel.id))
+        .filter((o) => busca === '' || o.nomeNorm.includes(busca) || o.codigoBarras.includes(busca))
+        .sort((a, b) => comparar(a.nomeNorm, b.nomeNorm) || comparar(a.codigoBarras, b.codigoBarras));
       const agora = new Date();
       const inicio = (pagina - 1) * POR_PAGINA;
       return {
