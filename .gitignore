@@ -1,3 +1,8 @@
 node_modules
 dist
 .superpowers
+.dados-carga
+
+# Dados coletados de sites de terceiros ficam so no seu computador (veja dados-reais/LEIA-ME.md)
+dados-reais/*.xlsx
+dados-reais/*.json

@@ -26,7 +26,24 @@ npm install
 
 Isso baixa tudo de que as três partes precisam. Só é preciso fazer uma vez (e de novo se o projeto receber novas peças).
 
-## Como rodar cada parte
+## Jeito rápido de testar (Windows)
+
+Depois do `npm install`, no PowerShell, na pasta do projeto:
+
+```
+.\iniciar-teste.ps1
+```
+
+Isso abre três janelas (API, painel e app), descobre sozinho o endereço do computador na rede e já carrega os **preços reais de teste** (Atacadão e Carrefour, pasta `dados-reais/`). Opções: `-Dados inventados` (os 4 mercados inventados) ou `-Dados todos` (os dois grupos).
+
+- **Painel:** `http://localhost:5173`. Administrador de teste: `admin@bolsocerto.local` / `BolsoCerto-Teste-2026` (senha só para teste local).
+- **Celular:** instale o **Expo Go**, conecte o celular na mesma rede Wi-Fi do computador e leia o QR code da janela "App". Se o Windows perguntar sobre o firewall, permita em "Redes privadas".
+- **Cadastro no app:** o código de confirmação do e-mail aparece na janela "API", na linha `[e-mail]`.
+- Os dados somem quando você fecha as janelas (ainda não há banco de dados).
+
+Se o PowerShell reclamar de "execução de scripts desabilitada", rode antes: `Set-ExecutionPolicy -Scope Process Bypass`.
+
+## Como rodar cada parte (manual)
 
 Abra **um terminal para cada parte**, sempre na pasta do projeto, e deixe cada um aberto enquanto estiver testando.
 
