@@ -42,7 +42,54 @@ const copia = <T>(valor: T): T => structuredClone(valor);
 const chaveOferta = (mercadoId: number, codigoBarras: string) => `${mercadoId}:${codigoBarras}`;
 const emailNorm = (email: string) => email.toLowerCase();
 
-export function criarRepositorioMemoria(): Repositorio {
+/** Repositório em memória que também sabe guardar e restaurar tudo como texto (usado pelo programa de computador para não perder os dados ao fechar). */
+export type RepositorioMemoria = Repositorio & {
+  /** Todo o estado como texto JSON; espera as transações em andamento terminarem. */
+  exportarEstado(): Promise<string>;
+  /** Troca o estado atual pelo texto gerado por exportarEstado. Lança erro se o texto não for válido. */
+  importarEstado(texto: string): void;
+};
+
+// Datas e mapas não existem em JSON: viram objetos etiquetados e voltam ao normal na leitura.
+function paraTexto(estado: unknown): string {
+  return JSON.stringify(
+    { versao: 1, dados: estado },
+    function (this: Record<string, unknown>, chave: string, valor: unknown) {
+      const original = this[chave];
+      if (original instanceof Date) return { $data: Number.isNaN(original.getTime()) ? null : original.toISOString() };
+      if (valor instanceof Map) return { $mapa: [...valor] };
+      return valor;
+    },
+  );
+}
+
+function deTexto(texto: string): Dados {
+  const lido = JSON.parse(texto, (_chave, valor: unknown) => {
+    if (valor && typeof valor === 'object') {
+      const o = valor as Record<string, unknown>;
+      if ('$data' in o) return o.$data === null ? new Date(NaN) : new Date(o.$data as string);
+      if ('$mapa' in o) return new Map(o.$mapa as [unknown, unknown][]);
+    }
+    return valor;
+  }) as { versao?: number; dados?: Dados };
+  const d = lido.dados;
+  if (
+    lido.versao !== 1 ||
+    !d ||
+    !(d.usuarios instanceof Map) ||
+    !(d.mercados instanceof Map) ||
+    !(d.ofertas instanceof Map) ||
+    !Array.isArray(d.tokens) ||
+    !Array.isArray(d.buscas) ||
+    typeof d.proximoUsuarioId !== 'number' ||
+    typeof d.proximoMercadoId !== 'number'
+  ) {
+    throw new Error('Estado salvo inválido');
+  }
+  return d;
+}
+
+export function criarRepositorioMemoria(): RepositorioMemoria {
   let dados = dadosVazios();
   let fila: Promise<unknown> = Promise.resolve();
   // O registro de buscas só cresce, então fica fora da cópia de segurança da transacao (R32): o custo
@@ -206,6 +253,10 @@ export function criarRepositorioMemoria(): Repositorio {
 
   return {
     ...(externo as unknown as Omit<Repositorio, 'transacao'>),
+    exportarEstado: () => enfileirar(async () => paraTexto(dados)),
+    importarEstado(texto: string): void {
+      dados = deTexto(texto);
+    },
     // Se fn lançar erro, os dados voltam ao estado anterior (incluindo os contadores de id).
     transacao<R>(fn: (r: Repositorio) => Promise<R>): Promise<R> {
       return enfileirar(async () => {

@@ -1,4 +1,12 @@
-import { normalizarTexto, type GrupoProduto, type ProdutoMercado } from '@mercado/shared';
+import {
+  buscarNoCatalogo,
+  mercadosDoCatalogo,
+  normalizarTexto,
+  produtosDoMercadoNoCatalogo,
+  type Catalogo,
+  type GrupoProduto,
+  type ProdutoMercado,
+} from '@mercado/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { importarPlanilha } from '../planilha/importar';
 import type { OfertaArmazenada } from '../repositorio';
@@ -24,7 +32,7 @@ const get = (url: string, tk: string | null = token) =>
   amb.app.inject({ method: 'GET', url, headers: tk ? comToken(tk) : {} });
 
 describe('acesso', () => {
-  const rotas = ['/busca?q=arroz', '/mercados', '/mercados/1/produtos'];
+  const rotas = ['/busca?q=arroz', '/mercados', '/mercados/1/produtos', '/catalogo'];
 
   it.each(rotas)('%s sem token: 401', async (url) => {
     const res = await get(url, null);
@@ -245,3 +253,4 @@ describe('GET /mercados/:id/produtos', () => {
     expect(itens.filter((i) => i.desatualizado)).toHaveLength(1);
   });
 });
+

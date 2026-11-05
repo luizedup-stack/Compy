@@ -6,7 +6,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 
-const PORTA_API = 3000; // fixa: o app do celular aponta para ela
+const PORTA_API = Number(process.env.BOLSO_PORTA_API) || 3000; // 3000 por padrão: o app do celular aponta para ela
 let portaPainel = 0; // qualquer porta livre (a 3001, por exemplo, pode estar em uso por outro programa)
 const ADMIN_EMAIL = 'admin@bolsocerto.local';
 const ADMIN_SENHA = 'BolsoCerto-Teste-2026'; // só para teste local, igual ao iniciar-teste.ps1
@@ -22,7 +22,9 @@ const TIPOS = {
   '.map': 'application/json; charset=utf-8',
 };
 
-let apiEmbutida = null;
+let apiEmbutida = null; // o módulo api.cjs (emailsRecentes, iniciarApi)
+let api = null; // a API em execução (app, salvarAgora, apagarSalvos)
+let saindo = false;
 let servidorPainel = null;
 let janela = null;
 let janelaCodigos = null;
@@ -103,6 +105,22 @@ function iconeDaJanela() {
   return fs.existsSync(arquivo) ? arquivo : undefined;
 }
 
+function apagarSalvosERecomecar() {
+  const resposta = dialog.showMessageBoxSync(janela, {
+    type: 'warning',
+    buttons: ['Cancelar', 'Apagar e recomeçar'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Bolso Certo',
+    message: 'Apagar tudo o que foi salvo?',
+    detail: 'Contas de clientes e correções feitas à mão serão perdidas. O programa abre de novo com as planilhas originais.',
+  });
+  if (resposta !== 1) return;
+  api?.apagarSalvos();
+  app.relaunch();
+  app.exit(0);
+}
+
 function montarMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -111,6 +129,7 @@ function montarMenu() {
         submenu: [
           { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
           { label: 'Recarregar', accelerator: 'CmdOrCtrl+R', click: () => janela?.reload() },
+          { label: 'Apagar os dados salvos e recomeçar…', click: apagarSalvosERecomecar },
           { type: 'separator' },
           { label: 'Sair', accelerator: 'Alt+F4', click: () => app.quit() },
         ],
@@ -133,9 +152,10 @@ async function iniciar() {
 
   try {
     apiEmbutida = require(path.join(__dirname, 'api.cjs'));
-    apiEmbutida.app = await apiEmbutida.iniciarApi({
+    api = await apiEmbutida.iniciarApi({
       porta: PORTA_API,
       pastaDados: path.join(__dirname, 'dados'),
+      pastaSalvos: path.join(app.getPath('userData'), 'salvos'),
       adminEmail: ADMIN_EMAIL,
       adminSenha: ADMIN_SENHA,
     });
@@ -165,8 +185,20 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.whenReady().then(iniciar);
   app.on('window-all-closed', () => app.quit());
-  app.on('will-quit', () => {
-    servidorPainel?.close();
-    apiEmbutida?.app?.close();
+  // Ao sair, grava os dados antes de fechar (o fechamento espera a gravação terminar).
+  app.on('before-quit', (evento) => {
+    if (saindo) return;
+    evento.preventDefault();
+    saindo = true;
+    (async () => {
+      try {
+        await api?.salvarAgora();
+      } catch {
+        // Sem espaço ou sem permissão: sai mesmo assim.
+      }
+      servidorPainel?.close();
+      await api?.app?.close().catch(() => undefined);
+      app.exit(0);
+    })();
   });
 }

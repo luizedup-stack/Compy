@@ -65,6 +65,15 @@ Os testes usam jest-expo e React Native Testing Library. Eles não usam a intern
   que não bloqueia o uso.
 - Só contas de **cliente** entram no app. Mercados usam o painel na web.
 
+## Funciona sem internet
+
+O app guarda no celular uma **cópia de todos os mercados e produtos** (`GET /catalogo`, em `src/catalogo.ts`, em partes de 300 ofertas no AsyncStorage). Ao entrar (e a cada consulta bem-sucedida, no máximo a cada 10 minutos) ele renova essa cópia em segundo plano.
+
+- **Com o servidor respondendo**, `buscar`, `listarMercados` e `produtosDoMercado` (`src/api.ts`) usam as respostas dele.
+- **Sem resposta** (sem internet, ou servidor desligado), as mesmas consultas rodam na cópia, com a mesma conta do servidor (`buscarNoCatalogo` e companhia, em `packages/shared/src/busca.ts`; um teste da API garante que dão o mesmo resultado). Aparece a faixa "Sem conexão com o servidor. Mostrando os dados salvos no celular (data e hora)".
+- Sem conexão **e** sem nenhuma cópia guardada (primeiro uso), aparece o erro de sempre. A primeira entrada na conta precisa de internet.
+- Ao sair da conta a cópia é apagada. As buscas feitas sem internet não são registradas no servidor.
+
 ## Busca
 
 A tela inicial (`src/telas/Busca.tsx`) compara o preço de um produto entre os mercados. O app é **somente leitura**:

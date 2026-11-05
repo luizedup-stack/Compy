@@ -2,7 +2,17 @@
  * Cliente HTTP da API do Bolso Certo.
  * Em um celular de verdade, EXPO_PUBLIC_API_URL precisa ser o endereço do computador na rede (ex.: http://192.168.0.10:3000).
  */
-import type { GrupoProduto, ProdutoMercado } from '@mercado/shared';
+import {
+  buscarNoCatalogo,
+  mercadosDoCatalogo,
+  produtosDoMercadoNoCatalogo,
+  type Catalogo,
+  type GrupoProduto,
+  type ProdutoMercado,
+} from '@mercado/shared';
+
+import { guardarCatalogoLocal, lerCatalogoLocal } from './catalogo';
+import { marcarComConexao, marcarSemConexao } from './conexao';
 
 // O Expo troca `process.env.EXPO_PUBLIC_*` pelo valor na hora de empacotar, por isso a leitura é direta.
 export const URL_API: string = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -150,19 +160,88 @@ export function excluirConta(): Promise<void> {
   return pedirAutenticado<void>('/conta', { metodo: 'DELETE' });
 }
 
-/** Busca de produtos (só clientes). A API já devolve grupos e ofertas ordenados pela `ordem` escolhida. */
+// ---- Funciona sem internet -------------------------------------------------------------------------------
+// Com o servidor respondendo, as consultas vêm dele (sempre atualizadas) e o app aproveita para renovar a cópia
+// de todos os produtos guardada no celular. Sem resposta (sem internet, ou servidor desligado), as mesmas
+// consultas são feitas nessa cópia, com a mesma conta que o servidor usa (packages/shared).
+
+/** Quanto tempo uma tentativa de renovar a cópia vale antes de tentar de novo. */
+const PRAZO_RENOVAR_MS = 10 * 60 * 1000;
+let renovacaoAutomatica = true;
+let renovando: Promise<void> | null = null;
+let ultimaTentativa = 0;
+
+/** Liga/desliga a renovação automática da cópia em segundo plano (os testes a desligam). */
+export function definirRenovacaoAutomatica(ligada: boolean): void {
+  renovacaoAutomatica = ligada;
+  if (!ligada) ultimaTentativa = 0;
+}
+
+/**
+ * Baixa a cópia de todos os produtos e a guarda no celular. Sem `forcar`, não repete dentro de 10 minutos.
+ * Nunca lança erro: falhas só significam que a cópia antiga continua valendo.
+ */
+export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
+  if (!renovacaoAutomatica) return Promise.resolve();
+  if (renovando) return renovando;
+  const agora = Date.now();
+  if (!forcar && agora - ultimaTentativa < PRAZO_RENOVAR_MS) return Promise.resolve();
+  ultimaTentativa = agora;
+  renovando = (async () => {
+    try {
+      const catalogo = await executar<Catalogo>('/catalogo', {}, true);
+      await guardarCatalogoLocal(catalogo);
+    } catch {
+      ultimaTentativa = 0; // não deu certo: a próxima consulta tenta de novo
+    } finally {
+      renovando = null;
+    }
+  })();
+  return renovando;
+}
+
+/** Faz a consulta no servidor; se ele não responder (status 0), refaz na cópia do celular, se houver. */
+async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo: Catalogo) => T): Promise<T> {
+  try {
+    const resultado = await noServidor();
+    marcarComConexao();
+    void renovarCopiaDosProdutos();
+    return resultado;
+  } catch (e) {
+    if (!(e instanceof ErroApi) || e.status !== 0) throw e;
+    const local = await lerCatalogoLocal();
+    if (!local) throw e;
+    marcarSemConexao(local.baixadoEm);
+    return naCopia(local.catalogo);
+  }
+}
+
+/** Busca de produtos (só clientes): grupos e ofertas ordenados pela `ordem` escolhida. */
 export function buscar(q: string, ordem: 'unidade' | 'embalagem'): Promise<GrupoProduto[]> {
-  return pedirAutenticado<GrupoProduto[]>(`/busca?q=${encodeURIComponent(q)}&ordem=${ordem}`);
+  return comCopiaLocal(
+    () => pedirAutenticado<GrupoProduto[]>(`/busca?q=${encodeURIComponent(q)}&ordem=${ordem}`),
+    (catalogo) => buscarNoCatalogo(catalogo, { q, ordem }),
+  );
 }
 
 /** Mercados ativos, em ordem alfabética (só clientes). */
 export function listarMercados(): Promise<Mercado[]> {
-  return pedirAutenticado<Mercado[]>('/mercados');
+  return comCopiaLocal(
+    () => pedirAutenticado<Mercado[]>('/mercados'),
+    (catalogo) => mercadosDoCatalogo(catalogo),
+  );
 }
 
 /** Uma página (50 produtos) do mercado; `pagina` começa em 1. 404 se o mercado não existe mais. */
 export function produtosDoMercado(id: number, pagina: number): Promise<PaginaProdutos> {
-  return pedirAutenticado<PaginaProdutos>(`/mercados/${encodeURIComponent(String(id))}/produtos?pagina=${pagina}`);
+  return comCopiaLocal(
+    () => pedirAutenticado<PaginaProdutos>(`/mercados/${encodeURIComponent(String(id))}/produtos?pagina=${pagina}`),
+    (catalogo) => {
+      const resultado = produtosDoMercadoNoCatalogo(catalogo, id, pagina);
+      if (!resultado) throw new ErroApi('Mercado não encontrado', 404);
+      return resultado;
+    },
+  );
 }
 
 /** Texto para mostrar ao usuário a partir de qualquer erro capturado numa tela. */

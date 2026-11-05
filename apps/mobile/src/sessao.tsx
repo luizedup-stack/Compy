@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { definirAoExpirar, definirToken } from './api';
+import { apagarCatalogoLocal } from './catalogo';
 import { apagarDoCofre, guardarNoCofre, lerDoCofre } from './cofre';
 import { carregarServidor } from './servidor';
 
@@ -65,6 +66,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       // Uma saída sem aviso feita com a sessão já encerrada (ex.: um 401 atrasado) não apaga o aviso que está na tela.
       if (aviso !== undefined || atual.current !== null) setAvisoDeSaida(aviso || null);
       aplicar(null);
+      void apagarCatalogoLocal();
       try {
         await apagarDoCofre(CHAVE_SESSAO);
       } catch {

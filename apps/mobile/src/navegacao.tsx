@@ -1,9 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 
+import { renovarCopiaDosProdutos } from './api';
 import { AvisoEmail } from './componentes/AvisoEmail';
+import { AvisoSemConexao } from './componentes/AvisoSemConexao';
 import type { AbasParamList, RootStackParamList, RotaInicial } from './rotas';
 import { useSessao } from './sessao';
 import { Busca } from './telas/Busca';
@@ -55,6 +58,12 @@ function Principal() {
  */
 export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
   const { carregando, sessao, avisoDeSaida } = useSessao();
+  const temSessao = sessao !== null;
+
+  // Ao entrar (ou abrir o app já logado), renova a cópia dos produtos guardada no celular, em segundo plano.
+  useEffect(() => {
+    if (temSessao) void renovarCopiaDosProdutos(true);
+  }, [temSessao]);
 
   // Enquanto a sessão guardada é lida, nada além de uma tela neutra.
   if (carregando) return <View testID="splash" style={{ flex: 1, backgroundColor: cores.fundo }} />;
@@ -66,6 +75,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
           <Stack.Group
             screenLayout={({ children, route }) => (
               <View style={{ flex: 1 }}>
+                <AvisoSemConexao />
                 {route.name === 'VerificarEmail' ? null : <AvisoEmail />}
                 {children}
               </View>

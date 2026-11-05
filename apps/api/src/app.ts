@@ -25,6 +25,8 @@ export interface OpcoesApp {
   destinoDoLog?: { write(linha: string): void };
   /** Liga os limites de requisições por endereço (o servidor liga; padrão desligado nos testes). */
   limitarRequisicoes?: boolean;
+  /** Identifica este início do servidor nos tokens. Padrão: nova a cada início (sessões antigas deixam de valer); o programa de computador guarda a sua para as sessões sobreviverem ao reabrir. */
+  instancia?: string;
 }
 
 /**
@@ -77,6 +79,7 @@ export async function construirApp({
   logger = false,
   limitarRequisicoes = false,
   destinoDoLog,
+  instancia,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
     logger: logger
@@ -99,8 +102,8 @@ export async function construirApp({
   // O limite vale por arquivo; acima dele a rota responde 422 (veja rotas/planilhas.ts).
   await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1 } });
   app.decorate('repo', repo);
-  // Nova a cada início: tokens de um início anterior deixam de valer (veja auth/guardas.ts).
-  app.decorate('instancia', randomUUID());
+  // Nova a cada início (salvo se informada): tokens de outro início deixam de valer (veja auth/guardas.ts).
+  app.decorate('instancia', instancia ?? randomUUID());
   app.decorateRequest('usuario', null as never);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ erro: 'Rota não encontrada' }));
