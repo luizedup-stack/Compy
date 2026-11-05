@@ -49,10 +49,8 @@ function camposAlterados(p: ProdutoPainel, r: Rascunho): CamposProduto {
   const campos: CamposProduto = {};
   const nome = r.nome.trim();
   if (nome !== p.nome) campos.nome = nome;
-  if (r.preco !== rascunhoDe(p).preco) {
-    const preco = lerPreco(r.preco);
-    if (preco !== p.preco) campos.preco = preco;
-  }
+  // R27: preço editado é preço enviado, mesmo que o número seja igual ao salvo (isso renova a data do preço).
+  if (r.preco !== rascunhoDe(p).preco) campos.preco = lerPreco(r.preco);
   const quantidade = r.quantidade.trim();
   if (quantidade !== (p.quantidadeTexto ?? '')) campos.quantidade = quantidade === '' ? null : quantidade;
   const categoria = r.categoria.trim();
@@ -128,6 +126,20 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
       focoPendente.current = botaoEditar;
       setModo('ver');
       aoAtualizar(atualizado);
+    } catch (e) {
+      if (sessaoRecusada(e)) aoSessaoRecusada();
+      else setErro(mensagemDoErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  /** Confirma que o preço atual continua valendo: reenvia o mesmo preço para o servidor renovar a data. */
+  async function confirmarPreco() {
+    setErro(null);
+    setOcupado(true);
+    try {
+      aoAtualizar(await editarProduto(produto.codigoBarras, { preco: produto.preco }));
     } catch (e) {
       if (sessaoRecusada(e)) aoSessaoRecusada();
       else setErro(mensagemDoErro(e));
@@ -232,10 +244,20 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
         {modo === 'ver' && (
           <div className="acoes-botoes">
             <button
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              aria-describedby={idNome}
+              disabled={ocupado}
+              onClick={confirmarPreco}
+            >
+              Confirmar preço
+            </button>
+            <button
               ref={botaoEditar}
               type="button"
               className="botao botao-secundario botao-pequeno"
               aria-describedby={idNome}
+              disabled={ocupado}
               onClick={iniciarEdicao}
             >
               Editar
@@ -245,6 +267,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
               type="button"
               className="botao botao-secundario botao-pequeno"
               aria-describedby={idNome}
+              disabled={ocupado}
               onClick={pedirRemocao}
             >
               Remover
@@ -300,6 +323,7 @@ export default function Produtos() {
   const [pagina, setPagina] = useState(1);
   const [itens, setItens] = useState<ProdutoPainel[]>([]);
   const [total, setTotal] = useState(0);
+  const [paginaCarregada, setPaginaCarregada] = useState(0); // a página a que `itens` pertence
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
@@ -317,10 +341,8 @@ export default function Produtos() {
         if (!ativo) return;
         setItens(r.itens);
         setTotal(r.total);
+        setPaginaCarregada(pagina);
         setCarregando(false);
-        // Página que deixou de existir (produtos removidos): volta para a última.
-        const ultima = Math.max(1, Math.ceil(r.total / POR_PAGINA));
-        if (r.itens.length === 0 && r.total > 0 && pagina > ultima) setPagina(ultima);
       },
       (e: unknown) => {
         if (!ativo) return;
@@ -337,6 +359,14 @@ export default function Produtos() {
     };
   }, [pagina, tentativa, navigate]);
 
+  // Página sem itens apesar de haver produtos (a última foi esvaziada, ou a página passou do fim): volta
+  // para uma página que existe. Decide pelo estado atual, nunca por uma cópia antiga dele.
+  useEffect(() => {
+    if (carregando || erro || paginaCarregada !== pagina) return; // ainda não chegou a página pedida
+    if (itens.length > 0 || total === 0 || pagina <= 1) return;
+    setPagina(Math.min(pagina - 1, Math.max(1, Math.ceil(total / POR_PAGINA))));
+  }, [carregando, erro, itens, total, pagina, paginaCarregada]);
+
   function irParaPagina(nova: number) {
     setMensagem('');
     setPagina(nova);
@@ -348,13 +378,11 @@ export default function Produtos() {
   }
 
   function aoRemover(codigo: string) {
-    const restantes = itens.filter((i) => i.codigoBarras !== codigo);
-    setItens(restantes);
+    // Atualização funcional: várias remoções em andamento ao mesmo tempo não podem ressuscitar linhas.
+    setItens((lista) => lista.filter((i) => i.codigoBarras !== codigo));
     setTotal((t) => Math.max(0, t - 1));
     setMensagem('Produto removido');
-    // Página esvaziada: volta uma página. Em qualquer caso o foco não pode se perder com a linha.
-    if (restantes.length === 0 && pagina > 1) setPagina(pagina - 1);
-    titulo.current?.focus();
+    titulo.current?.focus(); // a linha removida levava o foco junto
   }
 
   const aoSessaoRecusada = () => navigate('/entrar', { replace: true });

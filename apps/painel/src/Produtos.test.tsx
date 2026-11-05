@@ -314,6 +314,18 @@ describe('edição na linha', () => {
     expect(mudancas()).toHaveLength(0);
   });
 
+  it('digitar de novo o mesmo preço (14,9 para 14.9 salvo) ainda envia { preco: 14.9 } para renovar a data', async () => {
+    const { user, linha, tr, mudancas } = await abrirEdicao();
+    const campo = linha.getByLabelText('Preço');
+    await user.clear(campo);
+    await user.type(campo, '14,9');
+    await user.click(linha.getByRole('button', { name: 'Salvar' }));
+
+    await within(tr).findByRole('button', { name: 'Editar' });
+    expect(mudancas()).toHaveLength(1);
+    expect(mudancas()[0].corpo).toEqual({ preco: 14.9 });
+  });
+
   it('sessão recusada (401) ao salvar leva para /entrar', async () => {
     const { user, linha, respondePatch } = await abrirEdicao();
     respondePatch(() => resposta({ erro: 'Sessão expirada' }, 401));
@@ -394,5 +406,182 @@ describe('remover', () => {
     await user.click(linha.getByRole('button', { name: 'Confirmar remoção' }));
 
     expect(await screen.findByText('Nenhum produto ainda. Envie uma planilha.')).toBeInTheDocument();
+  });
+});
+
+describe('confirmar preço', () => {
+  async function abrirLista() {
+    const user = userEvent.setup();
+    let patch: () => Response | Promise<Response> = () => resposta(feijao);
+    const chamadas = simularApi((c) =>
+      c.metodo === 'GET' ? resposta({ itens: [arroz, feijao], total: 2 }) : patch(),
+    );
+    abrir('/produtos');
+    await screen.findByText('Feijão Carioca 1kg');
+    const tr = linhaDe('Feijão Carioca 1kg');
+    return {
+      user,
+      tr,
+      linha: within(tr),
+      respondePatch: (fn: () => Response | Promise<Response>) => {
+        patch = fn;
+      },
+      mudancas: () => chamadas.filter((c) => c.metodo !== 'GET'),
+    };
+  }
+
+  it('envia exatamente { preco: 8.5 }, atualiza a data e tira o selo Preço antigo', async () => {
+    const { user, tr, linha, respondePatch, mudancas } = await abrirLista();
+    respondePatch(() => resposta({ ...feijao, desatualizado: false, atualizadoEm: '2026-11-04T15:00:00.000Z' }));
+    expect(linha.getByText('Preço antigo')).toBeInTheDocument();
+    expect(linha.getByRole('button', { name: 'Confirmar preço' })).toHaveAccessibleDescription('Feijão Carioca 1kg');
+
+    await user.click(linha.getByRole('button', { name: 'Confirmar preço' }));
+
+    expect(await within(tr).findByText('04/11/2026')).toBeInTheDocument();
+    expect(within(tr).queryByText('Preço antigo')).not.toBeInTheDocument();
+    expect(within(tr).getByText('R$ 8,50')).toBeInTheDocument();
+    expect(mudancas()).toHaveLength(1);
+    expect(mudancas()[0].metodo).toBe('PATCH');
+    expect(mudancas()[0].caminho).toBe('/painel/produtos/7891000200202');
+    expect(mudancas()[0].corpo).toEqual({ preco: 8.5 });
+    expect(mudancas()[0].autorizacao).toBe('Bearer tok-123');
+    expect(screen.getByRole('status')).toHaveTextContent('Produto atualizado');
+  });
+
+  it('fica desabilitado, junto com Editar e Remover, enquanto a chamada da linha está em andamento', async () => {
+    const { user, linha, respondePatch } = await abrirLista();
+    let concluir!: (r: Response) => void;
+    respondePatch(() => new Promise<Response>((res) => (concluir = res)));
+    await user.click(linha.getByRole('button', { name: 'Confirmar preço' }));
+
+    expect(linha.getByRole('button', { name: 'Confirmar preço' })).toBeDisabled();
+    expect(linha.getByRole('button', { name: 'Editar' })).toBeDisabled();
+    expect(linha.getByRole('button', { name: 'Remover' })).toBeDisabled();
+    concluir(resposta({ ...feijao, desatualizado: false }));
+    await waitFor(() => expect(linha.getByRole('button', { name: 'Confirmar preço' })).toBeEnabled());
+  });
+
+  it('erro 400 mostra a mensagem na linha', async () => {
+    const { user, linha, respondePatch } = await abrirLista();
+    respondePatch(() => resposta({ erro: 'Preço inválido' }, 400));
+    await user.click(linha.getByRole('button', { name: 'Confirmar preço' }));
+
+    expect(await linha.findByRole('alert')).toHaveTextContent('Preço inválido');
+    expect(linha.getByText('Preço antigo')).toBeInTheDocument();
+    expect(linha.getByRole('button', { name: 'Confirmar preço' })).toBeEnabled();
+  });
+
+  it('sessão recusada (401) leva para /entrar', async () => {
+    const { user, linha, respondePatch } = await abrirLista();
+    respondePatch(() => resposta({ erro: 'Sessão expirada' }, 401));
+    await user.click(linha.getByRole('button', { name: 'Confirmar preço' }));
+
+    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
+  });
+});
+
+describe('remoções simultâneas', () => {
+  it('confirmar duas remoções antes da primeira resposta remove as duas linhas e baixa a contagem em dois', async () => {
+    const user = userEvent.setup();
+    const resolvers: Array<(r: Response) => void> = [];
+    const chamadas = simularApi((c) =>
+      c.metodo === 'DELETE'
+        ? new Promise<Response>((res) => resolvers.push(res))
+        : resposta({ itens: [arroz, feijao, produto({ codigoBarras: '789', nome: 'Açúcar 1kg' })], total: 3 }),
+    );
+    abrir('/produtos');
+    await screen.findByText('Arroz Tipo 1 5kg');
+    const l1 = within(linhaDe('Arroz Tipo 1 5kg'));
+    const l2 = within(linhaDe('Feijão Carioca 1kg'));
+    await user.click(l1.getByRole('button', { name: 'Remover' }));
+    await user.click(l2.getByRole('button', { name: 'Remover' }));
+    await user.click(l1.getByRole('button', { name: 'Confirmar remoção' }));
+    await user.click(l2.getByRole('button', { name: 'Confirmar remoção' }));
+
+    expect(resolvers).toHaveLength(2);
+    expect(chamadas.filter((c) => c.metodo === 'DELETE')).toHaveLength(2);
+    resolvers[0](resposta(null, 204));
+    await waitFor(() => expect(screen.queryByText('Arroz Tipo 1 5kg')).not.toBeInTheDocument());
+    resolvers[1](resposta(null, 204));
+    await waitFor(() => expect(screen.queryByText('Feijão Carioca 1kg')).not.toBeInTheDocument());
+
+    expect(screen.queryByText('Arroz Tipo 1 5kg')).not.toBeInTheDocument();
+    expect(screen.getByText('Açúcar 1kg')).toBeInTheDocument();
+    expect(screen.getByText('1 produto')).toBeInTheDocument();
+  });
+});
+
+describe('paginação: bordas', () => {
+  it.each([
+    [1, 'Página 1 de 1'],
+    [50, 'Página 1 de 1'],
+    [51, 'Página 1 de 2'],
+    [120, 'Página 1 de 3'],
+  ])('total %i mostra o texto de página esperado', async (total, texto) => {
+    simularApi(() => resposta({ itens: [arroz], total }));
+    abrir('/produtos');
+
+    expect(await screen.findByText(texto)).toBeInTheDocument();
+  });
+
+  it('total 0 mostra o estado vazio e nenhum Página 0 de 0', async () => {
+    simularApi(() => resposta({ itens: [], total: 0 }));
+    abrir('/produtos');
+
+    expect(await screen.findByText('Nenhum produto ainda. Envie uma planilha.')).toBeInTheDocument();
+    expect(screen.queryByText(/Página/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument();
+  });
+
+  it('remover o único item da página 2 pede a página 1', async () => {
+    const user = userEvent.setup();
+    let total = 51;
+    const chamadas = simularApi((c) => {
+      if (c.metodo === 'DELETE') {
+        total = 50;
+        return resposta(null, 204);
+      }
+      return c.caminho.endsWith('pagina=2')
+        ? resposta({ itens: [feijao], total })
+        : resposta({ itens: [arroz], total });
+    });
+    abrir('/produtos');
+    await screen.findByText('Página 1 de 2');
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Feijão Carioca 1kg');
+    const linha = within(linhaDe('Feijão Carioca 1kg'));
+    await user.click(linha.getByRole('button', { name: 'Remover' }));
+    await user.click(linha.getByRole('button', { name: 'Confirmar remoção' }));
+
+    expect(await screen.findByText('Página 1 de 1')).toBeInTheDocument();
+    expect(screen.getByText('Arroz Tipo 1 5kg')).toBeInTheDocument();
+    expect(chamadas.at(-1)?.caminho).toBe('/painel/produtos?pagina=1');
+  });
+
+  it('página além do fim (itens vazios com total > 0) cai na última página válida', async () => {
+    const user = userEvent.setup();
+    let total = 120;
+    const chamadas = simularApi((c) => {
+      if (c.caminho.endsWith('pagina=3')) {
+        total = 60; // enquanto isso outro lugar removeu produtos
+        return resposta({ itens: [], total });
+      }
+      return resposta({ itens: [c.caminho.endsWith('pagina=2') ? feijao : arroz], total });
+    });
+    abrir('/produtos');
+    await screen.findByText('Página 1 de 3');
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    await screen.findByText('Página 2 de 3');
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+
+    expect(await screen.findByText('Página 2 de 2')).toBeInTheDocument();
+    expect(screen.getByText('Feijão Carioca 1kg')).toBeInTheDocument();
+    expect(chamadas.map((c) => c.caminho)).toEqual([
+      '/painel/produtos?pagina=1',
+      '/painel/produtos?pagina=2',
+      '/painel/produtos?pagina=3',
+      '/painel/produtos?pagina=2',
+    ]);
   });
 });

@@ -273,6 +273,11 @@ input:disabled {
   padding: 16px 0;
 }
 
+.tabela-rolagem {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .tabela-produtos {
   width: 100%;
   border-collapse: collapse;
