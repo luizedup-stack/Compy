@@ -25,10 +25,22 @@ if (-not (Test-Path (Join-Path $raiz 'node_modules'))) {
   Push-Location $raiz; npm install; Pop-Location
 }
 
-# A API precisa da porta 3000 livre (se sobrou uma API antiga aberta, ela responderia no lugar da nova).
-$ocupada = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
-if ($ocupada) {
-  throw 'A porta 3000 ja esta em uso (provavelmente uma API antiga do Bolso Certo). Feche a janela dela e rode de novo.'
+# Se sobraram servidores de uma rodada anterior (API 3000, painel 5173, app 8081), encerra so os DESTE projeto,
+# para que a API antiga nao responda no lugar da nova. Processo de outro programa nunca e tocado.
+foreach ($porta in 3000, 5173, 8081) {
+  foreach ($c in @(Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue)) {
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)" -ErrorAction SilentlyContinue
+    if ($proc -and $proc.CommandLine -and $proc.CommandLine.Contains($raiz)) {
+      Write-Host "Encerrando servidor antigo do Bolso Certo na porta $porta..." -ForegroundColor Yellow
+      Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+Start-Sleep -Seconds 2
+foreach ($porta in 3000, 5173, 8081) {
+  if (Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue) {
+    throw "A porta $porta continua em uso por outro programa (nao e do Bolso Certo). Feche-o e rode de novo."
+  }
 }
 
 # Pasta com as planilhas que a API vai carregar ao ligar.
@@ -73,6 +85,7 @@ Write-Host 'Bolso Certo iniciado.' -ForegroundColor Green
 Write-Host "  Planilhas carregadas : $qtd ($Dados)"
 Write-Host "  Painel (navegador)   : http://localhost:5173"
 Write-Host "  Administrador        : $adminEmail  /  $adminSenha"
+Write-Host "  App no navegador     : http://localhost:8081  (abra no computador; a 1a vez demora ~1 min)"
 Write-Host "  API para o celular   : $urlApi"
 Write-Host ''
 Write-Host 'No celular: instale o Expo Go, conecte na MESMA rede Wi-Fi e leia o QR code da janela "App".'

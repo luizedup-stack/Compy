@@ -1,7 +1,7 @@
-import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { definirAoExpirar, definirToken } from './api';
+import { apagarDoCofre, guardarNoCofre, lerDoCofre } from './cofre';
 
 /** Única chave do cofre seguro do aparelho: guarda { token, emailVerificado } em JSON. */
 export const CHAVE_SESSAO = 'bolso-certo.sessao';
@@ -53,7 +53,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
   const guardar = useCallback(async (nova: Sessao) => {
     try {
-      await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify(nova));
+      await guardarNoCofre(CHAVE_SESSAO, JSON.stringify(nova));
     } catch {
       // Sem o cofre a pessoa continua logada até fechar o app; só não volta logada.
     }
@@ -65,7 +65,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       if (aviso !== undefined || atual.current !== null) setAvisoDeSaida(aviso || null);
       aplicar(null);
       try {
-        await SecureStore.deleteItemAsync(CHAVE_SESSAO);
+        await apagarDoCofre(CHAVE_SESSAO);
       } catch {
         // A sessão já foi limpa da memória; nada mais a fazer.
       }
@@ -95,9 +95,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     (async () => {
       let guardada: Sessao | null = null;
       try {
-        const texto = await SecureStore.getItemAsync(CHAVE_SESSAO);
+        const texto = await lerDoCofre(CHAVE_SESSAO);
         guardada = lerSessaoGuardada(texto);
-        if (texto && !guardada) await SecureStore.deleteItemAsync(CHAVE_SESSAO);
+        if (texto && !guardada) await apagarDoCofre(CHAVE_SESSAO);
       } catch {
         guardada = null;
       }
