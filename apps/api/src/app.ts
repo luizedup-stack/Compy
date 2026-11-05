@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
@@ -33,6 +34,8 @@ export async function construirApp({ repo, email, jwtSecret, logger = false }: O
   // O limite vale por arquivo; acima dele a rota responde 422 (veja rotas/planilhas.ts).
   await app.register(multipart, { limits: { fileSize: LIMITE_BYTES, files: 1 } });
   app.decorate('repo', repo);
+  // Nova a cada início: tokens de um início anterior deixam de valer (veja auth/guardas.ts).
+  app.decorate('instancia', randomUUID());
   app.decorateRequest('usuario', null as never);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ erro: 'Rota não encontrada' }));

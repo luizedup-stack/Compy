@@ -16,7 +16,7 @@ async function criarConta(papel: Papel) {
     papel,
     emailVerificado: true,
   });
-  return { id: u.id, token: app.jwt.sign({ id: u.id, papel }) };
+  return { id: u.id, token: app.jwt.sign({ id: u.id, papel, inst: app.instancia }) };
 }
 
 beforeEach(async () => {
@@ -43,7 +43,7 @@ describe('exigirPapel', () => {
       email: criarEmailMemoria(),
       jwtSecret: 'outro-segredo',
     });
-    const estranho = outro.jwt.sign({ id: 1, papel: 'admin' });
+    const estranho = outro.jwt.sign({ id: 1, papel: 'admin', inst: app.instancia });
     expect((await get('/so-admin', estranho)).statusCode).toBe(401);
   });
 
@@ -90,5 +90,85 @@ describe('exigirPapel', () => {
     const res = await get('/so-admin', token);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ id, papel: 'admin' });
+  });
+});
+
+describe('sessão presa à instância do servidor (R29)', () => {
+  const SEGREDO = 'segredo-de-producao-fixo-com-32-caracteres';
+
+  async function instancia() {
+    const r = criarRepositorioMemoria();
+    const a = await construirApp({ repo: r, email: criarEmailMemoria(), jwtSecret: SEGREDO });
+    return { repo: r, app: a };
+  }
+
+  async function cadastrarEEntrar(a: FastifyInstance, endereco: string): Promise<string> {
+    const senha = 'senha-boa-123';
+    const cad = await a.inject({ method: 'POST', url: '/auth/cadastro', payload: { email: endereco, senha } });
+    expect(cad.statusCode).toBe(201);
+    const login = await a.inject({ method: 'POST', url: '/auth/login', payload: { email: endereco, senha } });
+    expect(login.statusCode).toBe(200);
+    return login.json().token as string;
+  }
+
+  it('cada instância tem o seu identificador aleatório', async () => {
+    const a = await instancia();
+    const b = await instancia();
+    expect(a.app.instancia).toMatch(/^[0-9a-f-]{36}$/);
+    expect(a.app.instancia).not.toBe(b.app.instancia);
+  });
+
+  it('o login assina { id, papel, inst } com a instância em execução', async () => {
+    const a = await instancia();
+    const token = await cadastrarEEntrar(a.app, 'ana@exemplo.com');
+    expect(a.app.jwt.verify<{ inst: string }>(token).inst).toBe(a.app.instancia);
+  });
+
+  it('token de outra instância (mesmo segredo, ids que se repetem) responde 401 e não age como outra conta', async () => {
+    const a = await instancia();
+    const b = await instancia();
+    const tokenAna = await cadastrarEEntrar(a.app, 'ana@exemplo.com');
+    const tokenBia = await cadastrarEEntrar(b.app, 'bia@exemplo.com');
+    const bia = (await b.repo.acharUsuarioPorEmail('bia@exemplo.com'))!;
+    expect(b.app.jwt.verify<{ id: number }>(tokenAna).id).toBe(bia.id); // mesmo id numérico
+
+    const busca = await b.app.inject({
+      method: 'GET',
+      url: '/busca?q=arroz',
+      headers: { authorization: `Bearer ${tokenAna}` },
+    });
+    expect(busca.statusCode).toBe(401);
+    expect(busca.json()).toEqual({ erro: 'Sessão inválida' });
+
+    const apagar = await b.app.inject({
+      method: 'DELETE',
+      url: '/conta',
+      headers: { authorization: `Bearer ${tokenAna}` },
+    });
+    expect(apagar.statusCode).toBe(401);
+    expect(apagar.json()).toEqual({ erro: 'Sessão inválida' });
+    expect(await b.repo.acharUsuario(bia.id)).not.toBeNull();
+
+    // Na própria instância, os tokens seguem valendo.
+    const propria = await b.app.inject({
+      method: 'GET',
+      url: '/busca?q=arroz',
+      headers: { authorization: `Bearer ${tokenBia}` },
+    });
+    expect(propria.statusCode).toBe(200);
+    const propriaA = await a.app.inject({
+      method: 'GET',
+      url: '/busca?q=arroz',
+      headers: { authorization: `Bearer ${tokenAna}` },
+    });
+    expect(propriaA.statusCode).toBe(200);
+  });
+
+  it('token sem inst é recusado com 401 "Sessão inválida"', async () => {
+    const { id } = await criarConta('admin');
+    const semInst = app.jwt.sign({ id, papel: 'admin' } as never);
+    const res = await get('/so-admin', semInst);
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ erro: 'Sessão inválida' });
   });
 });

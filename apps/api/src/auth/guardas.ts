@@ -6,16 +6,23 @@ export interface UsuarioAutenticado {
   papel: Papel;
 }
 
+/** O que vai assinado no token: id, papel e a instância do servidor que o emitiu. */
+export interface DadosToken extends UsuarioAutenticado {
+  inst: string;
+}
+
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: UsuarioAutenticado;
-    user: UsuarioAutenticado;
+    payload: DadosToken;
+    user: DadosToken;
   }
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     repo: Repositorio;
+    /** Identificador aleatório gerado a cada início do servidor (veja construirApp). */
+    instancia: string;
   }
   interface FastifyRequest {
     usuario: UsuarioAutenticado;
@@ -25,6 +32,9 @@ declare module 'fastify' {
 /**
  * 401 sem token válido ou se a conta não existe mais; 403 se o papel não está na lista.
  * O papel vem do repositório, não do token: conta apagada ou rebaixada perde o acesso na hora.
+ * Token emitido por outro início do servidor (ou sem `inst`) também é 401 "Sessão inválida": no
+ * repositório em memória os ids recomeçam em 1 a cada início, e um token antigo apontaria para a
+ * conta de outra pessoa.
  */
 export function exigirPapel(...papeis: Papel[]): preHandlerAsyncHookHandler {
   return async (req, reply) => {
@@ -33,6 +43,7 @@ export function exigirPapel(...papeis: Papel[]): preHandlerAsyncHookHandler {
     } catch {
       return reply.code(401).send({ erro: 'Não autenticado' });
     }
+    if (req.user.inst !== req.server.instancia) return reply.code(401).send({ erro: 'Sessão inválida' });
     const usuario = await req.server.repo.acharUsuario(req.user.id);
     if (!usuario) return reply.code(401).send({ erro: 'Sessão inválida' });
     if (!papeis.includes(usuario.papel)) {

@@ -117,7 +117,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
       const usuario = await repo.acharUsuarioPorEmail(dados.email);
       const confere = await conferirSenha(dados.senha, usuario ? usuario.senhaHash : await hashFalso);
       if (!usuario || !confere) return reply.code(401).send({ erro: ERRO_LOGIN });
-      const token = app.jwt.sign({ id: usuario.id, papel: usuario.papel });
+      const token = app.jwt.sign({ id: usuario.id, papel: usuario.papel, inst: app.instancia });
       return { token, papel: usuario.papel, emailVerificado: usuario.emailVerificado };
     });
 

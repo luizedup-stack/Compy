@@ -31,7 +31,7 @@ export async function criarAmbiente(): Promise<Ambiente> {
         papel,
         emailVerificado: true,
       });
-      return { id: u.id, token: app.jwt.sign({ id: u.id, papel: u.papel }) };
+      return { id: u.id, token: app.jwt.sign({ id: u.id, papel: u.papel, inst: app.instancia }) };
     },
   };
 }

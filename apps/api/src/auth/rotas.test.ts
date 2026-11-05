@@ -39,7 +39,7 @@ async function criarComPapel(papel: Papel, endereco = `${papel}@exemplo.com`) {
     papel,
     emailVerificado: true,
   });
-  return { usuario: u, token: app.jwt.sign({ id: u.id, papel: u.papel }) };
+  return { usuario: u, token: app.jwt.sign({ id: u.id, papel: u.papel, inst: app.instancia }) };
 }
 
 describe('POST /auth/cadastro', () => {
@@ -104,14 +104,14 @@ describe('POST /auth/login', () => {
     await cadastrar('ana@exemplo.com', 'senha-boa-123');
   });
 
-  it('com dados certos devolve token (7 dias, id e papel), papel e emailVerificado', async () => {
+  it('com dados certos devolve token (7 dias, id, papel e instância), papel e emailVerificado', async () => {
     const res = await entrar('ANA@exemplo.com', 'senha-boa-123');
     expect(res.statusCode).toBe(200);
     const corpo = res.json();
     expect(corpo).toMatchObject({ papel: 'cliente', emailVerificado: false });
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     const payload = app.jwt.verify<{ id: number; papel: string; iat: number; exp: number }>(corpo.token);
-    expect(payload).toMatchObject({ id: u.id, papel: 'cliente' });
+    expect(payload).toMatchObject({ id: u.id, papel: 'cliente', inst: app.instancia });
     expect(payload.exp - payload.iat).toBe(7 * 24 * 3600);
   });
 
