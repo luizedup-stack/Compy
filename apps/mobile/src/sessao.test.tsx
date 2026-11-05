@@ -16,6 +16,8 @@ function Sonda() {
   return (
     <>
       <Text testID="estado">{estado}</Text>
+      <Text testID="aviso">{s.avisoDeSaida ?? 'sem aviso'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="sair com aviso" onPress={() => void s.sair('Conta excluída.')} />
       <Pressable accessibilityRole="button" accessibilityLabel="sair" onPress={() => void s.sair()} />
       <Pressable
         accessibilityRole="button"
@@ -116,5 +118,34 @@ describe('SessaoContext', () => {
     await esperar('deslogado');
     expect(api.chamadas[0].autorizacao).toBe('Bearer tok-velho');
     expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
+  });
+
+  it('sair com aviso guarda a mensagem para a tela Entrar; sair sem aviso depois dela não a apaga; entrar de novo a limpa', async () => {
+    guardarSessao('tok-c', true);
+    const user = userEvent.setup();
+    await abrir();
+    await esperar('logado:tok-c:true');
+    expect(screen.getByTestId('aviso')).toHaveTextContent('sem aviso');
+
+    await user.press(screen.getByLabelText('sair com aviso'));
+    await esperar('deslogado');
+    expect(screen.getByTestId('aviso')).toHaveTextContent('Conta excluída.');
+
+    await user.press(screen.getByLabelText('sair')); // já deslogado: não apaga o aviso
+    expect(screen.getByTestId('aviso')).toHaveTextContent('Conta excluída.');
+
+    await user.press(screen.getByLabelText('iniciar'));
+    await esperar('logado:tok-novo:false');
+    expect(screen.getByTestId('aviso')).toHaveTextContent('sem aviso');
+  });
+
+  it('sair sem aviso com a sessão ativa deixa o aviso vazio', async () => {
+    guardarSessao('tok-d', true);
+    const user = userEvent.setup();
+    await abrir();
+    await esperar('logado:tok-d:true');
+    await user.press(screen.getByLabelText('sair'));
+    await esperar('deslogado');
+    expect(screen.getByTestId('aviso')).toHaveTextContent('sem aviso');
   });
 });

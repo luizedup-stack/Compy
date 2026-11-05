@@ -68,6 +68,12 @@ describe('textoPorUnidade', () => {
     expect(textoPorUnidade(oferta({ precoPorUnidade: 2.5, unidade: 'un' }))).toBe('R$ 2,50 por unidade');
   });
 
+  it('aceita qualquer objeto com precoPorUnidade e unidade, como um produto de mercado', () => {
+    expect(textoPorUnidade({ precoPorUnidade: 1.54, unidade: 'rolo' })).toBe('R$ 1,54 por rolo');
+    expect(textoPorUnidade({ precoPorUnidade: 45.8, unidade: 'kg' })).toBe('R$ 45,80 por kg');
+    expect(textoPorUnidade({ precoPorUnidade: null, unidade: null })).toBeNull();
+  });
+
   it('é nulo quando falta o preço por unidade ou a unidade', () => {
     expect(textoPorUnidade(oferta({ precoPorUnidade: null, unidade: null }))).toBeNull();
     expect(textoPorUnidade(oferta({ precoPorUnidade: null, unidade: 'rolo' }))).toBeNull();

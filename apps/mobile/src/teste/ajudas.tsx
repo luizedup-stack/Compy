@@ -69,3 +69,8 @@ export async function abrirApp(rotaInicial?: RotaInicial) {
   );
   await waitFor(() => expect(screen.queryByTestId('splash')).not.toBeOnTheScreen());
 }
+
+/** Botão de uma aba da barra inferior ("Buscar", "Mercados" ou "Conta"); o React Navigation o rotula como "Mercados, tab, 2 of 3". */
+export function aba(nome: 'Buscar' | 'Mercados' | 'Conta') {
+  return screen.getByLabelText(new RegExp(`^${nome}(,|$)`));
+}

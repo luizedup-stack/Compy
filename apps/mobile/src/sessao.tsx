@@ -15,9 +15,12 @@ export interface ValorSessao {
   /** Verdadeiro enquanto a sessão guardada está sendo lida; o app mostra só uma tela neutra. */
   carregando: boolean;
   sessao: Sessao | null;
+  /** Mensagem para a tela Entrar depois de sair de propósito (ex.: "Conta excluída."); nula nos demais casos. */
+  avisoDeSaida: string | null;
   iniciar(token: string, emailVerificado: boolean): Promise<void>;
   marcarEmailVerificado(): Promise<void>;
-  sair(): Promise<void>;
+  /** Encerra a sessão e apaga o token do aparelho. `aviso` aparece na tela Entrar. */
+  sair(aviso?: string): Promise<void>;
 }
 
 const SessaoContext = createContext<ValorSessao | null>(null);
@@ -38,6 +41,7 @@ function lerSessaoGuardada(texto: string | null): Sessao | null {
 export function SessaoProvider({ children }: { children: ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [sessao, setSessao] = useState<Sessao | null>(null);
+  const [avisoDeSaida, setAvisoDeSaida] = useState<string | null>(null);
   // Espelho síncrono da sessão: evita ler um estado velho dentro dos callbacks.
   const atual = useRef<Sessao | null>(null);
 
@@ -55,18 +59,24 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const sair = useCallback(async () => {
-    aplicar(null);
-    try {
-      await SecureStore.deleteItemAsync(CHAVE_SESSAO);
-    } catch {
-      // A sessão já foi limpa da memória; nada mais a fazer.
-    }
-  }, [aplicar]);
+  const sair = useCallback(
+    async (aviso?: string) => {
+      // Uma saída sem aviso feita com a sessão já encerrada (ex.: um 401 atrasado) não apaga o aviso que está na tela.
+      if (aviso !== undefined || atual.current !== null) setAvisoDeSaida(aviso || null);
+      aplicar(null);
+      try {
+        await SecureStore.deleteItemAsync(CHAVE_SESSAO);
+      } catch {
+        // A sessão já foi limpa da memória; nada mais a fazer.
+      }
+    },
+    [aplicar],
+  );
 
   const iniciar = useCallback(
     async (token: string, emailVerificado: boolean) => {
       const nova = { token, emailVerificado };
+      setAvisoDeSaida(null);
       aplicar(nova);
       await guardar(nova);
     },
@@ -107,8 +117,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, [sair]);
 
   const valor = useMemo<ValorSessao>(
-    () => ({ carregando, sessao, iniciar, marcarEmailVerificado, sair }),
-    [carregando, sessao, iniciar, marcarEmailVerificado, sair],
+    () => ({ carregando, sessao, avisoDeSaida, iniciar, marcarEmailVerificado, sair }),
+    [carregando, sessao, avisoDeSaida, iniciar, marcarEmailVerificado, sair],
   );
   return <SessaoContext.Provider value={valor}>{children}</SessaoContext.Provider>;
 }

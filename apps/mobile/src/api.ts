@@ -2,7 +2,7 @@
  * Cliente HTTP da API do Bolso Certo.
  * Em um celular de verdade, EXPO_PUBLIC_API_URL precisa ser o endereço do computador na rede (ex.: http://192.168.0.10:3000).
  */
-import type { GrupoProduto } from '@mercado/shared';
+import type { GrupoProduto, ProdutoMercado } from '@mercado/shared';
 
 // O Expo troca `process.env.EXPO_PUBLIC_*` pelo valor na hora de empacotar, por isso a leitura é direta.
 export const URL_API: string = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -26,6 +26,20 @@ export interface RespostaLogin {
   token: string;
   papel: string;
   emailVerificado: boolean;
+}
+
+/** Mercado ativo como a lista do cliente o mostra (resposta de GET /mercados). */
+export interface Mercado {
+  id: number;
+  nome: string;
+  endereco: string;
+  totalProdutos: number;
+}
+
+/** Uma página de produtos de um mercado: `total` é a quantidade em todas as páginas. */
+export interface PaginaProdutos {
+  itens: ProdutoMercado[];
+  total: number;
 }
 
 let tokenAtual: string | null = null;
@@ -127,6 +141,16 @@ export function excluirConta(): Promise<void> {
 /** Busca de produtos (só clientes). A API já devolve grupos e ofertas ordenados pela `ordem` escolhida. */
 export function buscar(q: string, ordem: 'unidade' | 'embalagem'): Promise<GrupoProduto[]> {
   return pedirAutenticado<GrupoProduto[]>(`/busca?q=${encodeURIComponent(q)}&ordem=${ordem}`);
+}
+
+/** Mercados ativos, em ordem alfabética (só clientes). */
+export function listarMercados(): Promise<Mercado[]> {
+  return pedirAutenticado<Mercado[]>('/mercados');
+}
+
+/** Uma página (50 produtos) do mercado; `pagina` começa em 1. 404 se o mercado não existe mais. */
+export function produtosDoMercado(id: number, pagina: number): Promise<PaginaProdutos> {
+  return pedirAutenticado<PaginaProdutos>(`/mercados/${encodeURIComponent(String(id))}/produtos?pagina=${pagina}`);
 }
 
 /** Texto para mostrar ao usuário a partir de qualquer erro capturado numa tela. */

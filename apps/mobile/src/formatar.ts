@@ -20,8 +20,8 @@ export function textoIdade(dias: number): string {
   return `atualizado há ${inteiros} ${inteiros === 1 ? 'dia' : 'dias'}`;
 }
 
-/** "R$ 1,24 por rolo", "R$ 5,80 por kg", "R$ 2,50 por unidade"; nulo quando a oferta não tem preço por unidade. */
-export function textoPorUnidade(oferta: Oferta): string | null {
+/** "R$ 1,24 por rolo", "R$ 5,80 por kg", "R$ 2,50 por unidade"; nulo quando não há preço por unidade. Serve para ofertas e produtos de mercado. */
+export function textoPorUnidade(oferta: Pick<Oferta, 'precoPorUnidade' | 'unidade'>): string | null {
   if (oferta.precoPorUnidade === null || oferta.unidade === null) return null;
   const unidade = oferta.unidade === 'un' ? 'unidade' : oferta.unidade;
   return `${formatarPreco(oferta.precoPorUnidade)} por ${unidade}`;

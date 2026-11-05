@@ -1,8 +1,8 @@
 # Bolso Certo — aplicativo do cliente
 
 Aplicativo de celular (Expo / React Native) para comparar preços. Nesta etapa ele tem cadastro, login,
-confirmação de e-mail, redefinição de senha e a busca com comparação de preços. As telas de mercados e conta
-vêm nas próximas tarefas.
+confirmação de e-mail, redefinição de senha, a busca com comparação de preços, a lista de mercados com os produtos de
+cada um e a tela da conta (sair e excluir a conta).
 
 ## Como rodar no celular
 
@@ -39,12 +39,13 @@ Os testes usam jest-expo e React Native Testing Library. Eles não usam a intern
 ## Como funciona
 
 - `src/api.ts`: chamadas à API (`cadastrar`, `entrar`, `esqueciSenha`, `redefinirSenha`, `verificarEmail`,
-  `reenviarVerificacao`, `excluirConta`, `buscar`) e `pedirAutenticado`, que as próximas telas devem reutilizar.
+  `reenviarVerificacao`, `excluirConta`, `buscar`, `listarMercados`, `produtosDoMercado`) e `pedirAutenticado`, que as próximas telas devem reutilizar.
 - `src/sessao.tsx`: guarda `{ token, emailVerificado }` no cofre seguro do aparelho (`expo-secure-store`)
   e devolve a sessão ao abrir o app. Se a API responder 401 numa chamada autenticada, a sessão é encerrada.
-- `src/navegacao.tsx`: telas de acesso (Entrar, Cadastrar, EsqueciSenha) sem sessão; telas principais
-  (Busca, VerificarEmail) com sessão. Enquanto o e-mail não é confirmado, as telas principais mostram a faixa
-  "Confirme seu e-mail", que não bloqueia o uso.
+- `src/navegacao.tsx`: telas de acesso (Entrar, Cadastrar, EsqueciSenha) sem sessão; com sessão, três abas na barra
+  inferior (**Buscar**, **Mercados** e **Conta**) e, por cima delas, MercadoDetalhe e VerificarEmail. Entrar abre em
+  "Buscar". Enquanto o e-mail não é confirmado, as abas e o MercadoDetalhe mostram a faixa "Confirme seu e-mail",
+  que não bloqueia o uso.
 - Só contas de **cliente** entram no app. Mercados usam o painel na web.
 
 ## Busca
@@ -63,3 +64,29 @@ não há como editar produtos, preços ou mercados.
 - Erros (rede ou servidor) aparecem com o botão "Tentar de novo". Se a API responder 401, a sessão é encerrada.
 - `src/formatar.ts` tem os formatadores (`formatarPreco`, `textoIdade`, `textoPorUnidade`), escritos sem `Intl` para
   funcionar igual no celular e nos testes; `src/componentes/CartaoOferta.tsx` é a linha de uma oferta.
+
+## Mercados
+
+A aba "Mercados" (`src/telas/Mercados.tsx`) lista os mercados ativos (`GET /mercados`): nome, endereço e
+"N produtos" (ou "1 produto"). Puxar a lista para baixo atualiza; erros mostram a mensagem e "Tentar de novo".
+
+Tocar num mercado abre `src/telas/MercadoDetalhe.tsx`, com o nome do mercado no título e os produtos dele
+(`GET /mercados/:id/produtos?pagina=N`, 50 por página) em rolagem infinita: ao chegar ao fim da lista o app pede a próxima
+página, nunca repete uma página já pedida e não pede nada depois da última (quando os produtos recebidos chegam ao total).
+Cada linha (`src/componentes/LinhaProduto.tsx`) mostra o nome, o preço da embalagem com a quantidade, o preço por
+unidade, a idade do preço e, para preços velhos, a etiqueta amarela "Preço antigo" (o produto continua na lista);
+sem quantidade aparece "sem quantidade informada". Se uma página depois da primeira falhar, as linhas já carregadas
+ficam e a lista mostra "Não foi possível carregar mais." com "Tentar de novo" (pede a mesma página). Se o mercado foi
+removido (404) aparece a mensagem e o botão "Voltar". Tudo é somente leitura.
+
+## Conta
+
+A aba "Conta" (`src/telas/Conta.tsx`) tem:
+
+- **Sair**: apaga a sessão guardada no aparelho e volta para Entrar.
+- **Política de privacidade**: abre `<API>/privacidade` no navegador (`expo-linking`).
+- **Excluir minha conta**: em duas etapas. O primeiro botão só abre a confirmação; somente "Sim, excluir minha conta"
+  chama `DELETE /conta` (uma única vez, mesmo com toques repetidos; os dois botões ficam desativados enquanto o pedido
+  corre). Se der certo, o token é apagado e o app volta para Entrar com o aviso "Conta excluída."; se der erro, a
+  mensagem aparece e a confirmação continua aberta para tentar de novo. "Cancelar" fecha a confirmação sem chamar a API.
+  A API apaga a conta e deixa as buscas anônimas; depois disso o token deixa de valer.
