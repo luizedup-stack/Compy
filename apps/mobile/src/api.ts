@@ -7,6 +7,18 @@ import type { GrupoProduto, ProdutoMercado } from '@mercado/shared';
 // O Expo troca `process.env.EXPO_PUBLIC_*` pelo valor na hora de empacotar, por isso a leitura é direta.
 export const URL_API: string = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
+// Endereço escolhido dentro do app (tela Entrar > Configurar servidor); vale no lugar do de fábrica.
+let urlEscolhida: string | null = null;
+
+/** Endereço da API em uso: o escolhido no app, ou o de fábrica (URL_API). */
+export function urlApi(): string {
+  return urlEscolhida ?? URL_API;
+}
+
+export function definirUrlApi(url: string | null): void {
+  urlEscolhida = url === null ? null : url.replace(/\/+$/, '');
+}
+
 export const MSG_SEM_SERVIDOR = 'Não foi possível falar com o servidor';
 export const MSG_ERRO_GENERICO = 'Algo deu errado. Tente novamente.';
 export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Mercados usam o painel na web.';
@@ -67,7 +79,7 @@ async function executar<T>(caminho: string, opcoes: Opcoes, autenticado: boolean
 
   let resposta: Response;
   try {
-    resposta = await fetch(`${URL_API}${caminho}`, {
+    resposta = await fetch(`${urlApi()}${caminho}`, {
       method: opcoes.metodo ?? (opcoes.corpo !== undefined ? 'POST' : 'GET'),
       headers: cabecalhos,
       body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,

@@ -5,6 +5,7 @@ import { Pressable, Text } from 'react-native';
 import { entrarComoCliente, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
 import { Campo } from '../componentes/Campo';
+import { ConfigurarServidor } from '../componentes/ConfigurarServidor';
 import { Formulario } from '../componentes/Formulario';
 import type { RootStackParamList } from '../rotas';
 import { useSessao } from '../sessao';
@@ -87,6 +88,7 @@ export function Entrar({ navigation, route }: Props) {
       >
         <Text style={estilos.link}>Esqueci minha senha</Text>
       </Pressable>
+      <ConfigurarServidor />
     </Formulario>
   );
 }

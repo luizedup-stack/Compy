@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { definirAoExpirar, definirToken } from './api';
 import { apagarDoCofre, guardarNoCofre, lerDoCofre } from './cofre';
+import { carregarServidor } from './servidor';
 
 /** Única chave do cofre seguro do aparelho: guarda { token, emailVerificado } em JSON. */
 export const CHAVE_SESSAO = 'bolso-certo.sessao';
@@ -94,6 +95,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     let ativo = true;
     (async () => {
       let guardada: Sessao | null = null;
+      await carregarServidor();
       try {
         const texto = await lerDoCofre(CHAVE_SESSAO);
         guardada = lerSessaoGuardada(texto);

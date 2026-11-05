@@ -2,7 +2,7 @@ import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { URL_API, excluirConta, mensagemDoErro } from '../api';
+import { urlApi, excluirConta, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
 import { useSessao } from '../sessao';
 import { cores, estilos as comuns } from '../tema';
@@ -29,7 +29,7 @@ export function Conta() {
 
   function abrirPolitica() {
     setErroLink(null);
-    Linking.openURL(`${URL_API}/privacidade`).catch(() => {
+    Linking.openURL(`${urlApi()}/privacidade`).catch(() => {
       if (montada.current) setErroLink('Não foi possível abrir a política de privacidade.');
     });
   }

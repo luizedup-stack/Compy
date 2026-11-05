@@ -3,7 +3,7 @@ import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { URL_API, cadastrar, entrarComoCliente, mensagemDoErro } from '../api';
+import { urlApi, cadastrar, entrarComoCliente, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
 import { Campo } from '../componentes/Campo';
 import { Formulario } from '../componentes/Formulario';
@@ -25,7 +25,7 @@ export function Cadastrar({ navigation }: Props) {
   const [enviando, setEnviando] = useState(false);
 
   function abrirPolitica() {
-    Linking.openURL(`${URL_API}/privacidade`).catch(() =>
+    Linking.openURL(`${urlApi()}/privacidade`).catch(() =>
       setErros((antigos) => ({ ...antigos, geral: 'Não foi possível abrir a política de privacidade.' })),
     );
   }
