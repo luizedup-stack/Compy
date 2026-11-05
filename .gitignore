@@ -6,3 +6,8 @@ dist
 # Dados coletados de sites de terceiros ficam so no seu computador (veja dados-reais/LEIA-ME.md)
 dados-reais/*.xlsx
 dados-reais/*.json
+
+# App Android gerado por "expo prebuild" (recriado quando precisa)
+apps/mobile/android/
+apps/mobile/ios/
+*.apk
