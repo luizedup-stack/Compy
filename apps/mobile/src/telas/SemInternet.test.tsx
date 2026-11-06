@@ -34,6 +34,19 @@ describe('app sem internet', () => {
     expect(screen.getByText(/Sem conexão com o servidor\. Mostrando os dados salvos no celular \(05\/11 15:40\)\./)).toBeOnTheScreen();
   });
 
+  it('a tela inicial já mostra a lista de produtos comparados, vinda da cópia guardada', async () => {
+    await guardarCatalogoLocal(catalogoDeTeste(), new Date(2026, 10, 5, 15, 40).getTime());
+    simularApi({}, { semPadroes: true }); // sem nenhuma rota: sem conexão
+    await abrirApp();
+
+    // O produto vendido nos 2 mercados (papel higiênico) vem primeiro, com o mais barato em destaque.
+    expect(await screen.findByText(/Papel Hig/)).toBeOnTheScreen();
+    expect(screen.getAllByTestId('oferta').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('mais barato')).toBeOnTheScreen();
+    expect(screen.getByText('Leite Integral 1 L')).toBeOnTheScreen();
+    expect(screen.getByText(/Sem conexão com o servidor/)).toBeOnTheScreen();
+  });
+
   it('lista os mercados e abre os produtos de um deles, tudo da cópia guardada', async () => {
     await guardarCatalogoLocal(catalogoDeTeste());
     simularApi({});

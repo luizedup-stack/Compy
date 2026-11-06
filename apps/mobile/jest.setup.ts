@@ -18,6 +18,13 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// A galeria de fotos não existe nos testes: por padrão a pessoa "cancela" a escolha (os testes da foto trocam isto).
+jest.mock('./src/foto', () => ({
+  __esModule: true,
+  escolherFoto: jest.fn(async () => null),
+  ErroDeFoto: class ErroDeFoto extends Error {},
+}));
+
 jest.mock('expo-linking', () => ({
   __esModule: true,
   openURL: jest.fn(async () => true),

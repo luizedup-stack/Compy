@@ -189,25 +189,15 @@ describe('roteiro fim a fim', () => {
     expect(lista.itens.find((p) => p.codigoBarras === SABONETE)).toMatchObject({ preco: 2, disponivel: true });
   });
 
-  it('passo 5: o cliente se cadastra, confirma o e-mail e busca papel higiênico (com o preço corrigido)', async () => {
+  it('passo 5: o cliente se cadastra (sem confirmar e-mail) e busca papel higiênico (com o preço corrigido)', async () => {
     const cadastro = await app.inject({ method: 'POST', url: '/auth/cadastro', payload: CLIENTE });
     expect(cadastro.statusCode).toBe(201);
     const novo = cadastro.json() as { id: number; email: string; papel: string };
     expect(novo).toMatchObject({ email: CLIENTE.email, papel: 'cliente' });
     idCliente = novo.id;
 
-    // O código vem no e-mail (o do administrador e o do mercado não são enviados por e-mail).
-    expect(email.enviados).toHaveLength(1);
-    expect(email.enviados[0]).toMatchObject({ para: CLIENTE.email, assunto: 'Bolso Certo: confirme seu e-mail' });
-    const codigo = /^[0-9a-f]{64}$/m.exec(email.enviados[0]!.texto)?.[0];
-    expect(codigo).toBeDefined();
-
-    const antes = await entrar(CLIENTE);
-    expect(antes.emailVerificado).toBe(false);
-    const errado = await app.inject({ method: 'POST', url: '/auth/verificar-email', payload: { token: 'codigo-errado' } });
-    expect(errado.statusCode).toBe(400);
-    const confirma = await app.inject({ method: 'POST', url: '/auth/verificar-email', payload: { token: codigo } });
-    expect(confirma.statusCode).toBe(204);
+    // Sem confirmação de e-mail: nenhum e-mail é enviado e a conta já entra verificada.
+    expect(email.enviados).toHaveLength(0);
 
     const login = await entrar(CLIENTE);
     expect(login).toMatchObject({ papel: 'cliente', emailVerificado: true });

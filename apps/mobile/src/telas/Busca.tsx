@@ -2,7 +2,7 @@ import type { GrupoProduto } from '@mercado/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { buscar, mensagemDoErro } from '../api';
+import { buscar, listarProdutos, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
 import { CartaoOferta } from '../componentes/CartaoOferta';
 import { cores } from '../tema';
@@ -19,7 +19,8 @@ const OPCOES: { ordem: Ordem; titulo: string }[] = [
 ];
 
 type Estado =
-  | { tipo: 'dica' }
+  // Nada digitado: a lista de produtos da tela inicial, paginada (`total` = produtos em todas as páginas).
+  | { tipo: 'inicio'; grupos: GrupoProduto[]; total: number; pagina: number; carregandoMais: boolean; erroMais: string | null }
   | { tipo: 'carregando' }
   | { tipo: 'ok'; q: string; grupos: GrupoProduto[] }
   | { tipo: 'erro'; q: string; mensagem: string };
@@ -27,11 +28,13 @@ type Estado =
 /**
  * Busca e comparação de preços (somente leitura). A API devolve os grupos e as ofertas já ordenados
  * pela opção escolhida; a tela os mostra exatamente nessa ordem, sem reordenar.
+ * Sem nada digitado, a tela já mostra a lista de produtos comparados (os vendidos em mais de um mercado vêm primeiro,
+ * cada um com o mercado mais barato em destaque); ao digitar, mostra o resultado da busca.
  */
 export function Busca() {
   const [texto, setTexto] = useState('');
   const [ordem, setOrdem] = useState<Ordem>('unidade');
-  const [estado, setEstado] = useState<Estado>({ tipo: 'dica' });
+  const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Número da última chamada feita (ou invalidada): respostas de números anteriores são descartadas.
@@ -58,19 +61,28 @@ export function Busca() {
   const disparar = useCallback(
     async (q: string, ordemEscolhida: Ordem, forcar = false) => {
       cancelarEspera();
-      if (q.length < MINIMO_LETRAS) {
-        contador.current += 1; // invalida qualquer chamada em andamento
-        ultima.current = null;
-        setEstado({ tipo: 'dica' });
-        return;
-      }
+      // Texto curto demais (ou vazio) vale como "nada digitado": mostra a lista de produtos da tela inicial.
+      const lista = q.length < MINIMO_LETRAS;
+      const chave = lista ? '' : q;
       const anterior = ultima.current;
-      if (!forcar && anterior && anterior.q === q && anterior.ordem === ordemEscolhida) return;
+      if (!forcar && anterior && anterior.q === chave && anterior.ordem === ordemEscolhida) return;
 
-      ultima.current = { q, ordem: ordemEscolhida };
+      ultima.current = { q: chave, ordem: ordemEscolhida };
       contador.current += 1;
       const numero = contador.current;
       setEstado({ tipo: 'carregando' });
+      if (lista) {
+        try {
+          const { grupos, total } = await listarProdutos(ordemEscolhida, 1);
+          if (numero !== contador.current) return;
+          setEstado({ tipo: 'inicio', grupos, total, pagina: 1, carregandoMais: false, erroMais: null });
+        } catch (e) {
+          if (numero !== contador.current) return;
+          ultima.current = null; // permite tentar de novo
+          setEstado({ tipo: 'erro', q: '', mensagem: mensagemDoErro(e) });
+        }
+        return;
+      }
       try {
         const grupos = await buscar(q, ordemEscolhida);
         if (numero !== contador.current) return;
@@ -83,6 +95,38 @@ export function Busca() {
     },
     [cancelarEspera],
   );
+
+  // Abre a tela já com a lista de produtos (sem a pessoa precisar digitar nada).
+  useEffect(() => {
+    void disparar('', 'unidade');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir a tela; trocar a ordem tem o seu próprio disparo
+  }, []);
+
+  /** Pede a próxima página da lista inicial e a junta ao que já está na tela. */
+  async function carregarMais() {
+    if (estado.tipo !== 'inicio' || estado.carregandoMais || estado.grupos.length >= estado.total) return;
+    const numero = contador.current;
+    const proxima = estado.pagina + 1;
+    setEstado({ ...estado, carregandoMais: true, erroMais: null });
+    try {
+      const { grupos, total } = await listarProdutos(ordem, proxima);
+      if (numero !== contador.current) return; // a pessoa digitou ou trocou a ordem enquanto isso
+      setEstado((atual) => {
+        if (atual.tipo !== 'inicio') return atual;
+        const jaTem = new Set(atual.grupos.map((g) => g.codigoBarras));
+        return {
+          ...atual,
+          grupos: [...atual.grupos, ...grupos.filter((g) => !jaTem.has(g.codigoBarras))],
+          total,
+          pagina: proxima,
+          carregandoMais: false,
+        };
+      });
+    } catch (e) {
+      if (numero !== contador.current) return;
+      setEstado((atual) => (atual.tipo === 'inicio' ? { ...atual, carregandoMais: false, erroMais: mensagemDoErro(e) } : atual));
+    }
+  }
 
   function aoDigitar(novo: string) {
     setTexto(novo);
@@ -139,8 +183,10 @@ export function Busca() {
         </View>
       </View>
 
-      {estado.tipo === 'dica' ? (
-        <Text style={estilos.mensagem}>Digite o que você quer comprar, por exemplo: arroz, leite, papel higiênico.</Text>
+      {estado.tipo === 'inicio' && estado.grupos.length === 0 ? (
+        <Text style={estilos.mensagem} accessibilityLiveRegion="polite">
+          Ainda não há produtos cadastrados.
+        </Text>
       ) : null}
 
       {estado.tipo === 'carregando' ? (
@@ -161,6 +207,45 @@ export function Busca() {
 
       {estado.tipo === 'ok' && estado.grupos.length === 0 ? (
         <Text style={estilos.mensagem} accessibilityLiveRegion="polite">{`Nada encontrado para "${estado.q}".`}</Text>
+      ) : null}
+
+      {estado.tipo === 'inicio' && estado.grupos.length > 0 ? (
+        <FlatList
+          testID="lista-inicial"
+          data={estado.grupos}
+          keyExtractor={(grupo) => grupo.codigoBarras}
+          renderItem={({ item }) => <GrupoCartao grupo={item} />}
+          contentContainerStyle={estilos.lista}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onEndReachedThreshold={0.5}
+          onEndReached={() => void carregarMais()}
+          ListHeaderComponent={
+            <Text style={estilos.explicacaoInicio}>
+              Produtos para comparar. Os vendidos em mais de um mercado vêm primeiro, com o mais barato em destaque. Digite acima para
+              buscar um produto.
+            </Text>
+          }
+          ListFooterComponent={
+            estado.grupos.length < estado.total ? (
+              <View style={estilos.rodape}>
+                {estado.erroMais ? (
+                  <Text style={estilos.textoErro} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                    {estado.erroMais}
+                  </Text>
+                ) : null}
+                <Botao
+                  titulo={estado.erroMais ? 'Tentar de novo' : 'Carregar mais produtos'}
+                  tipo="secundario"
+                  ocupado={estado.carregandoMais}
+                  aoPressionar={() => void carregarMais()}
+                />
+              </View>
+            ) : (
+              <View />
+            )
+          }
+        />
       ) : null}
 
       {estado.tipo === 'ok' && estado.grupos.length > 0 ? (
@@ -224,6 +309,8 @@ const estilos = StyleSheet.create({
   erro: { paddingHorizontal: 16, gap: 12 },
   textoErro: { fontSize: 16, color: cores.erro },
   lista: { padding: 16, gap: 16 },
+  explicacaoInicio: { fontSize: 14, color: cores.textoSuave, marginBottom: 4 },
+  rodape: { gap: 12, paddingVertical: 8 },
   grupo: {
     borderWidth: 1,
     borderColor: cores.borda,

@@ -250,8 +250,7 @@ describe('MercadoDetalhe', () => {
     expect(screen.queryByRole('button', { name: /editar|alterar|remover|salvar|adicionar|excluir/i })).not.toBeOnTheScreen();
   });
 
-  it('a faixa "Confirme seu e-mail" aparece no detalhe do mercado quando o e-mail não foi confirmado', async () => {
-    const AVISO = 'Confirme seu e-mail para garantir o acesso à sua conta.';
+  it('não há mais faixa de confirmação de e-mail, nem com o e-mail não confirmado (o cadastro não exige confirmar)', async () => {
     simularApi({
       'GET /mercados': { status: 200, corpo: MERCADOS },
       [ROTA_PRODUTOS]: (c) => paginaNumerada(30, c.consulta),
@@ -261,12 +260,10 @@ describe('MercadoDetalhe', () => {
     await abrirApp();
     await user.press(aba('Mercados'));
     await screen.findByText(MERCADO.nome);
-    expect(screen.getAllByText(AVISO)).toHaveLength(1); // só a das abas
+    expect(screen.queryByText(/Confirme seu e-mail/)).not.toBeOnTheScreen();
 
     await user.press(screen.getByRole('button', { name: /^Mercado Bom Preço,/ }));
     await screen.findByText('Produto 001');
-    // A das abas (agora escondida por baixo) e a do detalhe, que é a visível.
-    expect(screen.getAllByText(AVISO, { includeHiddenElements: true })).toHaveLength(2);
-    expect(screen.getAllByText(AVISO)).toHaveLength(1);
+    expect(screen.queryByText(/Confirme seu e-mail/, { includeHiddenElements: true })).not.toBeOnTheScreen();
   });
 });

@@ -29,6 +29,16 @@ app; um teste em `apps/api/src/rotas/catalogo.test.ts` garante que os dois dão 
 - tela do mercado: `apps/painel/src/CadastrarMercado.tsx`, `Login.tsx`, `ConfirmarEmail.tsx`;
 - tela do cliente: `apps/mobile/src/telas/Cadastrar.tsx` e `apps/mobile/src/validacao.ts`.
 
+**Tela inicial do app (lista de produtos já comparados)** → a conta está em `packages/shared/src/busca.ts` (`listarProdutosNoCatalogo`:
+os vendidos em mais de um mercado primeiro); servidor `GET /produtos` em `apps/api/src/rotas/busca.ts`; tela em
+`apps/mobile/src/telas/Busca.tsx` (sem texto digitado mostra a lista; com texto, o resultado da busca; "Carregar mais produtos").
+
+**Perfil do cliente (foto, nome de usuário, e-mail, senha)** → servidor `apps/api/src/rotas/conta.ts` (`GET/PATCH /conta`,
+`POST /conta/senha`); app `apps/mobile/src/componentes/Perfil.tsx` (dentro da tela Conta) e `apps/mobile/src/foto.ts` (escolher e reduzir a foto).
+
+**Confirmação de e-mail** → desligada de propósito: contas novas nascem verificadas (`apps/api/src/auth/rotas.ts`). As rotas
+`/auth/verificar-email` e `/auth/reenviar-verificacao` continuam, sem uso nas telas. Entrar com o Google: `docs/GOOGLE.md`.
+
 **Dados do MERCADO (nome, endereço completo, telefone; vários mercados por usuário)** → o cadastro da conta é só e-mail e senha;
 os dados do mercado são preenchidos em "Meu mercado":
 - tela: `apps/painel/src/MeuMercado.tsx` e `FormularioMercado.tsx` (campos e conferências), seletor de mercado no topo em `App.tsx`;

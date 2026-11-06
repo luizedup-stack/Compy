@@ -1,4 +1,4 @@
-// Testes do cadastro da conta do mercado (só e-mail e senha), da confirmação do e-mail e do reenvio do código.
+// Testes do cadastro da conta do mercado (só e-mail e senha, sem confirmação de e-mail).
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,30 +32,24 @@ describe('criar conta (só e-mail e senha)', () => {
     expect(screen.queryByLabelText('Endereço')).not.toBeInTheDocument();
   });
 
-  it('envia só e-mail e senha (sem espaços e sem Bearer) e segue para a confirmação do e-mail', async () => {
+  it('envia só e-mail e senha (sem espaços e sem Bearer) e volta para entrar com o aviso de conta criada', async () => {
     comSessao(); // mesmo com sessão guardada, a chamada é pública
-    const chamadas = simularApi(() => resposta({ id: 1, email: 'dono@exemplo.com', papel: 'mercado', emailEnviado: true }, 201));
+    const chamadas = simularApi(() => resposta({ id: 1, email: 'dono@exemplo.com', papel: 'mercado' }, 201));
     abrir('/cadastrar');
     const usuario = userEvent.setup();
     await preencher(usuario);
     await usuario.click(screen.getByRole('button', { name: 'Criar conta' }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Confirmar e-mail' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Conta criada. Entre com o seu e-mail e a senha.');
     expect(chamadas).toEqual([
       { metodo: 'POST', caminho: '/auth/cadastro-mercado', corpo: { email: 'dono@exemplo.com', senha: 'senha-boa-123' }, autorizacao: undefined },
     ]);
-    expect(screen.getByRole('status')).toHaveTextContent('Enviamos um código para dono@exemplo.com');
   });
 
-  it('se o servidor avisa que o e-mail não saiu, a tela seguinte explica onde achar o código', async () => {
-    simularApi(() => resposta({ id: 1, email: 'dono@exemplo.com', papel: 'mercado', emailEnviado: false }, 201));
-    abrir('/cadastrar');
-    const usuario = userEvent.setup();
-    await preencher(usuario);
-    await usuario.click(screen.getByRole('button', { name: 'Criar conta' }));
-
-    expect(await screen.findByRole('status')).toHaveTextContent('não foi possível enviar o e-mail');
-    expect(screen.getByRole('status')).toHaveTextContent('Códigos de e-mail');
+  it('não existe mais a etapa de confirmar o e-mail', () => {
+    abrir('/confirmar-email'); // rota que não existe mais: cai na tela inicial (que pede para entrar)
+    expect(screen.queryByRole('heading', { level: 1, name: 'Confirmar e-mail' })).not.toBeInTheDocument();
   });
 
   it('senha curta e senhas diferentes são recusadas sem chamar o servidor', async () => {
@@ -80,56 +74,5 @@ describe('criar conta (só e-mail e senha)', () => {
     await usuario.click(screen.getByRole('button', { name: 'Criar conta' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('E-mail já cadastrado');
     expect(screen.getByRole('heading', { level: 1, name: 'Criar conta' })).toBeInTheDocument();
-  });
-});
-
-describe('confirmar e-mail', () => {
-  it('envia o código sem espaços e volta para entrar com o aviso', async () => {
-    const chamadas = simularApi(() => resposta(null, 204));
-    abrir('/confirmar-email');
-    const usuario = userEvent.setup();
-    await usuario.type(screen.getByLabelText('Código recebido por e-mail'), ' abc 123\n def ');
-    await usuario.click(screen.getByRole('button', { name: 'Confirmar e-mail' }));
-
-    expect(await screen.findByRole('heading', { level: 1, name: 'Entrar' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('E-mail confirmado. Entre com a sua conta.');
-    expect(chamadas).toEqual([
-      { metodo: 'POST', caminho: '/auth/verificar-email', corpo: { token: 'abc123def' }, autorizacao: undefined },
-    ]);
-  });
-
-  it('código vazio é recusado; código errado mostra o erro do servidor', async () => {
-    simularApi(() => resposta({ erro: 'Código inválido ou expirado' }, 400));
-    abrir('/confirmar-email');
-    const usuario = userEvent.setup();
-    await usuario.click(screen.getByRole('button', { name: 'Confirmar e-mail' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Informe o código');
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    await usuario.type(screen.getByLabelText('Código recebido por e-mail'), 'errado');
-    await usuario.click(screen.getByRole('button', { name: 'Confirmar e-mail' }));
-    expect(await screen.findByText('Código inválido ou expirado')).toBeInTheDocument();
-  });
-});
-
-describe('reenviar o código (o e-mail não chegou)', () => {
-  it('"Reenviar código" pede outro código para o e-mail informado e avisa', async () => {
-    const chamadas = simularApi(() => resposta(null, 204));
-    abrir('/confirmar-email');
-    const usuario = userEvent.setup();
-    await usuario.type(screen.getByLabelText('Seu e-mail'), 'dono@exemplo.com');
-    await usuario.click(screen.getByRole('button', { name: 'Reenviar código' }));
-
-    expect(await screen.findByText(/enviamos um novo código/)).toBeInTheDocument();
-    expect(chamadas).toEqual([
-      { metodo: 'POST', caminho: '/auth/reenviar-codigo', corpo: { email: 'dono@exemplo.com' }, autorizacao: undefined },
-    ]);
-  });
-
-  it('sem e-mail preenchido, pede o e-mail e não chama o servidor', async () => {
-    abrir('/confirmar-email');
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Reenviar código' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Informe o seu e-mail');
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -62,7 +62,16 @@ const X_POR_EMBALAGEM = (): GrupoProduto => {
 };
 
 const BUSCA = 'Buscar produto';
-const DICA = 'Digite o que você quer comprar, por exemplo: arroz, leite, papel higiênico.';
+const TITULO_FOX = 'Papel Higiênico Fox Folha Dupla 12 rolos';
+const EXPLICACAO_INICIO = /Produtos para comparar\./;
+
+/** Resposta de GET /produtos (lista da tela inicial). */
+function listaInicial(grupos: GrupoProduto[], total = grupos.length): RespostaFalsa {
+  return { status: 200, corpo: { grupos, total } };
+}
+
+/** As chamadas à busca por texto (GET /busca); a lista da tela inicial (GET /produtos) é outra coisa. */
+const chamadasDeBusca = (api: ReturnType<typeof simularApi>) => api.chamadas.filter((c) => c.caminho === '/busca');
 
 function resposta(grupos: GrupoProduto[]): RespostaFalsa {
   return { status: 200, corpo: grupos };
@@ -99,14 +108,85 @@ afterEach(() => {
 });
 
 describe('Busca', () => {
-  it('abre com o campo de busca, a dica e nenhuma chamada à API', async () => {
-    const api = simularApi({});
+  it('abre com o campo de busca e já mostra a lista de produtos comparados, sem a pessoa digitar nada', async () => {
+    const api = simularApi({ 'GET /produtos': listaInicial([FOX_12(), NEVE_12()]), 'GET /busca': resposta([]) });
     await abrirApp();
     expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
     expect(screen.getByPlaceholderText('O que você quer comprar?')).toBeOnTheScreen();
-    expect(screen.getByText(DICA)).toBeOnTheScreen();
+    expect(await screen.findByText(TITULO_FOX)).toBeOnTheScreen();
+    expect(screen.getByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen();
+    expect(screen.getByText(EXPLICACAO_INICIO)).toBeOnTheScreen();
+    // A comparação já vem feita: o grupo com mais de um mercado marca o mais barato.
+    expect(screen.getAllByText('mais barato')).toHaveLength(1);
     await avancar(2000);
-    expect(api.fetch).not.toHaveBeenCalled();
+    expect(api.chamadas.map((c) => `${c.caminho}${c.consulta}`)).toEqual(['/produtos?ordem=unidade&pagina=1']);
+    expect(api.chamadas[0].autorizacao).toBe('Bearer tok-busca');
+    expect(chamadasDeBusca(api)).toHaveLength(0);
+  });
+
+  it('lista inicial vazia: avisa que ainda não há produtos', async () => {
+    simularApi({ 'GET /produtos': listaInicial([]) });
+    await abrirApp();
+    expect(await screen.findByText('Ainda não há produtos cadastrados.')).toBeOnTheScreen();
+  });
+
+  it('erro ao carregar a lista inicial mostra a mensagem e "Tentar de novo" refaz a chamada', async () => {
+    const rotas: Parameters<typeof simularApi>[0] = { 'GET /produtos': { status: 500, corpo: { erro: 'Falha no servidor' } } };
+    const api = simularApi(rotas);
+    await abrirApp();
+    expect(await screen.findByText('Falha no servidor')).toBeOnTheScreen();
+    rotas['GET /produtos'] = listaInicial([FOX_12()]);
+    await fireEvent.press(screen.getByRole('button', { name: 'Tentar de novo' }));
+    expect(await screen.findByText(TITULO_FOX)).toBeOnTheScreen();
+    expect(api.chamadas.filter((c) => c.caminho === '/produtos')).toHaveLength(2);
+  });
+
+  describe('lista inicial: mais produtos', () => {
+    it('mostra "Carregar mais produtos" quando há mais, junta a próxima página e some quando acaba', async () => {
+      const api = simularApi({
+        'GET /produtos': (c) => (c.consulta.includes('pagina=1') ? listaInicial([FOX_12()], 2) : listaInicial([NEVE_12()], 2)),
+      });
+      await abrirApp();
+      await screen.findByText(TITULO_FOX);
+      expect(screen.queryByText('Papel Higiênico Neve Folha Dupla 12 rolos')).not.toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Carregar mais produtos' }));
+      expect(await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen();
+      expect(screen.getByText(TITULO_FOX)).toBeOnTheScreen(); // a primeira página continua
+      expect(screen.queryByRole('button', { name: 'Carregar mais produtos' })).not.toBeOnTheScreen();
+      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?ordem=unidade&pagina=1', '?ordem=unidade&pagina=2']);
+    });
+
+    it('falha ao carregar mais mostra a mensagem, mantém o que já estava e "Tentar de novo" pede a mesma página', async () => {
+      let falhar = true;
+      const api = simularApi({
+        'GET /produtos': (c) => {
+          if (c.consulta.includes('pagina=1')) return listaInicial([FOX_12()], 2);
+          return falhar ? { status: 500, corpo: { erro: 'Não deu' } } : listaInicial([NEVE_12()], 2);
+        },
+      });
+      await abrirApp();
+      await screen.findByText(TITULO_FOX);
+      await fireEvent.press(screen.getByRole('button', { name: 'Carregar mais produtos' }));
+      expect(await screen.findByText('Não deu')).toBeOnTheScreen();
+      expect(screen.getByText(TITULO_FOX)).toBeOnTheScreen();
+
+      falhar = false;
+      await fireEvent.press(screen.getByRole('button', { name: 'Tentar de novo' }));
+      expect(await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen();
+      expect(api.chamadas.filter((c) => c.consulta.includes('pagina=2'))).toHaveLength(2);
+    });
+
+    it('não repete o mesmo produto se a próxima página trouxer um que já está na tela', async () => {
+      simularApi({
+        'GET /produtos': (c) => (c.consulta.includes('pagina=1') ? listaInicial([FOX_12()], 3) : listaInicial([FOX_12(), NEVE_12()], 3)),
+      });
+      await abrirApp();
+      await screen.findByText(TITULO_FOX);
+      await fireEvent.press(screen.getByRole('button', { name: 'Carregar mais produtos' }));
+      await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
+      expect(screen.getAllByText(TITULO_FOX)).toHaveLength(1);
+    });
   });
 
   describe('chamada à API', () => {
@@ -156,14 +236,16 @@ describe('Busca', () => {
       expect(api.chamadas[0].consulta).toBe('?q=feij%C3%A3o%20%26%20arroz&ordem=unidade');
     });
 
-    it('com menos de 2 letras não chama a API e mostra a dica', async () => {
-      const api = simularApi({ 'GET /busca': resposta([FOX_12()]) });
+    it('com menos de 2 letras não chama a busca e continua mostrando a lista de produtos', async () => {
+      const api = simularApi({ 'GET /busca': resposta([FOX_12()]), 'GET /produtos': listaInicial([NEVE_12()]) });
       await abrirApp();
+      await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
       await buscarTexto('a');
       await buscarTexto('   a   ');
       await avancar(2000);
-      expect(api.fetch).not.toHaveBeenCalled();
-      expect(screen.getByText(DICA)).toBeOnTheScreen();
+      expect(chamadasDeBusca(api)).toHaveLength(0);
+      expect(api.chamadas.filter((c) => c.caminho === '/produtos')).toHaveLength(1); // a lista não é recarregada à toa
+      expect(screen.getByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen();
     });
 
     it('apagar o texto antes dos 400 ms cancela a chamada', async () => {
@@ -173,26 +255,29 @@ describe('Busca', () => {
       await avancar(200);
       await digitar('a');
       await avancar(1000);
-      expect(api.fetch).not.toHaveBeenCalled();
-      expect(screen.getByText(DICA)).toBeOnTheScreen();
+      expect(chamadasDeBusca(api)).toHaveLength(0);
     });
 
-    it('apagar o texto com a busca em andamento volta à dica e uma resposta tardia não reaparece', async () => {
+    it('apagar o texto com a busca em andamento volta à lista de produtos e uma resposta tardia da busca não reaparece', async () => {
       const pendentes: ((r: RespostaFalsa) => void)[] = [];
-      simularApi({ 'GET /busca': () => new Promise<RespostaFalsa>((ok) => pendentes.push(ok)) });
+      simularApi({
+        'GET /busca': () => new Promise<RespostaFalsa>((ok) => pendentes.push(ok)),
+        'GET /produtos': listaInicial([NEVE_12()]),
+      });
       await abrirApp();
+      await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
       await buscarTexto('papel');
       expect(screen.getByText('Buscando…')).toBeOnTheScreen();
 
       await digitar('');
-      expect(screen.getByText(DICA)).toBeOnTheScreen();
+      expect(await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen(); // volta a lista
       expect(screen.queryByText('Buscando…')).not.toBeOnTheScreen();
 
       await act(async () => {
         pendentes[0](resposta([FOX_12()]));
       });
-      expect(screen.queryByText('Papel Higiênico Fox Folha Dupla 12 rolos')).not.toBeOnTheScreen();
-      expect(screen.getByText(DICA)).toBeOnTheScreen();
+      expect(screen.queryByText(TITULO_FOX)).not.toBeOnTheScreen();
+      expect(screen.getByText('Papel Higiênico Neve Folha Dupla 12 rolos')).toBeOnTheScreen();
     });
 
     it('não repete a chamada para a mesma busca já mostrada (nem com espaços a mais)', async () => {
@@ -293,7 +378,7 @@ describe('Busca', () => {
       await abrirApp();
       await buscarTexto('  xyzabc ');
       expect(await screen.findByText('Nada encontrado para "xyzabc".')).toBeOnTheScreen();
-      expect(screen.queryByText(DICA)).not.toBeOnTheScreen();
+      expect(screen.queryByText(EXPLICACAO_INICIO)).not.toBeOnTheScreen();
     });
 
     it('mostra "Buscando…" enquanto a resposta não chega', async () => {
@@ -302,7 +387,7 @@ describe('Busca', () => {
       await abrirApp();
       await buscarTexto('papel');
       expect(screen.getByText('Buscando…')).toBeOnTheScreen();
-      expect(screen.queryByText(DICA)).not.toBeOnTheScreen();
+      expect(screen.queryByText(EXPLICACAO_INICIO)).not.toBeOnTheScreen();
 
       await act(async () => {
         pendentes[0](resposta([FOX_12()]));
@@ -351,16 +436,20 @@ describe('Busca', () => {
       expect(mercadosNaTela()).toEqual(['Empório Sonia', 'Supermercado Estrela da Vila']);
     });
 
-    it('trocar a ordem sem texto suficiente não chama a API; o texto digitado depois usa a ordem escolhida', async () => {
-      const api = simularApi({ 'GET /busca': resposta([FOX_12()]) });
+    it('trocar a ordem sem texto recarrega a lista de produtos na nova ordem; o texto digitado depois usa a ordem escolhida', async () => {
+      const api = simularApi({ 'GET /busca': resposta([FOX_12()]), 'GET /produtos': listaInicial([NEVE_12()]) });
       await abrirApp();
+      await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
       await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço da embalagem' }));
       await avancar(1000);
-      expect(api.fetch).not.toHaveBeenCalled();
-      expect(screen.getByText(DICA)).toBeOnTheScreen();
+      expect(chamadasDeBusca(api)).toHaveLength(0);
+      expect(api.chamadas.filter((c) => c.caminho === '/produtos').map((c) => c.consulta)).toEqual([
+        '?ordem=unidade&pagina=1',
+        '?ordem=embalagem&pagina=1',
+      ]);
 
       await buscarTexto('fox');
-      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=fox&ordem=embalagem']);
+      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=fox&ordem=embalagem']);
     });
 
     it('trocar a ordem com uma busca ainda esperando os 400 ms manda uma chamada só', async () => {
@@ -423,20 +512,20 @@ describe('Busca', () => {
 
   describe('erros', () => {
     it('mostra a mensagem de rede e "Tentar de novo" refaz a mesma busca', async () => {
-      const rotas: Parameters<typeof simularApi>[0] = {}; // sem rota: o fetch falso simula falha de rede
+      const rotas: Parameters<typeof simularApi>[0] = { 'GET /produtos': listaInicial([]) }; // sem a rota /busca: o fetch falso simula falha de rede
       const api = simularApi(rotas);
       await abrirApp();
       await buscarTexto('papel');
 
       expect(await screen.findByText('Não foi possível falar com o servidor')).toBeOnTheScreen();
-      expect(screen.queryByText(DICA)).not.toBeOnTheScreen();
-      expect(api.chamadas).toHaveLength(1);
+      expect(screen.queryByText(EXPLICACAO_INICIO)).not.toBeOnTheScreen();
+      expect(chamadasDeBusca(api)).toHaveLength(1);
 
       rotas['GET /busca'] = resposta([FOX_12()]);
       await fireEvent.press(screen.getByRole('button', { name: 'Tentar de novo' }));
       await avancar(0);
 
-      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade', '?q=papel&ordem=unidade']);
+      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade', '?q=papel&ordem=unidade']);
       expect(await screen.findByText('Papel Higiênico Fox Folha Dupla 12 rolos')).toBeOnTheScreen();
       expect(screen.queryByText('Não foi possível falar com o servidor')).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Tentar de novo' })).not.toBeOnTheScreen();
@@ -490,17 +579,17 @@ describe('Busca', () => {
     });
   });
 
-  describe('aviso de e-mail', () => {
-    it('continua aparecendo acima da busca enquanto o e-mail não foi confirmado, sem bloquear a busca', async () => {
+  describe('sem confirmação de e-mail', () => {
+    it('mesmo com o e-mail não confirmado não há aviso nenhum e a busca funciona normalmente', async () => {
       const api = simularApi({ 'GET /busca': resposta([FOX_12()]) });
       guardarSessao('tok-busca', false);
       await abrirApp();
-      expect(screen.getByText('Confirme seu e-mail para garantir o acesso à sua conta.')).toBeOnTheScreen();
+      expect(screen.queryByText(/Confirme seu e-mail/)).not.toBeOnTheScreen();
       expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
 
       await buscarTexto('fox');
       expect(await screen.findByText('Papel Higiênico Fox Folha Dupla 12 rolos')).toBeOnTheScreen();
-      expect(api.chamadas).toHaveLength(1);
+      expect(chamadasDeBusca(api)).toHaveLength(1);
     });
   });
 });

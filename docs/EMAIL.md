@@ -1,6 +1,10 @@
 # Como fazer o e-mail chegar de verdade
 
-O Bolso Certo manda e-mails com um **código** para confirmar a conta (cliente e mercado) e para redefinir a senha.
+> **Atenção:** o cadastro **não exige mais confirmar o e-mail** (a pessoa entra com o e-mail que quiser). Por isso o e-mail só é
+> necessário para **"Esqueci minha senha"** (o código de redefinição). Se ninguém precisar recuperar senha por enquanto, dá para
+> deixar o envio sem configurar.
+
+O Bolso Certo manda e-mails com um **código** para redefinir a senha (e, se a confirmação de e-mail voltar um dia, para confirmar a conta).
 Para esses e-mails chegarem na caixa de entrada das pessoas, o programa precisa de uma **conta de e-mail para enviar**.
 Enquanto isso não estiver configurado, **nenhum e-mail sai**: o código fica visível no menu do programa
 (**Bolso Certo → Códigos de e-mail e endereço do celular**), com a situação "NÃO ENVIADO".

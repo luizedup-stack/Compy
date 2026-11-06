@@ -15,7 +15,6 @@ import {
 } from './api';
 import CadastrarMercado from './CadastrarMercado';
 import Cobranca from './Cobranca';
-import ConfirmarEmail from './ConfirmarEmail';
 import EnviarPlanilha from './EnviarPlanilha';
 import EsqueciSenha from './EsqueciSenha';
 import Login from './Login';
@@ -151,9 +150,8 @@ export default function App() {
       <main className="conteudo" key={versaoDoMercado}>
         <Routes>
           <Route path="/entrar" element={<Login />} />
-          {/* Públicas: o mercado cria a conta (só e-mail e senha) e confirma o e-mail. */}
+          {/* Pública: o mercado cria a conta só com e-mail e senha (sem confirmação de e-mail). */}
           <Route path="/cadastrar" element={<CadastrarMercado />} />
-          <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           {/* Pública, como /entrar: quem está logado também pode abrir. */}
           <Route path="/esqueci-senha" element={<EsqueciSenha />} />
           <Route

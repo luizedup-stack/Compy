@@ -71,20 +71,6 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     );
   }
 
-  /**
-   * Envia o código de confirmação sem nunca derrubar a requisição: se o serviço de e-mail falhar, o cadastro já foi
-   * feito e a pessoa pode pedir outro código. Devolve false quando o envio falhou.
-   */
-  async function tentarEnviarVerificacao(usuario: Usuario): Promise<boolean> {
-    try {
-      await enviarVerificacao(usuario);
-      return true;
-    } catch (e) {
-      console.error('Falha ao enviar o e-mail de confirmação:', e instanceof Error ? e.message : e);
-      return false;
-    }
-  }
-
   async function enviarRedefinicao(usuario: Usuario): Promise<void> {
     const token = await emitirToken(usuario.id, 'redefinir_senha');
     await email.enviar(
@@ -115,13 +101,13 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
           email: dados.email,
           senhaHash: await hashSenha(dados.senha),
           papel: 'cliente',
-          emailVerificado: false,
+          // Sem confirmação de e-mail: a pessoa entra com o e-mail que quiser (decisão do dono do projeto).
+          emailVerificado: true,
         });
       } catch (e) {
         if (e instanceof ErroEmailJaExiste) return reply.code(409).send({ erro: 'E-mail já cadastrado' });
         throw e;
       }
-      await tentarEnviarVerificacao(usuario);
       return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel });
     });
 
@@ -137,24 +123,13 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
           email: dados.email,
           senhaHash: await hashSenha(dados.senha),
           papel: 'mercado',
-          emailVerificado: false,
+          emailVerificado: true, // sem confirmação de e-mail, como no aplicativo
         });
       } catch (e) {
         if (e instanceof ErroEmailJaExiste) return reply.code(409).send({ erro: 'E-mail já cadastrado' });
         throw e;
       }
-      const emailEnviado = await tentarEnviarVerificacao(usuario);
-      return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel, emailEnviado });
-    });
-
-    // Pede um código novo de confirmação de e-mail (quando o primeiro não chegou). Pública e sem revelar se o
-    // e-mail existe: a resposta é sempre a mesma.
-    app.post('/auth/reenviar-codigo', async (req, reply) => {
-      const dados = lerCorpo(objeto({ email: emailSchema }), req.body, reply);
-      if (!dados) return reply;
-      const usuario = await repo.acharUsuarioPorEmail(dados.email);
-      if (usuario && !usuario.emailVerificado) await tentarEnviarVerificacao(usuario);
-      return reply.code(204).send();
+      return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel });
     });
 
     app.post('/auth/login', async (req, reply) => {
@@ -168,6 +143,8 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
       return { token, papel: usuario.papel, emailVerificado: usuario.emailVerificado };
     });
 
+    // As rotas de confirmação de e-mail abaixo continuam existindo, mas o cadastro NÃO as usa mais: contas novas já nascem
+    // verificadas (decisão do dono do projeto). Ficam para o caso de a confirmação voltar um dia.
     app.post('/auth/verificar-email', async (req, reply) => {
       const dados = lerCorpo(objeto({ token: codigoSchema }), req.body, reply);
       if (!dados) return reply;

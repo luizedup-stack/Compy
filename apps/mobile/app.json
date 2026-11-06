@@ -25,6 +25,7 @@
     },
     "plugins": [
       "expo-secure-store",
+      ["expo-image-picker", { "photosPermission": "O Bolso Certo usa suas fotos só para você escolher a foto do seu perfil." }],
       [
         "expo-build-properties",
         {

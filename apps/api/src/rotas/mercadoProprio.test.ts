@@ -8,7 +8,7 @@ import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { construirApp } from '../app';
-import { criarEmailMemoria, type EmailSender } from '../email';
+import { criarEmailMemoria } from '../email';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
 import { comToken, corpoMultipart } from './apoioTeste';
 import { MAXIMO_DE_MERCADOS_POR_CONTA } from './meusMercados';
@@ -80,16 +80,15 @@ async function criarCliente() {
 }
 
 const produto = (extra: Record<string, unknown> = {}) => ({ codigoBarras: EAN_LEITE, nome: 'Leite Integral 1 L', preco: 5.5, quantidade: '1 L', ...extra });
-const codigoDoEmail = (texto: string) => texto.split('\n').find((l) => /^[0-9a-f]{64}$/.test(l))!;
 
 describe('POST /auth/cadastro-mercado (só e-mail e senha)', () => {
-  it('cria a conta de mercado, ainda sem mercado, e manda o código de confirmação por e-mail', async () => {
+  it('cria a conta de mercado, já verificada e ainda sem mercado, sem mandar e-mail', async () => {
     const res = await post('/auth/cadastro-mercado', { email: 'Dono@Exemplo.com', senha: SENHA });
     expect(res.statusCode).toBe(201);
-    expect(res.json()).toMatchObject({ email: 'dono@exemplo.com', papel: 'mercado', emailEnviado: true });
+    expect(res.json()).toMatchObject({ email: 'dono@exemplo.com', papel: 'mercado' });
     expect(res.json()).not.toHaveProperty('senha');
-    expect(emails.enviados).toHaveLength(1);
-    expect(emails.enviados[0].para).toBe('dono@exemplo.com');
+    expect(emails.enviados).toHaveLength(0);
+    expect((await repo.acharUsuarioPorEmail('dono@exemplo.com'))?.emailVerificado).toBe(true);
     expect(await repo.listarMercados()).toHaveLength(0);
 
     const { token } = (await post('/auth/login', { email: 'dono@exemplo.com', senha: SENHA })).json() as { token: string };
@@ -114,46 +113,6 @@ describe('POST /auth/cadastro-mercado (só e-mail e senha)', () => {
     const res = await post('/auth/cadastro-mercado', { email: 'ana@exemplo.com', senha: SENHA });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual({ erro: 'E-mail já cadastrado' });
-  });
-
-  it('o código recebido por e-mail confirma a conta', async () => {
-    await criarUsuarioMercado('a@exemplo.com');
-    expect((await post('/auth/verificar-email', { token: codigoDoEmail(emails.enviados[0].texto) })).statusCode).toBe(204);
-    expect((await repo.acharUsuarioPorEmail('a@exemplo.com'))?.emailVerificado).toBe(true);
-  });
-
-  it('se o serviço de e-mail falhar, a conta é criada mesmo assim e a resposta avisa que o e-mail não saiu', async () => {
-    const falho: EmailSender = {
-      async enviar() {
-        throw new Error('SMTP fora do ar');
-      },
-    };
-    const outro = await construirApp({ repo: criarRepositorioMemoria(), email: falho, jwtSecret: 'segredo-de-teste' });
-    const res = await outro.inject({ method: 'POST', url: '/auth/cadastro-mercado', payload: { email: 'a@exemplo.com', senha: SENHA } });
-    expect(res.statusCode).toBe(201);
-    expect(res.json()).toMatchObject({ emailEnviado: false });
-  });
-});
-
-describe('POST /auth/reenviar-codigo (o primeiro e-mail não chegou)', () => {
-  it('manda um código novo para quem ainda não confirmou, e o código novo funciona', async () => {
-    await criarUsuarioMercado('a@exemplo.com');
-    expect((await post('/auth/reenviar-codigo', { email: ' A@Exemplo.com ' })).statusCode).toBe(204);
-    expect(emails.enviados).toHaveLength(2);
-    expect((await post('/auth/verificar-email', { token: codigoDoEmail(emails.enviados[1].texto) })).statusCode).toBe(204);
-  });
-
-  it('responde igual (204) e não manda nada para e-mail desconhecido ou já confirmado', async () => {
-    await criarUsuarioMercado('a@exemplo.com');
-    await post('/auth/verificar-email', { token: codigoDoEmail(emails.enviados[0].texto) });
-    const antes = emails.enviados.length;
-    expect((await post('/auth/reenviar-codigo', { email: 'a@exemplo.com' })).statusCode).toBe(204);
-    expect((await post('/auth/reenviar-codigo', { email: 'ninguem@exemplo.com' })).statusCode).toBe(204);
-    expect(emails.enviados).toHaveLength(antes);
-  });
-
-  it('e-mail inválido: 400', async () => {
-    expect((await post('/auth/reenviar-codigo', { email: 'xx' })).statusCode).toBe(400);
   });
 });
 

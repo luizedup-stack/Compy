@@ -24,7 +24,19 @@ type Manipulador = RespostaFalsa | ((chamada: ChamadaFalsa) => RespostaFalsa | P
  * simula falha de rede, então nenhum teste fala com a internet. Um manipulador pode devolver uma Promise
  * (para controlar quando a resposta chega) e o objeto `rotas` pode ser alterado depois, entre uma chamada e outra.
  */
-export function simularApi(rotas: Record<string, Manipulador>) {
+/**
+ * Respostas padrão para o que as telas pedem sozinhas ao abrir (a lista de produtos da tela inicial e o perfil da conta).
+ * Valem só quando o teste NÃO define a rota; ficam fora de `chamadas` e de `fetch`, para os testes das outras telas não
+ * precisarem conhecê-las. Para testar essas rotas, é só definir `'GET /produtos'` / `'GET /conta'` nas rotas do teste.
+ * Com `{ semPadroes: true }` nada é respondido sozinho (toda rota não definida falha como falta de rede): é o que os
+ * testes de "sem internet" usam.
+ */
+const RESPOSTAS_PADRAO: Record<string, RespostaFalsa> = {
+  'GET /produtos': { status: 200, corpo: { grupos: [], total: 0 } },
+  'GET /conta': { status: 200, corpo: { id: 1, email: 'teste@exemplo.com', nome: null, foto: null } },
+};
+
+export function simularApi(rotas: Record<string, Manipulador>, opcoes: { semPadroes?: boolean } = {}) {
   const chamadas: ChamadaFalsa[] = [];
   const falso = jest.fn(async (url: string, init?: RequestInit) => {
     const { pathname: caminho, search: consulta } = new URL(url);
@@ -47,7 +59,16 @@ export function simularApi(rotas: Record<string, Manipulador>) {
       json: async () => resposta.corpo,
     };
   });
-  globalThis.fetch = falso as unknown as typeof fetch;
+  // Intercepta as rotas padrão que o teste não definiu; todo o resto passa pelo `falso` (que registra as chamadas).
+  const comPadroes = async (url: string, init?: RequestInit) => {
+    const chave = `${init?.method ?? 'GET'} ${new URL(url).pathname}`;
+    const padrao = RESPOSTAS_PADRAO[chave];
+    if (padrao && !(chave in rotas) && !opcoes.semPadroes) {
+      return { ok: true, status: padrao.status, json: async () => padrao.corpo };
+    }
+    return falso(url, init);
+  };
+  globalThis.fetch = comPadroes as unknown as typeof fetch;
   return { fetch: falso, chamadas };
 }
 

@@ -136,30 +136,10 @@ export async function redefinirSenha(token: string, senha: string): Promise<void
 }
 
 /** O próprio mercado cria a conta (e o mercado). Chamada pública: sem Bearer. */
-export async function cadastrarMercado(dados: { email: string; senha: string }): Promise<{ emailEnviado: boolean }> {
-  const resposta = await pedir(
+export async function cadastrarMercado(dados: { email: string; senha: string }): Promise<void> {
+  await pedir(
     '/auth/cadastro-mercado',
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) },
-    false,
-  );
-  const corpo = (await resposta.json()) as { emailEnviado?: boolean };
-  return { emailEnviado: corpo.emailEnviado !== false };
-}
-
-/** Pede outro código de confirmação (o primeiro e-mail não chegou). Pública; a resposta não revela se o e-mail existe. */
-export async function reenviarCodigo(email: string): Promise<void> {
-  await pedir(
-    '/auth/reenviar-codigo',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) },
-    false,
-  );
-}
-
-/** Confirma o e-mail com o código recebido. Chamada pública, como esqueciSenha. */
-export async function verificarEmail(token: string): Promise<void> {
-  await pedir(
-    '/auth/verificar-email',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) },
     false,
   );
 }

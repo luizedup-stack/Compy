@@ -8,6 +8,10 @@ export interface Usuario {
   senhaHash: string;
   papel: Papel;
   emailVerificado: boolean;
+  /** Nome de usuário que a pessoa escolhe na tela Conta (opcional). */
+  nome?: string | null;
+  /** Foto de perfil como texto "data:image/...;base64,..." (pequena; opcional). */
+  foto?: string | null;
 }
 
 export interface Mercado {

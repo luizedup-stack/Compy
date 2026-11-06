@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { AppState, View } from 'react-native';
 
 import { renovarCopiaDosProdutos } from './api';
-import { AvisoEmail } from './componentes/AvisoEmail';
 import { AvisoSemConexao } from './componentes/AvisoSemConexao';
 import type { AbasParamList, RootStackParamList, RotaInicial } from './rotas';
 import { useSessao } from './sessao';
@@ -16,7 +15,6 @@ import { EsqueciSenha } from './telas/EsqueciSenha';
 import { Entrar } from './telas/Entrar';
 import { MercadoDetalhe } from './telas/MercadoDetalhe';
 import { Mercados } from './telas/Mercados';
-import { VerificarEmail } from './telas/VerificarEmail';
 import { cores } from './tema';
 
 export type { RootStackParamList, RotaInicial } from './rotas';
@@ -85,7 +83,6 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
             screenLayout={({ children, route }) => (
               <View style={{ flex: 1 }}>
                 <AvisoSemConexao />
-                {route.name === 'VerificarEmail' ? null : <AvisoEmail />}
                 {children}
               </View>
             )}
@@ -96,7 +93,6 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
               component={MercadoDetalhe}
               options={({ route }) => ({ title: route.params.nome })}
             />
-            <Stack.Screen name="VerificarEmail" component={VerificarEmail} options={{ title: 'Código de confirmação' }} />
           </Stack.Group>
         ) : (
           <>

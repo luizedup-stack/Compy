@@ -1,5 +1,6 @@
 import {
   buscarNoCatalogo,
+  listarProdutosNoCatalogo,
   mercadosDoCatalogo,
   produtosDoMercadoNoCatalogo,
   type Catalogo,
@@ -62,5 +63,41 @@ describe('GET /catalogo (a cópia que o app guarda para buscar sem internet)', (
   it('produtosDoMercadoNoCatalogo devolve null para um mercado que não está no catálogo', async () => {
     const catalogo = (await get('/catalogo')).json() as Catalogo;
     expect(produtosDoMercadoNoCatalogo(catalogo, 999, 1)).toBeNull();
+  });
+});
+
+describe('GET /produtos (lista da tela inicial, sem busca)', () => {
+  it('dá o mesmo que listarProdutosNoCatalogo no catálogo (o app usa a mesma conta sem internet)', async () => {
+    const catalogo = (await get('/catalogo')).json() as Catalogo;
+    for (const ordem of ['unidade', 'embalagem'] as const) {
+      for (const pagina of [1, 2, 3]) {
+        const doServidor = (await get(`/produtos?ordem=${ordem}&pagina=${pagina}`)).json();
+        expect(doServidor).toEqual(listarProdutosNoCatalogo(catalogo, { ordem, pagina }));
+      }
+    }
+  });
+
+  it('vêm primeiro os produtos vendidos em mais de um mercado, já comparados; depois os de um mercado só', async () => {
+    const { grupos, total } = (await get('/produtos')).json() as { grupos: { ofertas: unknown[]; nome: string }[]; total: number };
+    expect(total).toBeGreaterThan(grupos.length);
+    expect(grupos).toHaveLength(30);
+    const quantidades = grupos.map((g) => g.ofertas.length);
+    // Nunca aparece um produto de 1 mercado antes de um de 2 ou mais.
+    expect([...quantidades].sort((a, b) => b - a)).toEqual(quantidades);
+    expect(quantidades[0]).toBeGreaterThan(1);
+  });
+
+  it('página além do fim devolve lista vazia com o total; ordem e página inválidas dão 400', async () => {
+    const alem = (await get('/produtos?pagina=9999')).json() as { grupos: unknown[]; total: number };
+    expect(alem.grupos).toEqual([]);
+    expect(alem.total).toBeGreaterThan(0);
+    expect((await get('/produtos?ordem=x')).statusCode).toBe(400);
+    for (const p of ['0', '-1', 'abc', '1.5']) expect((await get(`/produtos?pagina=${p}`)).statusCode).toBe(400);
+  });
+
+  it('exige login de cliente', async () => {
+    expect((await amb.app.inject({ method: 'GET', url: '/produtos' })).statusCode).toBe(401);
+    const { token: tokenMercado } = await amb.criarComPapel('mercado');
+    expect((await amb.app.inject({ method: 'GET', url: '/produtos', headers: comToken(tokenMercado) })).statusCode).toBe(403);
   });
 });

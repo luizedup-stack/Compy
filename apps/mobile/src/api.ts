@@ -4,6 +4,7 @@
  */
 import {
   buscarNoCatalogo,
+  listarProdutosNoCatalogo,
   mercadosDoCatalogo,
   produtosDoMercadoNoCatalogo,
   type Catalogo,
@@ -160,16 +161,32 @@ export function redefinirSenha(token: string, senha: string): Promise<void> {
   return executar<void>('/auth/redefinir-senha', { corpo: { token, senha } }, false);
 }
 
-export function verificarEmail(token: string): Promise<void> {
-  return executar<void>('/auth/verificar-email', { corpo: { token } }, false);
-}
-
-export function reenviarVerificacao(): Promise<void> {
-  return pedirAutenticado<void>('/auth/reenviar-verificacao', { metodo: 'POST' });
-}
-
 export function excluirConta(): Promise<void> {
   return pedirAutenticado<void>('/conta', { metodo: 'DELETE' });
+}
+
+// ---- Perfil (tela Conta) ---------------------------------------------------------------------------------
+
+/** O perfil da pessoa: nome de usuário e foto são opcionais. A foto é um texto "data:image/jpeg;base64,...". */
+export interface Perfil {
+  id: number;
+  email: string;
+  nome: string | null;
+  foto: string | null;
+}
+
+export function obterPerfil(): Promise<Perfil> {
+  return pedirAutenticado<Perfil>('/conta');
+}
+
+/** Altera só os campos enviados. `nome: null` apaga o nome; `foto: null` remove a foto. */
+export function atualizarPerfil(campos: { nome?: string | null; foto?: string | null; email?: string }): Promise<Perfil> {
+  return pedirAutenticado<Perfil>('/conta', { metodo: 'PATCH', corpo: campos });
+}
+
+/** Troca a senha (exige a senha atual). */
+export function trocarSenha(senhaAtual: string, senhaNova: string): Promise<void> {
+  return pedirAutenticado<void>('/conta/senha', { metodo: 'POST', corpo: { senhaAtual, senhaNova } });
 }
 
 // ---- Funciona sem internet -------------------------------------------------------------------------------
@@ -226,6 +243,17 @@ async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo
     marcarSemConexao(local.baixadoEm);
     return naCopia(local.catalogo);
   }
+}
+
+/**
+ * Lista de produtos da tela inicial (sem busca): já comparados entre os mercados, os vendidos em mais de um mercado
+ * primeiro. `pagina` começa em 1; `total` é a quantidade de produtos em todas as páginas.
+ */
+export function listarProdutos(ordem: 'unidade' | 'embalagem', pagina: number): Promise<{ grupos: GrupoProduto[]; total: number }> {
+  return comCopiaLocal(
+    () => pedirAutenticado<{ grupos: GrupoProduto[]; total: number }>(`/produtos?ordem=${ordem}&pagina=${pagina}`),
+    (catalogo) => listarProdutosNoCatalogo(catalogo, { ordem, pagina }),
+  );
 }
 
 /** Busca de produtos (só clientes): grupos e ofertas ordenados pela `ordem` escolhida. */

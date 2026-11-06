@@ -4,12 +4,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { urlApi, excluirConta, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
+import { Perfil } from '../componentes/Perfil';
 import { useSessao } from '../sessao';
 import { cores, estilos as comuns } from '../tema';
 
 export const AVISO_CONTA_EXCLUIDA = 'Conta excluída.';
 
-/** Conta do cliente: sair, política de privacidade e exclusão da conta (com confirmação em duas etapas). */
+/**
+ * Conta do cliente: perfil (foto, nome de usuário, e-mail e senha, tudo editável), sair, política de privacidade e
+ * exclusão da conta (com confirmação em duas etapas).
+ */
 export function Conta() {
   const { sair } = useSessao();
   const [confirmando, setConfirmando] = useState(false);
@@ -63,6 +67,8 @@ export function Conta() {
       <Text accessibilityRole="header" style={estilos.titulo}>
         Minha conta
       </Text>
+
+      <Perfil />
 
       <Botao titulo="Sair" tipo="secundario" aoPressionar={() => void sair()} />
 

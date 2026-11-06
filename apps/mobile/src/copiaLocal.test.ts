@@ -8,6 +8,7 @@ import {
   definirRenovacaoAutomatica,
   definirToken,
   listarMercados,
+  listarProdutos,
   produtosDoMercado,
   renovarCopiaDosProdutos,
 } from './api';
@@ -88,6 +89,17 @@ describe('consultas sem o servidor', () => {
       ['Supermercado Estrela da Vila', 18.5, 1.54],
     ]);
     expect(estaSemConexao()).toBe(true);
+  });
+
+  it('sem o servidor, a lista da tela inicial vem da cópia, com os produtos de mais de um mercado primeiro', async () => {
+    await guardarCatalogoLocal(catalogoDeTeste());
+    simularApi({}, { semPadroes: true });
+    const { grupos, total } = await listarProdutos('unidade', 1);
+    expect(total).toBe(2);
+    expect(grupos.map((g) => [g.nome, g.ofertas.length])).toEqual([
+      ['Papel Higiênico Fox Folha Dupla', 2], // vendido nos 2 mercados: primeiro
+      ['Leite Integral 1 L', 1],
+    ]);
   });
 
   it('sem o servidor, lista os mercados e os produtos de cada um', async () => {

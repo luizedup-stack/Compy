@@ -7,8 +7,10 @@ import {
   definirToken,
   entrar,
   excluirConta,
+  atualizarPerfil,
+  obterPerfil,
   pedirAutenticado,
-  reenviarVerificacao,
+  trocarSenha,
 } from './api';
 import { simularApi } from './teste/ajudas';
 
@@ -72,16 +74,25 @@ describe('api', () => {
   });
 
   it('pedirAutenticado manda o Bearer, o JSON e aceita 204 sem corpo', async () => {
-    const api = simularApi({ 'POST /auth/reenviar-verificacao': { status: 204 } });
+    const api = simularApi({ 'POST /conta/senha': { status: 204 } });
     definirToken('tok-9');
-    await expect(reenviarVerificacao()).resolves.toBeUndefined();
-    expect(api.chamadas[0]).toMatchObject({ metodo: 'POST', autorizacao: 'Bearer tok-9' });
+    await expect(trocarSenha('senha-atual-1', 'senha-nova-22')).resolves.toBeUndefined();
+    expect(api.chamadas[0]).toMatchObject({ metodo: 'POST', autorizacao: 'Bearer tok-9', corpo: { senhaAtual: 'senha-atual-1', senhaNova: 'senha-nova-22' } });
   });
 
   it('pedirAutenticado devolve o JSON das respostas 200', async () => {
     simularApi({ 'GET /algo': { status: 200, corpo: { ok: 1 } } });
     definirToken('tok-9');
     await expect(pedirAutenticado<{ ok: number }>('/algo')).resolves.toEqual({ ok: 1 });
+  });
+
+  it('obterPerfil usa GET /conta e atualizarPerfil usa PATCH /conta só com os campos enviados', async () => {
+    const perfil = { id: 3, email: 'ana@exemplo.com', nome: 'Ana', foto: null };
+    const api = simularApi({ 'GET /conta': { status: 200, corpo: perfil }, 'PATCH /conta': { status: 200, corpo: { ...perfil, nome: 'Ana Maria' } } });
+    definirToken('tok-9');
+    await expect(obterPerfil()).resolves.toEqual(perfil);
+    await expect(atualizarPerfil({ nome: 'Ana Maria' })).resolves.toMatchObject({ nome: 'Ana Maria' });
+    expect(api.chamadas[1]).toMatchObject({ metodo: 'PATCH', corpo: { nome: 'Ana Maria' }, autorizacao: 'Bearer tok-9' });
   });
 
   it('excluirConta usa DELETE /conta com o token', async () => {

@@ -10,6 +10,7 @@ import type { EmailSender } from './email';
 import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
 import { rotasBusca } from './rotas/busca';
+import { rotasConta } from './rotas/conta';
 import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
@@ -126,6 +127,7 @@ export async function construirApp({
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo }));
   await app.register(rotasBusca({ repo }));
+  await app.register(rotasConta({ repo }));
   await app.register(rotasMercados({ repo }));
   await app.register(rotasMeusMercados({ repo }));
   await app.register(rotasPrivacidade());

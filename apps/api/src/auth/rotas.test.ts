@@ -29,6 +29,21 @@ const tokenDoEmail = (indice = email.enviados.length - 1): string => {
 const cadastrar = (endereco = 'ana@exemplo.com', senha = 'senha-boa-123') =>
   app.inject({ method: 'POST', url: '/auth/cadastro', payload: { email: endereco, senha } });
 
+/**
+ * Cria um cliente AINDA NÃO verificado e manda a ele o e-mail de confirmação, como o cadastro fazia antes de a confirmação
+ * ser dispensada. Serve para testar as rotas de confirmação e de redefinição, que continuam existindo.
+ */
+async function cadastrarComConfirmacao(endereco = 'ana@exemplo.com', senha = 'senha-boa-123') {
+  const u = await repo.criarUsuario({
+    email: endereco.trim().toLowerCase(),
+    senhaHash: await hashSenha(senha),
+    papel: 'cliente',
+    emailVerificado: false,
+  });
+  const token = app.jwt.sign({ id: u.id, papel: u.papel, inst: app.instancia });
+  await app.inject({ method: 'POST', url: '/auth/reenviar-verificacao', headers: { authorization: `Bearer ${token}` } });
+}
+
 const entrar = (endereco: string, senha: string) =>
   app.inject({ method: 'POST', url: '/auth/login', payload: { email: endereco, senha } });
 
@@ -43,22 +58,25 @@ async function criarComPapel(papel: Papel, endereco = `${papel}@exemplo.com`) {
 }
 
 describe('POST /auth/cadastro', () => {
-  it('cria um cliente não verificado e envia 1 e-mail com o token', async () => {
+  it('cria um cliente já verificado (sem confirmação de e-mail) e não envia e-mail', async () => {
     const res = await cadastrar('  Ana@Exemplo.COM ');
     expect(res.statusCode).toBe(201);
     const u = await repo.acharUsuarioPorEmail('ana@exemplo.com');
-    expect(u).toMatchObject({ email: 'ana@exemplo.com', papel: 'cliente', emailVerificado: false });
+    expect(u).toMatchObject({ email: 'ana@exemplo.com', papel: 'cliente', emailVerificado: true });
     expect(u!.senhaHash).not.toBe('senha-boa-123');
-    expect(email.enviados).toHaveLength(1);
-    const enviado = email.enviados[0]!;
-    expect(enviado.para).toBe('ana@exemplo.com');
-    expect(enviado.assunto).toContain('Bolso Certo');
-    expect(enviado.texto).toContain('Bolso Certo');
-    expect(tokenDoEmail()).toMatch(/^[0-9a-f]{64}$/);
+    expect(email.enviados).toHaveLength(0);
   });
 
-  it('guarda só o hash SHA-256 do token, válido por 24 h', async () => {
-    await cadastrar();
+  it('aceita qualquer e-mail de formato válido, sem precisar confirmar', async () => {
+    const res = await cadastrar('qualquer.pessoa@dominio-que-nao-existe.example');
+    expect(res.statusCode).toBe(201);
+    const login = await entrar('qualquer.pessoa@dominio-que-nao-existe.example', 'senha-boa-123');
+    expect(login.statusCode).toBe(200);
+    expect(login.json()).toMatchObject({ papel: 'cliente', emailVerificado: true });
+  });
+
+  it('o código de confirmação reenviado guarda só o hash SHA-256, válido por 24 h', async () => {
+    await cadastrarComConfirmacao();
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     const token = tokenDoEmail();
     const agora = Date.now();
@@ -72,7 +90,7 @@ describe('POST /auth/cadastro', () => {
     const res = await cadastrar('ANA@exemplo.com');
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual({ erro: expect.any(String) });
-    expect(email.enviados).toHaveLength(1);
+    expect(email.enviados).toHaveLength(0);
   });
 
   it('senha com menos de 8 caracteres responde 400', async () => {
@@ -108,7 +126,7 @@ describe('POST /auth/login', () => {
     const res = await entrar('ANA@exemplo.com', 'senha-boa-123');
     expect(res.statusCode).toBe(200);
     const corpo = res.json();
-    expect(corpo).toMatchObject({ papel: 'cliente', emailVerificado: false });
+    expect(corpo).toMatchObject({ papel: 'cliente', emailVerificado: true });
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     const payload = app.jwt.verify<{ id: number; papel: string; iat: number; exp: number }>(corpo.token);
     expect(payload).toMatchObject({ id: u.id, papel: 'cliente', inst: app.instancia });
@@ -133,7 +151,7 @@ describe('POST /auth/login', () => {
 
 describe('POST /auth/verificar-email', () => {
   it('marca o e-mail como verificado e o mesmo token usado de novo responde 400', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     const token = tokenDoEmail();
     const res = await app.inject({ method: 'POST', url: '/auth/verificar-email', payload: { token } });
     expect(res.statusCode).toBe(204);
@@ -144,7 +162,7 @@ describe('POST /auth/verificar-email', () => {
   });
 
   it('token desconhecido ou expirado responde 400 e não verifica ninguém', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     await repo.guardarToken({
       usuarioId: u.id,
@@ -160,7 +178,7 @@ describe('POST /auth/verificar-email', () => {
   });
 
   it('um token de redefinição de senha não serve para verificar e-mail', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     await app.inject({ method: 'POST', url: '/auth/esqueci-senha', payload: { email: 'ana@exemplo.com' } });
     const res = await app.inject({
       method: 'POST',
@@ -178,7 +196,7 @@ describe('POST /auth/reenviar-verificacao', () => {
   });
 
   it('autenticado, envia novo e-mail com um token que funciona', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     const login = (await entrar('ana@exemplo.com', 'senha-boa-123')).json();
     const res = await app.inject({
       method: 'POST',
@@ -220,7 +238,7 @@ describe('POST /auth/esqueci-senha', () => {
   });
 
   it('e-mail existente responde 204 e envia o token, válido por 1 h', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     const res = await app.inject({
       method: 'POST',
       url: '/auth/esqueci-senha',
@@ -262,7 +280,7 @@ describe('código ausente', () => {
 
 describe('POST /auth/redefinir-senha', () => {
   async function pedirRedefinicao() {
-    await cadastrar('ana@exemplo.com', 'senha-antiga-1');
+    await cadastrarComConfirmacao('ana@exemplo.com', 'senha-antiga-1');
     await app.inject({ method: 'POST', url: '/auth/esqueci-senha', payload: { email: 'ana@exemplo.com' } });
     return tokenDoEmail();
   }
@@ -302,7 +320,7 @@ describe('POST /auth/redefinir-senha', () => {
   });
 
   it('token expirado ou desconhecido responde 400 e não troca a senha', async () => {
-    await cadastrar('ana@exemplo.com', 'senha-antiga-1');
+    await cadastrarComConfirmacao('ana@exemplo.com', 'senha-antiga-1');
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     await repo.guardarToken({
       usuarioId: u.id,
@@ -404,7 +422,7 @@ describe('log de erros', () => {
   });
 
   it('falha ao enviar e-mail em esqueci-senha é registrada no log e a resposta segue 204', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     const falha = new Error('provedor fora do ar');
     const emailQuebrado = { enviar: vi.fn().mockRejectedValue(falha) };
     const appQuebrado = await construirApp({ repo, email: emailQuebrado, jwtSecret: 'segredo-de-teste' });
@@ -436,7 +454,7 @@ describe('texto dos e-mails (R31)', () => {
   const NEUTRO = 'Use este código no aplicativo ou no painel do Bolso Certo';
 
   it('a confirmação de e-mail serve ao aplicativo e ao painel', async () => {
-    await cadastrar();
+    await cadastrarComConfirmacao();
     expect(email.enviados[0]!.texto).toContain(NEUTRO);
     expect(email.enviados[0]!.texto).not.toContain('cole no aplicativo');
   });

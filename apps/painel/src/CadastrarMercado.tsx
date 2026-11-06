@@ -1,5 +1,5 @@
-// Cadastro da CONTA do mercado: só o básico (e-mail e senha). O mercado em si (nome, endereço completo, telefone)
-// é cadastrado depois, na tela "Meu mercado". Em seguida a pessoa confirma o e-mail com o código recebido.
+// Cadastro da CONTA do mercado: só o básico (e-mail e senha), sem confirmação de e-mail: a pessoa entra com o e-mail que quiser.
+// O mercado em si (nome, endereço completo, telefone) é cadastrado depois, na tela "Meu mercado".
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cadastrarMercado, mensagemDoErro } from './api';
@@ -7,6 +7,7 @@ import { cadastrarMercado, mensagemDoErro } from './api';
 const TAMANHO_MINIMO_SENHA = 8;
 export const MSG_SENHA_CURTA = 'A senha precisa de pelo menos 8 caracteres';
 export const MSG_SENHAS_DIFERENTES = 'As senhas não são iguais';
+export const MSG_CONTA_CRIADA = 'Conta criada. Entre com o seu e-mail e a senha.';
 
 export default function CadastrarMercado() {
   const navigate = useNavigate();
@@ -30,9 +31,9 @@ export default function CadastrarMercado() {
     setErro(null);
     setEnviando(true);
     try {
-      const { emailEnviado } = await cadastrarMercado({ email: email.trim(), senha });
-      // A tela seguinte avisa se o e-mail com o código não pôde ser enviado.
-      navigate('/confirmar-email', { replace: true, state: { email: email.trim(), emailEnviado } });
+      await cadastrarMercado({ email: email.trim(), senha });
+      // Conta criada: volta para a tela de entrar (com o aviso) para a pessoa entrar com o e-mail e a senha que acabou de criar.
+      navigate('/entrar', { replace: true, state: { aviso: MSG_CONTA_CRIADA } });
     } catch (falha) {
       setErro(mensagemDoErro(falha));
       setEnviando(false);

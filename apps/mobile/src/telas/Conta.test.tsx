@@ -209,13 +209,13 @@ describe('Conta', () => {
     });
   });
 
-  it('a faixa "Confirme seu e-mail" aparece nas abas quando o e-mail não foi confirmado, e some quando foi', async () => {
+  it('não há faixa de confirmação de e-mail em nenhuma aba, mesmo com o e-mail não confirmado', async () => {
     const { user } = await abrirConta({ 'GET /mercados': { status: 200, corpo: [] } }, false);
-    expect(screen.getByText(AVISO_EMAIL)).toBeOnTheScreen(); // aba Conta
+    expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Conta
     await user.press(aba('Mercados'));
-    expect(screen.getByText(AVISO_EMAIL)).toBeOnTheScreen(); // aba Mercados
+    expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Mercados
     await user.press(aba('Buscar'));
-    expect(screen.getByText(AVISO_EMAIL)).toBeOnTheScreen(); // aba Buscar
+    expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Buscar
   });
 
   it('sem faixa quando o e-mail já foi confirmado', async () => {
@@ -223,12 +223,13 @@ describe('Conta', () => {
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen();
   });
 
-  it('é uma tela somente de leitura: nenhum campo de texto e só os botões Sair e Excluir minha conta', async () => {
+  it('tem o perfil editável (foto, nome de usuário, e-mail e senha) além de Sair e Excluir minha conta', async () => {
     await abrirConta();
-    expect(semCamposDeTexto(screen.getByTestId('tela-conta'))).toBe(true);
+    expect(await screen.findByLabelText('Nome de usuário')).toBeOnTheScreen();
+    expect(screen.getByLabelText('E-mail')).toHaveProp('value', 'teste@exemplo.com');
     const botoes = screen.getAllByRole('button').map((el) => el.props.accessibilityLabel);
-    expect(botoes).toContain('Sair');
-    expect(botoes).toContain('Excluir minha conta');
-    expect(screen.queryByRole('button', { name: /editar|alterar|salvar|trocar/i })).not.toBeOnTheScreen();
+    for (const nome of ['Trocar foto', 'Salvar alterações', 'Trocar senha', 'Sair', 'Excluir minha conta']) {
+      expect(botoes).toContain(nome);
+    }
   });
 });

@@ -16,7 +16,6 @@ export type RootStackParamList = {
   // Com sessão: as abas (Busca, Mercados, Conta) e as telas que abrem por cima delas
   Principal: NavigatorScreenParams<AbasParamList> | undefined;
   MercadoDetalhe: { id: number; nome: string };
-  VerificarEmail: undefined;
 };
 
 /** Telas de quem ainda não entrou; usadas também como tela inicial nos testes. */

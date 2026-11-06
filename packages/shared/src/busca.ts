@@ -15,6 +15,8 @@ export type OrdemBusca = 'unidade' | 'embalagem';
 export const LIMITE_GRUPOS_BUSCA = 50;
 /** Produtos por página na lista de um mercado. */
 export const PRODUTOS_POR_PAGINA = 50;
+/** Produtos por página na lista da tela inicial do aplicativo. */
+export const PRODUTOS_POR_PAGINA_INICIO = 30;
 
 const MIN_CARACTERES = 2;
 const MAX_CARACTERES = 100;
@@ -139,34 +141,24 @@ export function consultaValida(q: string): boolean {
   return palavrasDaBusca(q) !== null;
 }
 
-/**
- * Busca produtos pelo nome (um código casa se alguma oferta dele casa), agrupa o mesmo código de barras entre os
- * mercados e ordena pelo preço (por unidade ou da embalagem). Consulta inválida devolve `[]`.
- * Devolve no máximo LIMITE_GRUPOS_BUSCA grupos. Varre todas as ofertas em memória: aceitável no piloto.
- */
-export function buscarNoCatalogo(
-  catalogo: Catalogo,
-  { q, ordem, agora = new Date() }: { q: string; ordem: OrdemBusca; agora?: Date },
-): GrupoProduto[] {
-  const palavras = palavrasDaBusca(q);
-  if (palavras === null) return [];
+/** Um produto (código de barras) com as ofertas dos mercados, já ordenadas pela opção escolhida. */
+interface GrupoOrdenado {
+  codigoBarras: string;
+  nome: string;
+  entradas: Entrada[];
+}
 
+/**
+ * Agrupa as ofertas por código de barras entre os mercados e ordena as ofertas de cada grupo (e os grupos) pelo preço,
+ * por unidade ou da embalagem. `codigos` limita a quais códigos entram (`null` = todos). Devolve TODOS os grupos, sem cortar.
+ * Todas as ofertas disponíveis de mercados ativos de um código entram no grupo, mesmo as que escrevem o nome de outro
+ * jeito (ex.: "Papel Hig. Neve").
+ */
+function agrupar(catalogo: Catalogo, codigos: Set<string> | null, ordem: OrdemBusca, agora: Date): GrupoOrdenado[] {
   const mercados = new Map(catalogo.mercados.map((m) => [m.id, m]));
-  const consulta = palavras.map((texto) => ({
-    texto,
-    trigramas: texto.length >= MIN_LETRAS_APROXIMADA ? trigramas(texto) : null,
-  }));
-  // R24: casa por código de barras. O código entra na busca se ALGUMA oferta disponível dele casa;
-  // então todas as ofertas disponíveis de mercados ativos desse código entram no grupo, mesmo as
-  // que escrevem o nome de outro jeito (ex.: "Papel Hig. Neve").
   const porCodigo = new Map<string, { nome: string; nomeMercadoId: number; ofertas: Entrada[] }>();
-  const codigosQueCasam = new Set<string>();
   for (const o of catalogo.ofertas) {
-    if (codigosQueCasam.has(o.codigoBarras)) continue;
-    if (ofertaCasa(consulta, o.nomeNorm)) codigosQueCasam.add(o.codigoBarras);
-  }
-  for (const o of catalogo.ofertas) {
-    if (!codigosQueCasam.has(o.codigoBarras)) continue;
+    if (codigos && !codigos.has(o.codigoBarras)) continue;
     const mercado = mercados.get(o.mercadoId);
     if (!mercado) continue;
 
@@ -201,7 +193,7 @@ export function buscarNoCatalogo(
   }
 
   const compararOfertas = ordem === 'embalagem' ? compararPorEmbalagem : compararPorUnidade;
-  const ordenadas = [...porCodigo].map(([codigoBarras, g]) => ({
+  const ordenadas: GrupoOrdenado[] = [...porCodigo].map(([codigoBarras, g]) => ({
     codigoBarras,
     nome: g.nome,
     entradas: g.ofertas.sort((a, b) => compararOfertas(a, b) || a.oferta.mercadoId - b.oferta.mercadoId),
@@ -212,11 +204,59 @@ export function buscarNoCatalogo(
       compararNomes(a.nome, b.nome) ||
       comparar(a.codigoBarras, b.codigoBarras),
   );
-  return ordenadas.slice(0, LIMITE_GRUPOS_BUSCA).map((g) => ({
-    codigoBarras: g.codigoBarras,
-    nome: g.nome,
-    ofertas: g.entradas.map((e) => e.oferta),
+  return ordenadas;
+}
+
+const aGrupoProduto = (g: GrupoOrdenado): GrupoProduto => ({
+  codigoBarras: g.codigoBarras,
+  nome: g.nome,
+  ofertas: g.entradas.map((e) => e.oferta),
+});
+
+/**
+ * Busca produtos pelo nome (um código casa se alguma oferta dele casa), agrupa o mesmo código de barras entre os
+ * mercados e ordena pelo preço (por unidade ou da embalagem). Consulta inválida devolve `[]`.
+ * Devolve no máximo LIMITE_GRUPOS_BUSCA grupos. Varre todas as ofertas em memória: aceitável no piloto.
+ */
+export function buscarNoCatalogo(
+  catalogo: Catalogo,
+  { q, ordem, agora = new Date() }: { q: string; ordem: OrdemBusca; agora?: Date },
+): GrupoProduto[] {
+  const palavras = palavrasDaBusca(q);
+  if (palavras === null) return [];
+
+  const consulta = palavras.map((texto) => ({
+    texto,
+    trigramas: texto.length >= MIN_LETRAS_APROXIMADA ? trigramas(texto) : null,
   }));
+  // R24: casa por código de barras. O código entra na busca se ALGUMA oferta disponível dele casa.
+  const codigosQueCasam = new Set<string>();
+  for (const o of catalogo.ofertas) {
+    if (codigosQueCasam.has(o.codigoBarras)) continue;
+    if (ofertaCasa(consulta, o.nomeNorm)) codigosQueCasam.add(o.codigoBarras);
+  }
+  return agrupar(catalogo, codigosQueCasam, ordem, agora).slice(0, LIMITE_GRUPOS_BUSCA).map(aGrupoProduto);
+}
+
+/**
+ * Lista de produtos da tela inicial (quando a pessoa ainda não digitou nada), já com a comparação entre mercados.
+ * Vêm primeiro os produtos vendidos em MAIS DE UM mercado (os que dá para comparar), do que está em mais mercados
+ * para o que está em menos; depois os vendidos em um mercado só. Dentro de cada faixa, ordem alfabética.
+ * As ofertas de cada produto seguem a ordem escolhida (a primeira é a mais barata). Devolve a página pedida
+ * (`pagina` começa em 1) e o total de produtos.
+ */
+export function listarProdutosNoCatalogo(
+  catalogo: Catalogo,
+  { ordem, pagina = 1, agora = new Date() }: { ordem: OrdemBusca; pagina?: number; agora?: Date },
+): { grupos: GrupoProduto[]; total: number } {
+  const todos = agrupar(catalogo, null, ordem, agora).sort(
+    (a, b) =>
+      b.entradas.length - a.entradas.length || // mais mercados primeiro (os de 1 só ficam no fim)
+      compararNomes(a.nome, b.nome) ||
+      comparar(a.codigoBarras, b.codigoBarras),
+  );
+  const inicio = (Math.max(1, pagina) - 1) * PRODUTOS_POR_PAGINA_INICIO;
+  return { grupos: todos.slice(inicio, inicio + PRODUTOS_POR_PAGINA_INICIO).map(aGrupoProduto), total: todos.length };
 }
 
 /** Mercados em ordem alfabética (pt-BR), cada um com o total de produtos disponíveis. */
