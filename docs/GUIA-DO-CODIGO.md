@@ -48,8 +48,12 @@ planilha **não** tem o nome/endereço trocados pela aba "Mercado" (só o admini
 
 **E-mail (códigos de confirmação)** → `apps/api/src/email.ts` (envio por SMTP), `apps/desktop/api-embutida.ts` e `main.cjs` (tela "Configurar e-mail"). Passo a passo: `docs/EMAIL.md`.
 
-**Quem é o desenvolvedor (conta que vê tudo)** → `ADMIN_EMAIL` e `ADMIN_SENHA` em `apps/desktop/main.cjs` (programa) e
-no `iniciar-teste.ps1` (modo de teste com terminal). Para a internet, a API lê as variáveis de ambiente de mesmo nome.
+**Quem é o desenvolvedor (conta que vê tudo)** → e-mail `ADMIN_EMAIL` em `apps/desktop/main.cjs`; a senha é gerada na primeira
+abertura (`senhaDoDesenvolvedor()` no mesmo arquivo) e a API a aplica em `apps/api/src/auth/admin.ts` (`sincronizarSenhaDoAdmin`).
+No modo de teste com terminal, vale o que está no `iniciar-teste.ps1`. Para a internet, a API lê as variáveis `ADMIN_EMAIL`/`ADMIN_SENHA`.
+
+**Acesso pela internet (túnel)** → `apps/desktop/main.cjs` (funções `ligarTunel`, `desligarTunel`, `paginaDeInternet`). O servidor confia no
+cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/api/src/app.ts`).
 
 **O que o app do celular guarda para funcionar sem internet** → `apps/mobile/src/catalogo.ts` (a cópia),
 `apps/mobile/src/api.ts` (usa o servidor e, se ele não responde, a cópia) e `apps/mobile/src/conexao.ts` (o aviso

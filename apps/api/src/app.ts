@@ -83,6 +83,10 @@ export async function construirApp({
   instancia,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
+    // O túnel (cloudflared) roda no mesmo computador e entrega a requisição pelo endereço local, trazendo o IP real de
+    // quem acessou no cabeçalho X-Forwarded-For. Só confiamos nesse cabeçalho quando quem entrega é este próprio computador:
+    // assim o limite de tentativas (R32) vale por pessoa, e ninguém de fora falsifica o IP.
+    trustProxy: ['127.0.0.1', '::1'],
     logger: logger
       ? {
           level: 'info',

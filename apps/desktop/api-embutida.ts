@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { sincronizarSenhaDoAdmin } from '../api/src/auth/admin';
 import { lerConfig } from '../api/src/config';
 import { criarEmailSmtp, problemaNaConfigSmtp, type ConfigSmtp, type EmailSender } from '../api/src/email';
 import { criarRepositorioMemoria } from '../api/src/repositorioMemoria';
@@ -166,6 +167,9 @@ export async function iniciarApi(op: OpcoesApi): Promise<ApiEmbutida> {
   );
   const instancia = lerOuCriarSegredo(path.join(op.pastaSalvos, 'instancia.txt'), 16);
   const { app } = await montarServidor(config, { logger: false, email: emailDoPrograma, repo, instancia });
+  // A senha do desenvolvedor vem da configuração do programa (arquivo próprio, gerada na primeira vez). Dados salvos de uma
+  // versão antiga podem trazer a senha fixa de antes: ela é trocada aqui.
+  await sincronizarSenhaDoAdmin(repo, op.adminEmail, op.adminSenha);
   await app.listen({ port: config.porta, host: config.host });
 
   let ultimo = '';

@@ -9,6 +9,8 @@
 // Não precisa de internet nem de instalar mais nada. Quem mexe só neste arquivo mexe na "casca" do programa;
 // as regras do sistema ficam em apps/api e apps/painel.
 const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { randomBytes } = require('node:crypto');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -18,10 +20,26 @@ const PORTA_API = Number(process.env.BOLSO_PORTA_API) || 3000; // 3000 por padr�
 let portaPainel = 0; // qualquer porta livre (a 3001, por exemplo, pode estar em uso por outro programa)
 // Conta do DESENVOLVEDOR (papel "admin"): enxerga todos os mercados e pode escolher qualquer um no painel.
 // Os mercados comuns se cadastram sozinhos (tela "Cadastrar meu mercado") e só veem o que é deles.
-// Esta senha é só para teste local; antes de publicar na internet ela precisa ser trocada (variáveis ADMIN_EMAIL e
-// ADMIN_SENHA da API) e não deve ficar escrita no código.
+// A senha NÃO fica escrita no código: é gerada (aleatória) na primeira abertura e guardada no arquivo
+// senha-desenvolvedor.txt, na pasta de dados do programa. Ela aparece na tela "Códigos de e-mail e endereço do celular".
+// (Variável de ambiente BOLSO_ADMIN_SENHA, se existir, tem prioridade.)
 const ADMIN_EMAIL = 'admin@bolsocerto.local';
-const ADMIN_SENHA = 'BolsoCerto-Teste-2026';
+
+function senhaDoDesenvolvedor() {
+  if (process.env.BOLSO_ADMIN_SENHA) return process.env.BOLSO_ADMIN_SENHA;
+  const arquivo = path.join(app.getPath('userData'), 'senha-desenvolvedor.txt');
+  try {
+    const guardada = fs.readFileSync(arquivo, 'utf8').trim();
+    if (guardada.length >= 12) return guardada;
+  } catch {
+    // primeira vez: cria abaixo
+  }
+  const nova = randomBytes(12).toString('base64url'); // 16 caracteres
+  fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+  fs.writeFileSync(arquivo, nova, 'utf8');
+  return nova;
+}
+let ADMIN_SENHA = ''; // preenchida ao iniciar (precisa do app pronto para saber a pasta de dados)
 
 const TIPOS = {
   '.html': 'text/html; charset=utf-8',
@@ -41,6 +59,106 @@ let servidorPainel = null;
 let janela = null;
 let janelaCodigos = null;
 let janelaEmail = null;
+let janelaInternet = null;
+
+// ---- Acesso pela internet (túnel temporário da Cloudflare) ---------------------------------------------------------
+// O programa roda no seu computador; para alguém de longe usar o aplicativo, o servidor (porta PORTA_API) precisa de um
+// endereço público. O túnel (programa cloudflared, gratuito e sem conta) cria um endereço https://xxxx.trycloudflare.com
+// que leva até esta porta. O endereço MUDA a cada vez que o túnel é ligado, e só funciona enquanto o computador e este
+// programa estiverem ligados.
+const tunel = { ativo: false, url: null, erro: null, processo: null };
+
+/** Onde está o cloudflared: variável CLOUDFLARED, pasta padrão da instalação (winget) ou o PATH. */
+function acharCloudflared() {
+  const candidatos = [
+    process.env.CLOUDFLARED,
+    'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+    'C:\\Program Files\\cloudflared\\cloudflared.exe',
+  ].filter(Boolean);
+  return candidatos.find((c) => fs.existsSync(c)) ?? 'cloudflared';
+}
+
+function ligarTunel() {
+  if (tunel.processo) return;
+  tunel.erro = null;
+  tunel.url = null;
+  tunel.ativo = true;
+  const filho = spawn(acharCloudflared(), ['tunnel', '--url', `http://localhost:${PORTA_API}`, '--no-autoupdate'], { windowsHide: true });
+  tunel.processo = filho;
+  // O cloudflared escreve o endereço no que ele imprime (saída de erro); pegamos o primeiro https://....trycloudflare.com.
+  const ouvir = (dados) => {
+    const achou = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i.exec(String(dados));
+    if (achou && !tunel.url) tunel.url = achou[0];
+  };
+  filho.stdout.on('data', ouvir);
+  filho.stderr.on('data', ouvir);
+  filho.on('error', (e) => {
+    tunel.erro = e.code === 'ENOENT' ? 'O programa cloudflared não foi encontrado. Instale com: winget install --id Cloudflare.cloudflared' : e.message;
+    tunel.ativo = false;
+    tunel.processo = null;
+  });
+  filho.on('exit', (codigo) => {
+    if (tunel.processo === filho) {
+      if (tunel.ativo && !tunel.url && !tunel.erro) tunel.erro = `O túnel fechou (código ${codigo}). Confira a internet e tente de novo.`;
+      tunel.ativo = false;
+      tunel.url = null;
+      tunel.processo = null;
+    }
+  });
+}
+
+function desligarTunel() {
+  const filho = tunel.processo;
+  tunel.processo = null;
+  tunel.ativo = false;
+  tunel.url = null;
+  if (filho) filho.kill();
+}
+
+function estadoDoTunel() {
+  return { ativo: tunel.ativo, url: tunel.url, erro: tunel.erro };
+}
+
+/** Tela "Acesso pela internet": liga/desliga o túnel e mostra o endereço para passar a quem vai testar. */
+function paginaDeInternet() {
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Acesso pela internet</title>
+<style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933;max-width:680px}h1{color:#0f7d99;font-size:22px}
+button{font:inherit;padding:7px 12px;cursor:pointer}.url{font:18px Consolas,monospace;background:#f2f7f9;padding:10px;border-radius:6px;word-break:break-all}
+.aviso{background:#fff4d6;border:1px solid #e8b931;padding:8px 12px;border-radius:6px}.erro{color:#a32d2d}</style></head><body>
+<h1>Acesso pela internet (temporário)</h1>
+<p>Para alguém de longe usar o aplicativo, este programa precisa de um endereço na internet. Ligue o túnel e passe o endereço
+abaixo para a pessoa: no aplicativo, tela de entrada, <b>Configurar servidor</b>.</p>
+<div class="aviso"><b>Atenção:</b> o endereço <b>muda toda vez</b> que o túnel é ligado, e só funciona enquanto este computador e este programa
+estiverem ligados. Qualquer pessoa com o endereço consegue criar conta no aplicativo.</div>
+<p><button id="ligar">Ligar o túnel</button> <button id="desligar">Desligar</button></p>
+<p id="estado">Verificando…</p>
+<div id="caixa" hidden><p>Endereço para o aplicativo:</p><p class="url" id="url"></p><p><button id="copiar">Copiar endereço</button></p></div>
+<script>
+const cab = { 'Content-Type': 'application/json', 'x-bolso': '1' };
+const $ = (id) => document.getElementById(id);
+async function atualizar() {
+  const e = await (await fetch('/__tunel-estado')).json();
+  $('estado').className = e.erro ? 'erro' : '';
+  $('estado').textContent = e.erro ? e.erro : e.url ? 'Túnel ligado.' : e.ativo ? 'Ligando o túnel… (pode levar alguns segundos)' : 'Túnel desligado.';
+  $('caixa').hidden = !e.url;
+  if (e.url) $('url').textContent = e.url;
+}
+$('ligar').onclick = async () => { await fetch('/__tunel-ligar', { method: 'POST', headers: cab, body: '{}' }); atualizar(); };
+$('desligar').onclick = async () => { await fetch('/__tunel-desligar', { method: 'POST', headers: cab, body: '{}' }); atualizar(); };
+$('copiar').onclick = async () => { await navigator.clipboard.writeText($('url').textContent); $('copiar').textContent = 'Copiado!'; };
+atualizar(); setInterval(atualizar, 2000);
+</script></body></html>`;
+}
+
+function abrirInternet() {
+  if (janelaInternet && !janelaInternet.isDestroyed()) {
+    janelaInternet.focus();
+    return;
+  }
+  janelaInternet = new BrowserWindow({ width: 760, height: 620, title: 'Acesso pela internet', icon: iconeDaJanela() });
+  janelaInternet.setMenu(null);
+  janelaInternet.loadURL(`http://127.0.0.1:${portaPainel}/__internet`);
+}
 
 const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -71,6 +189,8 @@ function paginaDeCodigos() {
 <style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933}h1{color:#0f7d99;font-size:22px}h2{font-size:17px;margin-top:28px}
 article{border:1px solid #c8d6dc;border-radius:8px;padding:10px 14px;margin:10px 0}pre{white-space:pre-wrap;font:14px Consolas,monospace;margin:4px 0}h3{margin:6px 0}li{margin:4px 0}</style></head><body>
 <h1>Bolso Certo - Mercado</h1>
+<h2>Login do desenvolvedor (vê todos os mercados)</h2>
+<p>E-mail: <b>${escapar(ADMIN_EMAIL)}</b><br>Senha: <b>${escapar(ADMIN_SENHA)}</b><br><small>Gerada só para este computador. Não passe para ninguém.</small></p>
 <h2>Endereço para o celular (Configurar servidor no app)</h2><ul>${rede}</ul>
 <p><small>O celular precisa estar na mesma rede Wi-Fi deste computador. Se o Windows perguntar sobre o firewall, permita em "Redes privadas".</small></p>
 <h2>Códigos de e-mail (a página atualiza sozinha)</h2>
@@ -116,6 +236,27 @@ document.getElementById('testar').onclick = async () => {
 function iniciarServidorDoPainel(pasta) {
   const servidor = http.createServer((req, res) => {
     const caminhoUrl = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    if (caminhoUrl === '/__internet' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(paginaDeInternet());
+      return;
+    }
+    if (caminhoUrl === '/__tunel-estado' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify(estadoDoTunel()));
+      return;
+    }
+    if (req.method === 'POST' && (caminhoUrl === '/__tunel-ligar' || caminhoUrl === '/__tunel-desligar')) {
+      if (req.headers['x-bolso'] !== '1') {
+        res.writeHead(403).end();
+        return;
+      }
+      if (caminhoUrl === '/__tunel-ligar') ligarTunel();
+      else desligarTunel();
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(estadoDoTunel()));
+      return;
+    }
     if (caminhoUrl === '/__email' && req.method === 'GET') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       res.end(paginaDeEmail());
@@ -226,6 +367,7 @@ function montarMenu() {
         submenu: [
           { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
           { label: 'Configurar e-mail…', click: abrirConfigEmail },
+          { label: 'Acesso pela internet (túnel)…', click: abrirInternet },
           { label: 'Recarregar', accelerator: 'CmdOrCtrl+R', click: () => janela?.reload() },
           { label: 'Apagar os dados salvos e recomeçar…', click: apagarSalvosERecomecar },
           { type: 'separator' },
@@ -249,6 +391,7 @@ async function iniciar() {
   janela.on('closed', () => app.quit());
 
   try {
+    ADMIN_SENHA = senhaDoDesenvolvedor();
     apiEmbutida = require(path.join(__dirname, 'api.cjs'));
     api = await apiEmbutida.iniciarApi({
       porta: PORTA_API,
@@ -295,6 +438,7 @@ if (!app.requestSingleInstanceLock()) {
       } catch {
         // Sem espaço ou sem permissão: sai mesmo assim.
       }
+      desligarTunel();
       servidorPainel?.close();
       await api?.app?.close().catch(() => undefined);
       app.exit(0);

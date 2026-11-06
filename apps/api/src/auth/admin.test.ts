@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
-import { garantirAdmin } from './admin';
+import { garantirAdmin, sincronizarSenhaDoAdmin } from './admin';
 import { conferirSenha, hashSenha } from './senha';
 
 describe('garantirAdmin', () => {
@@ -31,5 +31,33 @@ describe('garantirAdmin', () => {
     });
     await garantirAdmin(repo, 'ADMIN@exemplo.com', 'senha-do-admin');
     expect(await repo.acharUsuario(existente.id)).toEqual(existente);
+  });
+});
+
+describe('sincronizarSenhaDoAdmin', () => {
+  it('troca a senha do administrador quando a configurada é outra', async () => {
+    const repo = criarRepositorioMemoria();
+    await garantirAdmin(repo, 'admin@exemplo.com', 'senha-antiga-1');
+    expect(await sincronizarSenhaDoAdmin(repo, 'Admin@Exemplo.com', 'senha-nova-2')).toBe(true);
+    const admin = await repo.acharUsuarioPorEmail('admin@exemplo.com');
+    expect(await conferirSenha('senha-nova-2', admin!.senhaHash)).toBe(true);
+    expect(await conferirSenha('senha-antiga-1', admin!.senhaHash)).toBe(false);
+  });
+
+  it('não faz nada quando a senha já é a configurada', async () => {
+    const repo = criarRepositorioMemoria();
+    await garantirAdmin(repo, 'admin@exemplo.com', 'senha-igual-1');
+    const antes = await repo.acharUsuarioPorEmail('admin@exemplo.com');
+    expect(await sincronizarSenhaDoAdmin(repo, 'admin@exemplo.com', 'senha-igual-1')).toBe(false);
+    expect(await repo.acharUsuarioPorEmail('admin@exemplo.com')).toEqual(antes);
+  });
+
+  it('não cria conta e não mexe em quem não é administrador', async () => {
+    const repo = criarRepositorioMemoria();
+    expect(await sincronizarSenhaDoAdmin(repo, 'admin@exemplo.com', 'qualquer-senha-1')).toBe(false);
+    expect(await repo.acharUsuarioPorEmail('admin@exemplo.com')).toBeNull();
+    const cliente = await repo.criarUsuario({ email: 'admin@exemplo.com', senhaHash: await hashSenha('senha-do-cliente'), papel: 'cliente', emailVerificado: false });
+    expect(await sincronizarSenhaDoAdmin(repo, 'admin@exemplo.com', 'qualquer-senha-1')).toBe(false);
+    expect(await repo.acharUsuario(cliente.id)).toEqual(cliente);
   });
 });
