@@ -8,7 +8,7 @@
 //   4. ao fechar, grava os dados em arquivo (veja api-embutida.ts) para voltarem na próxima abertura.
 // Não precisa de internet nem de instalar mais nada. Quem mexe só neste arquivo mexe na "casca" do programa;
 // as regras do sistema ficam em apps/api e apps/painel.
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -40,6 +40,7 @@ let saindo = false;
 let servidorPainel = null;
 let janela = null;
 let janelaCodigos = null;
+let janelaEmail = null;
 
 const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -62,7 +63,7 @@ function paginaDeCodigos() {
     ? emails
         .map(
           (m) =>
-            `<article><small>${escapar(new Date(m.quando).toLocaleString('pt-BR'))} · para ${escapar(m.para)}</small><h3>${escapar(m.assunto)}</h3><pre>${escapar(m.texto)}</pre></article>`,
+            `<article><small>${escapar(new Date(m.quando).toLocaleString('pt-BR'))} · para ${escapar(m.para)} · <b>${escapar(m.situacao)}</b></small><h3>${escapar(m.assunto)}</h3><pre>${escapar(m.texto)}</pre></article>`,
         )
         .join('')
     : '<p>Nenhum e-mail ainda. Quando alguém criar uma conta no app, o código de confirmação aparece aqui.</p>';
@@ -72,13 +73,81 @@ article{border:1px solid #c8d6dc;border-radius:8px;padding:10px 14px;margin:10px
 <h1>Bolso Certo - Mercado</h1>
 <h2>Endereço para o celular (Configurar servidor no app)</h2><ul>${rede}</ul>
 <p><small>O celular precisa estar na mesma rede Wi-Fi deste computador. Se o Windows perguntar sobre o firewall, permita em "Redes privadas".</small></p>
-<h2>Códigos de e-mail (a página atualiza sozinha)</h2>${itens}</body></html>`;
+<h2>Códigos de e-mail (a página atualiza sozinha)</h2>
+<p><small>Se os e-mails não chegam para as pessoas, o envio ainda não está configurado: use o menu <b>Bolso Certo → Configurar e-mail…</b>. Enquanto isso, o código de cada pessoa aparece aqui.</small></p>${itens}</body></html>`;
+}
+
+/** Tela "Configurar e-mail": situação, botão para abrir o arquivo de configuração e envio de um e-mail de teste. */
+function paginaDeEmail() {
+  const st = apiEmbutida.statusDoEmail();
+  const situacao = st.configurado
+    ? `<p class="ok">Configurado. Os e-mails saem como <b>${escapar(st.de)}</b>.</p>`
+    : `<p class="erro">Ainda NÃO configurado (${escapar(st.motivo)}). Os códigos só aparecem na tela "Códigos de e-mail".</p>`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Configurar e-mail</title>
+<style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933;max-width:640px}h1{color:#0f7d99;font-size:22px}
+.ok{color:#116611}.erro{color:#a32d2d}button,input{font:inherit;padding:6px 10px}button{cursor:pointer}pre{background:#f2f7f9;padding:8px;border-radius:6px;white-space:pre-wrap}</style></head><body>
+<h1>Configurar o envio de e-mail</h1>
+${situacao}
+<p>Para que os códigos de confirmação cheguem na caixa de entrada das pessoas, o programa precisa de uma conta de e-mail para enviar
+(servidor SMTP, usuário e senha). <b>1)</b> Clique em "Abrir arquivo de configuração", <b>2)</b> preencha os campos e salve,
+<b>3)</b> envie um e-mail de teste abaixo. Não precisa fechar o programa.</p>
+<p><button id="abrir">Abrir arquivo de configuração</button></p>
+<p><small>Arquivo: ${escapar(st.arquivo || '')}</small></p>
+<h2>E-mail de teste</h2>
+<p><input id="para" type="email" placeholder="seu e-mail" size="32"> <button id="testar">Enviar teste</button></p>
+<pre id="resultado" hidden></pre>
+<script>
+const cab = { 'Content-Type': 'application/json', 'x-bolso': '1' };
+const mostrar = (t) => { const r = document.getElementById('resultado'); r.hidden = false; r.textContent = t; };
+document.getElementById('abrir').onclick = async () => { await fetch('/__abrir-config', { method: 'POST', headers: cab, body: '{}' }); mostrar('Arquivo aberto. Salve depois de preencher e volte aqui para testar.'); };
+document.getElementById('testar').onclick = async () => {
+  const para = document.getElementById('para').value.trim();
+  if (!para) { mostrar('Digite o e-mail que vai receber o teste.'); return; }
+  mostrar('Enviando…');
+  const r = await fetch('/__testar-email', { method: 'POST', headers: cab, body: JSON.stringify({ para }) });
+  const j = await r.json();
+  mostrar((j.ok ? 'OK: ' : 'FALHOU: ') + j.mensagem);
+  if (j.ok) setTimeout(() => location.reload(), 1500);
+};
+</script></body></html>`;
 }
 
 /** Entrega os arquivos do painel; qualquer endereço sem arquivo cai no index.html (rotas do painel). */
 function iniciarServidorDoPainel(pasta) {
   const servidor = http.createServer((req, res) => {
     const caminhoUrl = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    if (caminhoUrl === '/__email' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(paginaDeEmail());
+      return;
+    }
+    if (req.method === 'POST' && (caminhoUrl === '/__abrir-config' || caminhoUrl === '/__testar-email')) {
+      // O cabeçalho x-bolso impede que uma página qualquer da internet acione estas ações (o navegador exigiria permissão).
+      if (req.headers['x-bolso'] !== '1') {
+        res.writeHead(403).end();
+        return;
+      }
+      let corpo = '';
+      req.on('data', (parte) => (corpo += parte));
+      req.on('end', async () => {
+        let resposta = { ok: true, mensagem: 'ok' };
+        try {
+          if (caminhoUrl === '/__abrir-config') {
+            const arq = arquivoConfigEmail();
+            if (!fs.existsSync(arq)) fs.writeFileSync(arq, apiEmbutida.MODELO_CONFIG_EMAIL, 'utf8');
+            await shell.openPath(arq);
+          } else {
+            const { para } = JSON.parse(corpo || '{}');
+            resposta = await apiEmbutida.enviarEmailDeTeste(String(para || ''));
+          }
+        } catch (e) {
+          resposta = { ok: false, mensagem: e && e.message ? e.message : String(e) };
+        }
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(resposta));
+      });
+      return;
+    }
     if (caminhoUrl === '/__codigos') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       res.end(paginaDeCodigos());
@@ -112,6 +181,22 @@ function abrirCodigos() {
   janelaCodigos.loadURL(`http://127.0.0.1:${portaPainel}/__codigos`);
 }
 
+/** Onde fica o arquivo em que o dono preenche os dados do servidor de e-mail (SMTP). */
+function arquivoConfigEmail() {
+  return path.join(app.getPath('userData'), 'configuracao-email.json');
+}
+
+function abrirConfigEmail() {
+  if (janelaEmail && !janelaEmail.isDestroyed()) {
+    janelaEmail.loadURL(`http://127.0.0.1:${portaPainel}/__email`);
+    janelaEmail.focus();
+    return;
+  }
+  janelaEmail = new BrowserWindow({ width: 700, height: 620, title: 'Configurar e-mail', icon: iconeDaJanela() });
+  janelaEmail.setMenu(null);
+  janelaEmail.loadURL(`http://127.0.0.1:${portaPainel}/__email`);
+}
+
 function iconeDaJanela() {
   const arquivo = path.join(__dirname, 'icone.png');
   return fs.existsSync(arquivo) ? arquivo : undefined;
@@ -140,6 +225,7 @@ function montarMenu() {
         label: 'Bolso Certo',
         submenu: [
           { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
+          { label: 'Configurar e-mail…', click: abrirConfigEmail },
           { label: 'Recarregar', accelerator: 'CmdOrCtrl+R', click: () => janela?.reload() },
           { label: 'Apagar os dados salvos e recomeçar…', click: apagarSalvosERecomecar },
           { type: 'separator' },
@@ -168,6 +254,7 @@ async function iniciar() {
       porta: PORTA_API,
       pastaDados: path.join(__dirname, 'dados'),
       pastaSalvos: path.join(app.getPath('userData'), 'salvos'),
+      arquivoConfigEmail: arquivoConfigEmail(),
       adminEmail: ADMIN_EMAIL,
       adminSenha: ADMIN_SENHA,
     });

@@ -2,10 +2,11 @@ import { normalizarTexto, parsePreco, parseQuantidade, validarCodigoBarras, type
 import type { FastifyPluginAsync, preHandlerAsyncHookHandler } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
+import { lerEdicaoMercado } from '../painel/dadosDoMercado';
+import { MSG_SEM_MERCADO, mercadoEscolhidoDoUsuario } from '../painel/mercadoEscolhido';
 import { precoDesatualizado } from '../tempo';
 
 const POR_PAGINA = 50;
-const MSG_SEM_MERCADO = 'Sua conta não está ligada a um mercado ativo';
 const MSG_ESCOLHA_MERCADO = 'Escolha o mercado (mercadoId)';
 const MSG_NADA = 'Nada para alterar';
 const MSG_NAO_ACHOU = 'Produto não encontrado';
@@ -166,7 +167,10 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
         if (id === null || !Number.isSafeInteger(id)) return reply.code(400).send({ erro: MSG_ESCOLHA_MERCADO });
         mercado = await repo.acharMercado(id);
       } else {
-        mercado = await repo.acharMercadoDoUsuario(req.usuario.id);
+        // Papel mercado: um dos mercados DELE (o primeiro, ou o escolhido com ?mercadoId=); nunca o de outra pessoa.
+        const escolha = await mercadoEscolhidoDoUsuario(repo, req.usuario.id, (req.query as { mercadoId?: unknown }).mercadoId);
+        if (!escolha.ok) return reply.code(escolha.status).send({ erro: escolha.erro });
+        mercado = escolha.mercado;
       }
       if (!mercado || mercado.status !== 'ativo') return reply.code(403).send({ erro: MSG_SEM_MERCADO });
       req.mercadoDoPainel = mercado;
@@ -180,6 +184,9 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
         id: m.id,
         nome: m.nome,
         endereco: m.endereco,
+        telefone: m.telefone ?? null,
+        detalhes: m.detalhes ?? null,
+        perfilCompleto: Boolean(m.detalhes && m.telefone),
         totalProdutos: ofertas.length,
         produtosDesatualizados: ofertas.filter((o) => precoDesatualizado(o.precoAtualizadoEm, agora)).length,
       };
@@ -187,39 +194,20 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
 
     app.get('/painel/mercado', opcoes, async (req) => resumoDoMercado(req.mercadoDoPainel));
 
+    // Editar o "Meu mercado": nome, endereço completo (por partes) e telefone. O resultado precisa ficar completo.
     app.patch('/painel/mercado', opcoes, async (req, reply) => {
-      const corpo = req.body;
-      if (corpo === undefined || corpo === null) return reply.code(400).send({ erro: MSG_NADA });
-      if (!ehObjeto(corpo)) return reply.code(400).send({ erro: 'Corpo inválido' });
-      const chaves = Object.keys(corpo);
-      if (chaves.length === 0) return reply.code(400).send({ erro: MSG_NADA });
-
-      const parcial: Partial<Pick<Mercado, 'nome' | 'endereco' | 'nomeNorm' | 'enderecoNorm'>> = {};
-      for (const chave of chaves) {
-        if (chave !== 'nome' && chave !== 'endereco') {
-          return reply.code(400).send({ erro: `Campo não pode ser alterado: ${chave}` });
-        }
-        const texto = textoNaoVazio(corpo[chave]);
-        if (texto === undefined) return reply.code(400).send({ erro: chave === 'nome' ? 'Nome inválido' : 'Endereço inválido' });
-        if (chave === 'nome') {
-          parcial.nome = texto;
-          parcial.nomeNorm = normalizarTexto(texto);
-        } else {
-          parcial.endereco = texto;
-          parcial.enderecoNorm = normalizarTexto(texto);
-        }
-      }
-
       const mercado = req.mercadoDoPainel;
+      const edicao = lerEdicaoMercado(req.body, mercado);
+      if (!edicao.ok) return reply.code(400).send({ erro: edicao.erro });
       try {
-        await repo.atualizarMercado(mercado.id, parcial);
+        await repo.atualizarMercado(mercado.id, edicao.valor);
       } catch (e) {
         if (e instanceof ErroMercadoDuplicado) {
           return reply.code(409).send({ erro: 'Já existe um mercado com esse nome e endereço' });
         }
         throw e;
       }
-      return resumoDoMercado({ ...mercado, ...parcial });
+      return resumoDoMercado({ ...mercado, ...edicao.valor });
     });
 
     app.get<{ Querystring: { pagina?: unknown; q?: unknown } }>('/painel/produtos', opcoes, async (req, reply) => {

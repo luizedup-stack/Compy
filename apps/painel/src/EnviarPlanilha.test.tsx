@@ -79,6 +79,7 @@ describe('login', () => {
   it('conta de mercado guarda a sessão e vai para a tela de produtos', async () => {
     fetchMock
       .mockResolvedValueOnce(resposta({ token: 'tok-mercado', papel: 'mercado', emailVerificado: true }))
+      .mockResolvedValueOnce(resposta([{ id: 1, nome: 'Mercado Central', endereco: 'Rua A, 1', totalProdutos: 0, perfilCompleto: true }]))
       .mockResolvedValue(resposta({ itens: [], total: 0 }));
     abrir('/entrar');
     await entrar('mercado@exemplo.com', 'senha1234');

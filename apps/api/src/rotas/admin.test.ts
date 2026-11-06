@@ -194,7 +194,7 @@ describe('POST /admin/mercados/:id/remover', () => {
     await amb.repo.atualizarMercado(id, { usuarioId: dono.id });
     await remover(admin.token, id);
     const res = await enviarPlanilha(amb.app, dono.token, lerPlanilha('mercado-1-bom-preco.xlsx'));
-    expect(res.statusCode).toBe(422);
+    expect(res.statusCode).toBe(403); // sem nenhum mercado ativo
   });
 
   it('mercado inexistente → 404', async () => {

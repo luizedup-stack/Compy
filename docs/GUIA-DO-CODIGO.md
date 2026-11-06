@@ -14,7 +14,8 @@ tem comentários em português no topo (para que serve) e nos trechos menos óbv
 | `packages/shared` | Regras usadas por todos: quantidade, preço por unidade, **busca** e comparação. | Todos |
 | `marca/` | Logo e ícone (`.svg`). | |
 | `dados-de-teste/` | Planilhas inventadas para teste. | |
-| `docs/` | Guias e documentos de projeto. | |
+| `docs/` | Guias e documentos de projeto (este guia, `EMAIL.md`). | |
+| `exemplos/` | Planilha de exemplo para testar o envio de produtos. | |
 
 ## Onde mexer para...
 
@@ -23,10 +24,17 @@ app; um teste em `apps/api/src/rotas/catalogo.test.ts` garante que os dois dão 
 
 **Mudar como a quantidade/preço por unidade é entendida** → `packages/shared/src/quantidade.ts`.
 
-**Mudar o cadastro do mercado ou do cliente (campos, mensagens, regras de senha)** →
-- servidor: `apps/api/src/auth/rotas.ts` (rotas `/auth/cadastro`, `/auth/cadastro-mercado`, `/auth/login`...);
+**Mudar o cadastro da conta (e-mail, senha, mensagens)** →
+- servidor: `apps/api/src/auth/rotas.ts` (rotas `/auth/cadastro`, `/auth/cadastro-mercado`, `/auth/login`, `/auth/reenviar-codigo`...);
 - tela do mercado: `apps/painel/src/CadastrarMercado.tsx`, `Login.tsx`, `ConfirmarEmail.tsx`;
 - tela do cliente: `apps/mobile/src/telas/Cadastrar.tsx` e `apps/mobile/src/validacao.ts`.
+
+**Dados do MERCADO (nome, endereço completo, telefone; vários mercados por usuário)** → o cadastro da conta é só e-mail e senha;
+os dados do mercado são preenchidos em "Meu mercado":
+- tela: `apps/painel/src/MeuMercado.tsx` e `FormularioMercado.tsx` (campos e conferências), seletor de mercado no topo em `App.tsx`;
+- regras de CEP, telefone, UF e como o endereço vira uma linha: `packages/shared/src/endereco.ts`;
+- servidor: `apps/api/src/painel/dadosDoMercado.ts` (validação), `apps/api/src/rotas/meusMercados.ts` (listar e cadastrar mercado),
+  `apps/api/src/painel/mercadoEscolhido.ts` (qual dos mercados do usuário está em uso; **checa que é dele**).
 
 **Quem pode ver/editar o quê (cada mercado só vê o seu)** → `apps/api/src/rotas/painel.ts`, função
 `exigirMercadoAtivo`: o mercado sempre cai no mercado dele; só o administrador (desenvolvedor) escolhe outro com `?mercadoId=`.
@@ -35,7 +43,10 @@ app; um teste em `apps/api/src/rotas/catalogo.test.ts` garante que os dois dão 
 - servidor: `apps/api/src/rotas/painel.ts` (`POST/PATCH/DELETE /painel/produtos`);
 - tela: `apps/painel/src/Produtos.tsx` (lista e edição) e `NovoProduto.tsx` (botão "Novo produto").
 
-**Planilha Excel** → `apps/api/src/planilha/importar.ts` (regras de leitura) e `apps/painel/src/EnviarPlanilha.tsx`.
+**Planilha Excel** → `apps/api/src/planilha/importar.ts` (regras de leitura) e `apps/painel/src/EnviarPlanilha.tsx`. Um mercado que envia
+planilha **não** tem o nome/endereço trocados pela aba "Mercado" (só o administrador usa essa aba). Exemplo pronto: `exemplos/planilha-exemplo-para-subir.xlsx`.
+
+**E-mail (códigos de confirmação)** → `apps/api/src/email.ts` (envio por SMTP), `apps/desktop/api-embutida.ts` e `main.cjs` (tela "Configurar e-mail"). Passo a passo: `docs/EMAIL.md`.
 
 **Quem é o desenvolvedor (conta que vê tudo)** → `ADMIN_EMAIL` e `ADMIN_SENHA` em `apps/desktop/main.cjs` (programa) e
 no `iniciar-teste.ps1` (modo de teste com terminal). Para a internet, a API lê as variáveis de ambiente de mesmo nome.

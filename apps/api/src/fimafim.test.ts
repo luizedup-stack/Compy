@@ -152,6 +152,9 @@ describe('roteiro fim a fim', () => {
       id: BOM_PRECO,
       nome: 'Mercado Bom Preço',
       endereco: 'Rua dos Ipês, 120 – Vila Sônia, São Paulo – SP',
+      telefone: null,
+      detalhes: null,
+      perfilCompleto: false,
       totalProdutos: 26,
       produtosDesatualizados: 0,
     });
@@ -440,13 +443,13 @@ describe('roteiro fim a fim', () => {
     const adminMercados = (await pegar('/admin/mercados', tokenAdmin)).json() as { id: number; status: string }[];
     expect(adminMercados.find((m) => m.id === ATACAREJO)?.status).toBe('removido');
 
-    // O login criado para ele continua existindo, mas não abre o painel (403) nem aceita planilha (422).
+    // O login criado para ele continua existindo, mas não abre o painel (403) nem aceita planilha (403: ele não tem mais nenhum mercado ativo).
     expect((await entrar({ email: EMAIL_ATACAREJO, senha: (criar.json() as { senhaTemporaria: string }).senhaTemporaria })).papel).toBe('mercado');
     expect((await pegar('/painel/mercado', tokenAtacarejo)).statusCode).toBe(403);
     expect((await pegar('/painel/produtos', tokenAtacarejo)).statusCode).toBe(403);
     expect((await pegar('/painel/cobranca', tokenAtacarejo)).statusCode).toBe(403);
     const envio = await enviarPlanilha(app, tokenAtacarejo, lerPlanilha(PLANILHAS[3]!.arquivo));
-    expect(envio.statusCode).toBe(422);
+    expect(envio.statusCode).toBe(403);
     // Nem o administrador reabre um mercado removido por planilha.
     const envioAdmin = await enviarPlanilha(app, tokenAdmin, lerPlanilha(PLANILHAS[3]!.arquivo));
     expect(envioAdmin.statusCode).toBe(422);

@@ -452,3 +452,19 @@ input:disabled {
   display: block;
   margin: 8px 0;
 }
+
+/* Seletor de mercado no cabeçalho (usuário com mais de um mercado) e lista "Meus mercados" */
+.seletor-mercado-topo {
+  margin-left: auto;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+.lista-mercados {
+  padding-left: 18px;
+}
+.lista-mercados li {
+  margin: 8px 0;
+}
+.formulario-mercado {
+  max-width: 480px;
+}

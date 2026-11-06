@@ -33,9 +33,20 @@ export interface Chamada {
   autorizacao: string | undefined;
 }
 
-/** Faz o `fetch` simulado responder pela função; devolve a lista (viva) das chamadas feitas. Nada vai à rede. */
-export function simularApi(responder: (c: Chamada) => Response | Promise<Response>): Chamada[] {
+/**
+ * Faz o `fetch` simulado responder pela função; devolve a lista (viva) das chamadas feitas. Nada vai à rede.
+ *
+ * O cabeçalho do painel pede a lista de mercados da conta (GET /painel/meus-mercados) para o seletor "Mercado:".
+ * Essa chamada de infraestrutura é respondida aqui mesmo (por padrão com a lista de `meusMercados`, vazia) e NÃO entra
+ * em `chamadas`, para os testes das telas não precisarem conhecê-la. Quem testa essa rota passa `meusMercados: 'responder'`
+ * e a função `responder` recebe a chamada normalmente.
+ */
+export function simularApi(
+  responder: (c: Chamada) => Response | Promise<Response>,
+  opcoes: { meusMercados?: unknown[] | 'responder' } = {},
+): Chamada[] {
   const chamadas: Chamada[] = [];
+  const meusMercados = opcoes.meusMercados ?? [];
   fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
     const u = new URL(String(url));
     const headers = (init?.headers ?? {}) as Record<string, string>;
@@ -45,6 +56,9 @@ export function simularApi(responder: (c: Chamada) => Response | Promise<Respons
       corpo: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
       autorizacao: headers.Authorization,
     };
+    if (meusMercados !== 'responder' && chamada.metodo === 'GET' && u.pathname === '/painel/meus-mercados') {
+      return resposta(meusMercados);
+    }
     chamadas.push(chamada);
     return responder(chamada);
   });

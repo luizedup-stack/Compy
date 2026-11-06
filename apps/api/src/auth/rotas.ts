@@ -1,9 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import { normalizarTexto } from '@mercado/shared';
 import { z } from 'zod';
 import type { EmailSender } from '../email';
-import { ErroEmailJaExiste, ErroMercadoDuplicado, type Repositorio, type TipoToken, type Usuario } from '../repositorio';
+import { ErroEmailJaExiste, type Repositorio, type TipoToken, type Usuario } from '../repositorio';
 import { exigirPapel } from './guardas';
 import { conferirSenha, hashSenha } from './senha';
 
@@ -22,16 +21,6 @@ const emailSchema = z.string({ error: MSG_EMAIL }).trim().toLowerCase().pipe(z.e
 const senhaNovaSchema = z
   .string({ error: MSG_SENHA })
   .min(8, 'A senha deve ter pelo menos 8 caracteres');
-const nomeMercadoSchema = z
-  .string({ error: 'Informe o nome do mercado' })
-  .trim()
-  .min(2, 'Informe o nome do mercado')
-  .max(100, 'O nome do mercado é longo demais');
-const enderecoMercadoSchema = z
-  .string({ error: 'Informe o endereço do mercado' })
-  .trim()
-  .min(5, 'Informe o endereço do mercado')
-  .max(200, 'O endereço do mercado é longo demais');
 const codigoSchema = z.string({ error: MSG_CODIGO }).trim().min(1, MSG_CODIGO);
 
 // Corpo ausente ou que não é objeto cai na mensagem do próprio objeto.
@@ -82,6 +71,20 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     );
   }
 
+  /**
+   * Envia o código de confirmação sem nunca derrubar a requisição: se o serviço de e-mail falhar, o cadastro já foi
+   * feito e a pessoa pode pedir outro código. Devolve false quando o envio falhou.
+   */
+  async function tentarEnviarVerificacao(usuario: Usuario): Promise<boolean> {
+    try {
+      await enviarVerificacao(usuario);
+      return true;
+    } catch (e) {
+      console.error('Falha ao enviar o e-mail de confirmação:', e instanceof Error ? e.message : e);
+      return false;
+    }
+  }
+
   async function enviarRedefinicao(usuario: Usuario): Promise<void> {
     const token = await emitirToken(usuario.id, 'redefinir_senha');
     await email.enviar(
@@ -118,48 +121,40 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
         if (e instanceof ErroEmailJaExiste) return reply.code(409).send({ erro: 'E-mail já cadastrado' });
         throw e;
       }
-      await enviarVerificacao(usuario);
+      await tentarEnviarVerificacao(usuario);
       return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel });
     });
 
-    // O próprio mercado se cadastra (software "Bolso Certo - Mercado"): cria a conta de acesso e o mercado, já ligados.
-    // Daí em diante ele só enxerga e edita o que é dele (veja rotas/painel.ts).
+    // O próprio mercado cria a conta (software "Bolso Certo - Mercado"): SÓ e-mail e senha.
+    // O mercado em si (nome, endereço completo, telefone) é cadastrado depois, na tela "Meu mercado"
+    // (POST /painel/meus-mercados, em rotas/meusMercados.ts). Um usuário pode ter vários mercados.
     app.post('/auth/cadastro-mercado', async (req, reply) => {
-      const schema = objeto({
-        nome: nomeMercadoSchema,
-        endereco: enderecoMercadoSchema,
-        email: emailSchema,
-        senha: senhaNovaSchema,
-      });
-      const dados = lerCorpo(schema, req.body, reply);
+      const dados = lerCorpo(objeto({ email: emailSchema, senha: senhaNovaSchema }), req.body, reply);
       if (!dados) return reply;
-      const senhaHash = await hashSenha(dados.senha);
-      let criado: { usuario: Usuario; mercadoId: number };
+      let usuario: Usuario;
       try {
-        criado = await repo.transacao(async (r) => {
-          const usuario = await r.criarUsuario({ email: dados.email, senhaHash, papel: 'mercado', emailVerificado: false });
-          const mercado = await r.criarMercado({
-            nome: dados.nome,
-            endereco: dados.endereco,
-            nomeNorm: normalizarTexto(dados.nome),
-            enderecoNorm: normalizarTexto(dados.endereco),
-            status: 'ativo',
-            contaSituacao: 'gratuita',
-            usuarioId: usuario.id,
-          });
-          return { usuario, mercadoId: mercado.id };
+        usuario = await repo.criarUsuario({
+          email: dados.email,
+          senhaHash: await hashSenha(dados.senha),
+          papel: 'mercado',
+          emailVerificado: false,
         });
       } catch (e) {
         if (e instanceof ErroEmailJaExiste) return reply.code(409).send({ erro: 'E-mail já cadastrado' });
-        if (e instanceof ErroMercadoDuplicado) {
-          return reply.code(409).send({ erro: 'Já existe um mercado com esse nome e endereço' });
-        }
         throw e;
       }
-      await enviarVerificacao(criado.usuario);
-      return reply
-        .code(201)
-        .send({ id: criado.usuario.id, email: criado.usuario.email, papel: criado.usuario.papel, mercadoId: criado.mercadoId });
+      const emailEnviado = await tentarEnviarVerificacao(usuario);
+      return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel, emailEnviado });
+    });
+
+    // Pede um código novo de confirmação de e-mail (quando o primeiro não chegou). Pública e sem revelar se o
+    // e-mail existe: a resposta é sempre a mesma.
+    app.post('/auth/reenviar-codigo', async (req, reply) => {
+      const dados = lerCorpo(objeto({ email: emailSchema }), req.body, reply);
+      if (!dados) return reply;
+      const usuario = await repo.acharUsuarioPorEmail(dados.email);
+      if (usuario && !usuario.emailVerificado) await tentarEnviarVerificacao(usuario);
+      return reply.code(204).send();
     });
 
     app.post('/auth/login', async (req, reply) => {

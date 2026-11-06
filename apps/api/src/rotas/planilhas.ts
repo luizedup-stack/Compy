@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
 import { ErroPlanilha, importarPlanilha, type Ator } from '../planilha/importar';
+import { mercadoEscolhidoDoUsuario } from '../painel/mercadoEscolhido';
 import { gerarModelo } from '../planilha/modelo';
 import type { Repositorio } from '../repositorio';
 
@@ -23,9 +24,10 @@ export function rotasPlanilhas({ repo }: { repo: Repositorio }): FastifyPluginAs
       if (req.usuario.papel === 'admin') {
         ator = { papel: 'admin' };
       } else {
-        const mercado = await repo.acharMercadoDoUsuario(req.usuario.id);
-        if (!mercado) return reply.code(403).send({ erro: 'Sua conta não está ligada a um mercado' });
-        ator = { papel: 'mercado', mercadoId: mercado.id };
+        // A planilha vai para um mercado DO usuário: o escolhido com ?mercadoId= ou o primeiro dele.
+        const escolha = await mercadoEscolhidoDoUsuario(repo, req.usuario.id, (req.query as { mercadoId?: unknown }).mercadoId);
+        if (!escolha.ok) return reply.code(escolha.status).send({ erro: escolha.erro });
+        ator = { papel: 'mercado', mercadoId: escolha.mercado.id };
       }
 
       if (!req.isMultipart()) return reply.code(400).send({ erro: MSG_SEM_ARQUIVO });

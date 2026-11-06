@@ -490,7 +490,7 @@ describe('importarPlanilha: ator mercado', () => {
     expect(await mercadosGravados(repo)).toHaveLength(1);
   });
 
-  it('nome/endereço diferentes na aba atualizam o próprio mercado', async () => {
+  it('a aba Mercado da planilha NÃO muda o próprio mercado (nome, endereço e telefone ficam em "Meu mercado")', async () => {
     const repo = criarRepositorioMemoria();
     const meu = await novoMercado(repo, 'Nome Antigo', 'Rua Antiga, 5');
     const relatorio = await importarPlanilha(
@@ -504,29 +504,21 @@ describe('importarPlanilha: ator mercado', () => {
       }),
       { papel: 'mercado', mercadoId: meu.id },
     );
-    expect(relatorio.mercadoId).toBe(meu.id);
-    expect(relatorio.mercadoCriado).toBe(false);
-    expect(await repo.acharMercado(meu.id)).toMatchObject({
-      nome: 'Mercado Novo',
-      endereco: 'Avenida Nova, 10',
-      nomeNorm: 'mercado novo',
-      enderecoNorm: 'avenida nova 10',
-      status: 'ativo',
-      contaSituacao: 'ativa',
-    });
+    expect(relatorio).toMatchObject({ mercadoId: meu.id, mercadoCriado: false, importadas: 1 });
+    expect(await repo.acharMercado(meu.id)).toMatchObject({ nome: 'Nome Antigo', endereco: 'Rua Antiga, 5' });
+    expect(await mercadosGravados(repo)).toHaveLength(1);
   });
 
-  it('nome/endereço de outro mercado existente: ErroPlanilha e nada gravado', async () => {
+  it('nome/endereço da aba iguais aos de outro mercado não atrapalham: os produtos vão para o próprio mercado', async () => {
     const repo = criarRepositorioMemoria();
     await novoMercado(repo, 'Mercado Teste', 'Rua A, 1');
     const meu = await novoMercado(repo, 'Meu Mercado', 'Rua B, 2');
-    const promessa = importarPlanilha(repo, await montar({ produtos: [linhaBoa(EAN_A)] }), {
+    const relatorio = await importarPlanilha(repo, await montar({ produtos: [linhaBoa(EAN_A)] }), {
       papel: 'mercado',
       mercadoId: meu.id,
     });
-    await expect(promessa).rejects.toBeInstanceOf(ErroPlanilha);
-    expect(await repo.acharMercado(meu.id)).toMatchObject({ nome: 'Meu Mercado', endereco: 'Rua B, 2' });
-    expect(await repo.listarOfertasDoMercado(meu.id)).toHaveLength(0);
+    expect(relatorio.mercadoId).toBe(meu.id);
+    expect(await repo.listarOfertasDoMercado(meu.id)).toHaveLength(1);
   });
 
   it('mercado inexistente ou removido: ErroPlanilha', async () => {

@@ -3,6 +3,8 @@ import type { ProdutoPainel } from '@mercado/shared';
 import { Link, useNavigate } from 'react-router-dom';
 import NovoProduto from './NovoProduto';
 import {
+  ErroApi,
+  MSG_SEM_MERCADO,
   editarProduto,
   guardarMercadoEscolhido,
   lerMercadoEscolhido,
@@ -412,6 +414,11 @@ export default function Produtos() {
         if (!ativo) return;
         if (sessaoRecusada(e)) {
           navigate('/entrar', { replace: true });
+          return;
+        }
+        // Conta de mercado nova, que ainda não cadastrou o mercado: leva para "Meu mercado" para cadastrar.
+        if (e instanceof ErroApi && e.message === MSG_SEM_MERCADO && lerSessao()?.papel === 'mercado') {
+          navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu mercado para começar a cadastrar produtos.' } });
           return;
         }
         setErro(mensagemDoErro(e));

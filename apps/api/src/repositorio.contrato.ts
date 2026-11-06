@@ -140,6 +140,18 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarMercados()).toEqual([m]);
       });
 
+      it('um usuário pode ter vários mercados: listarMercadosDoUsuario devolve todos, por id', async () => {
+        const repo = await criar();
+        const u = await repo.criarUsuario(novoUsuario());
+        const outro = await repo.criarUsuario({ ...novoUsuario(), email: 'outro@exemplo.com' });
+        const a = await repo.criarMercado({ ...novoMercado(), usuarioId: u.id });
+        const b = await repo.criarMercado({ ...novoMercado(), nome: 'Segundo', nomeNorm: 'segundo', usuarioId: u.id });
+        await repo.criarMercado({ ...novoMercado(), nome: 'De outro', nomeNorm: 'de outro', usuarioId: outro.id });
+        expect(await repo.listarMercadosDoUsuario(u.id)).toEqual([a, b]);
+        expect(await repo.acharMercadoDoUsuario(u.id)).toEqual(a); // o primeiro
+        expect(await repo.listarMercadosDoUsuario(u.id + 100)).toEqual([]);
+      });
+
       it('criarMercado com a mesma chave lança ErroMercadoDuplicado', async () => {
         const repo = await criar();
         await repo.criarMercado(novoMercado());

@@ -33,7 +33,7 @@ describe('POST /planilhas: acesso', () => {
     const { token } = await amb.criarComPapel('mercado');
     const res = await enviarPlanilha(amb.app, token, lerPlanilha('mercado-1-bom-preco.xlsx'));
     expect(res.statusCode).toBe(403);
-    expect(res.json()).toEqual({ erro: 'Sua conta não está ligada a um mercado' });
+    expect(res.json()).toEqual({ erro: 'Sua conta não está ligada a um mercado ativo' });
   });
 });
 

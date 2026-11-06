@@ -1,4 +1,4 @@
-import type { Unidade } from '@mercado/shared';
+import type { EnderecoMercado, Unidade } from '@mercado/shared';
 
 export type Papel = 'cliente' | 'mercado' | 'admin';
 
@@ -19,6 +19,10 @@ export interface Mercado {
   status: 'ativo' | 'removido';
   contaSituacao: 'gratuita' | 'ativa' | 'em_atraso';
   usuarioId: number | null;
+  /** Endereço por partes (preenchido na tela "Meu mercado"). Ausente/null em mercados criados só pela planilha. */
+  detalhes?: EnderecoMercado | null;
+  /** Telefone com DDD, só dígitos. Ausente/null enquanto o mercado não preencher. */
+  telefone?: string | null;
 }
 
 export interface OfertaArmazenada {
@@ -91,7 +95,10 @@ export interface Repositorio {
   criarMercado(m: Omit<Mercado, 'id'>): Promise<Mercado>;
   acharMercado(id: number): Promise<Mercado | null>;
   acharMercadoPorChave(nomeNorm: string, enderecoNorm: string): Promise<Mercado | null>;
+  /** O primeiro mercado (menor id) ligado ao usuário, ou null. Um usuário pode ter vários: veja listarMercadosDoUsuario. */
   acharMercadoDoUsuario(usuarioId: number): Promise<Mercado | null>;
+  /** Todos os mercados ligados ao usuário (inclusive removidos), do menor id para o maior. */
+  listarMercadosDoUsuario(usuarioId: number): Promise<Mercado[]>;
   atualizarMercado(id: number, parcial: Partial<Omit<Mercado, 'id'>>): Promise<void>;
   listarMercados(): Promise<Mercado[]>;
   salvarOferta(o: OfertaArmazenada): Promise<void>;

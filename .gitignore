@@ -15,3 +15,7 @@ apps/mobile/ios/
 # Programa de computador gerado (Windows) e arquivos temporarios da montagem
 programa/
 apps/desktop/.build/
+
+# Senha do envio de e-mail (fica na pasta de dados do programa; por seguranca nunca vai para o git)
+configuracao-email.json
+programa-nova/

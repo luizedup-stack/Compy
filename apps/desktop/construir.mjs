@@ -11,7 +11,8 @@ import { build } from 'esbuild';
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.resolve(aqui, '../..');
 const montagem = path.join(aqui, '.build', 'app');
-const saida = path.join(raiz, 'programa');
+// Pasta de saída: programa/ por padrão; BOLSO_SAIDA troca (útil quando o programa antigo está aberto e trava a pasta).
+const saida = process.env.BOLSO_SAIDA ? path.resolve(process.env.BOLSO_SAIDA) : path.join(raiz, 'programa');
 const passo = (texto) => console.log(`\n== ${texto}`);
 
 passo('Compilando o painel');

@@ -5,3 +5,4 @@ export * from './preco';
 export * from './quantidade';
 export * from './similaridade';
 export * from './busca';
+export * from './endereco';

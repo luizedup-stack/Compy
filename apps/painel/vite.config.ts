@@ -16,5 +16,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
+    // Testes que digitam formulários inteiros ficam lentos com o computador ocupado: folga para não falharem à toa.
+    testTimeout: 30_000,
   },
 });

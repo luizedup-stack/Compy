@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ErroApi, guardarSessao, login } from './api';
+import { ErroApi, guardarSessao, listarMeusMercados, login } from './api';
 
 const MSG_CLIENTE = 'Esta área é para mercados. Use o aplicativo Bolso Certo.';
 
@@ -25,6 +25,19 @@ export default function Login() {
         return;
       }
       guardarSessao({ token: r.token, papel: r.papel });
+      if (r.papel === 'mercado') {
+        // Guarda a lista de mercados da conta (o seletor do topo a usa). Sem mercado nenhum, a conta é nova: vai
+        // direto para "Meu mercado" cadastrar o primeiro. Se a consulta falhar, segue para Produtos normalmente.
+        try {
+          const meus = await listarMeusMercados();
+          if (meus.length === 0) {
+            navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu mercado para começar.' } });
+            return;
+          }
+        } catch {
+          // Segue para a tela de produtos, que mostra o erro se for o caso.
+        }
+      }
       navigate('/produtos', { replace: true });
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : 'Não foi possível falar com o servidor');

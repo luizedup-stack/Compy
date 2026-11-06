@@ -1,7 +1,18 @@
-import type { ReactNode } from 'react';
+// Estrutura do painel "Bolso Certo - Mercado": cabeçalho (nome, menu, seletor de mercado, sair) e as rotas das telas.
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Mercados from './admin/Mercados';
-import { lerSessao, limparSessao, type Papel } from './api';
+import {
+  EVENTO_LISTA_ATUALIZADA,
+  EVENTO_MERCADOS_MUDARAM,
+  guardarMercadoEscolhido,
+  lerMercadoEscolhido,
+  lerMeusMercadosGuardados,
+  lerSessao,
+  limparSessao,
+  type Papel,
+  type ResumoDoMercado,
+} from './api';
 import CadastrarMercado from './CadastrarMercado';
 import Cobranca from './Cobranca';
 import ConfirmarEmail from './ConfirmarEmail';
@@ -11,7 +22,7 @@ import Login from './Login';
 import MeuMercado from './MeuMercado';
 import Produtos from './Produtos';
 
-/** Sem sessão volta para o login; com `papel`, quem tem outro papel cai em /planilha. */
+/** Sem sessão volta para o login; com `papel`, quem tem outro papel cai em /produtos. */
 function RotaProtegida({ children, papel }: { children: ReactNode; papel?: Papel }) {
   const sessao = lerSessao();
   if (!sessao) return <Navigate to="/entrar" replace />;
@@ -31,7 +42,62 @@ const ITENS_ADMIN = [
   { para: '/admin/mercados', texto: 'Administração' },
 ];
 
-function Cabecalho() {
+/**
+ * Seletor "Mercado:" do topo, só para quem tem MAIS DE UM mercado (usuário de mercado). Trocar de mercado muda o mercado
+ * de todas as telas (Produtos, Planilha, Meu mercado...): `aoTrocar` faz o conteúdo recarregar.
+ */
+function SeletorDeMercado({ aoTrocar }: { aoTrocar: () => void }) {
+  const [lista, setLista] = useState<ResumoDoMercado[]>([]);
+  const [escolhido, setEscolhido] = useState<number | null>(null);
+  const papel = lerSessao()?.papel;
+
+  // Lê a última lista recebida do servidor (guardada ao entrar, ao abrir "Meu mercado" e ao cadastrar um mercado);
+  // o cabeçalho não faz chamada própria.
+  const carregar = useCallback(() => {
+    if (papel !== 'mercado') return;
+    const meus = lerMeusMercadosGuardados();
+    // O mercado guardado precisa ser um dos meus; senão volta para o primeiro.
+    const guardado = lerMercadoEscolhido();
+    const valido = meus.some((m) => m.id === guardado) ? guardado : (meus[0]?.id ?? null);
+    if (valido !== guardado) guardarMercadoEscolhido(valido);
+    setLista(meus);
+    setEscolhido(valido);
+  }, [papel]);
+
+  useEffect(() => {
+    carregar();
+    window.addEventListener(EVENTO_MERCADOS_MUDARAM, carregar);
+    window.addEventListener(EVENTO_LISTA_ATUALIZADA, carregar);
+    return () => {
+      window.removeEventListener(EVENTO_MERCADOS_MUDARAM, carregar);
+      window.removeEventListener(EVENTO_LISTA_ATUALIZADA, carregar);
+    };
+  }, [carregar]);
+
+  if (lista.length < 2) return null;
+  return (
+    <label className="seletor-mercado-topo">
+      Mercado:{' '}
+      <select
+        value={escolhido ?? ''}
+        onChange={(e) => {
+          const id = Number(e.target.value);
+          guardarMercadoEscolhido(id);
+          setEscolhido(id);
+          aoTrocar();
+        }}
+      >
+        {lista.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.nome}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
   const navigate = useNavigate();
   useLocation(); // refaz a leitura da sessão a cada troca de tela
   const sessao = lerSessao();
@@ -46,9 +112,7 @@ function Cabecalho() {
     <header className="cabecalho">
       <div className="marca">
         <img src="/icone-bolso-certo.svg" alt="" width="32" height="32" />
-        <span>
-          Bolso Certo - Mercado
-        </span>
+        <span>Bolso Certo - Mercado</span>
       </div>
       {sessao && (
         <>
@@ -61,6 +125,7 @@ function Cabecalho() {
               ))}
             </ul>
           </nav>
+          <SeletorDeMercado aoTrocar={aoTrocarMercado} />
           <button type="button" className="botao botao-secundario" onClick={sair}>
             Sair
           </button>
@@ -71,13 +136,22 @@ function Cabecalho() {
 }
 
 export default function App() {
+  // Sobe a cada troca/cadastro de mercado: o conteúdo (`main`) é recriado e as telas carregam os dados do mercado certo.
+  const [versaoDoMercado, setVersaoDoMercado] = useState(0);
+  const recarregarTelas = useCallback(() => setVersaoDoMercado((v) => v + 1), []);
+
+  useEffect(() => {
+    window.addEventListener(EVENTO_MERCADOS_MUDARAM, recarregarTelas);
+    return () => window.removeEventListener(EVENTO_MERCADOS_MUDARAM, recarregarTelas);
+  }, [recarregarTelas]);
+
   return (
     <>
-      <Cabecalho />
-      <main className="conteudo">
+      <Cabecalho aoTrocarMercado={recarregarTelas} />
+      <main className="conteudo" key={versaoDoMercado}>
         <Routes>
           <Route path="/entrar" element={<Login />} />
-          {/* Públicas: o mercado cria a própria conta e confirma o e-mail. */}
+          {/* Públicas: o mercado cria a conta (só e-mail e senha) e confirma o e-mail. */}
           <Route path="/cadastrar" element={<CadastrarMercado />} />
           <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           {/* Pública, como /entrar: quem está logado também pode abrir. */}

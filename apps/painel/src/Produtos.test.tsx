@@ -72,10 +72,10 @@ describe('lista de produtos', () => {
   });
 
   it('erro ao carregar mostra o alerta com a mensagem do servidor', async () => {
-    simularApi(() => resposta({ erro: 'Sua conta não está ligada a um mercado ativo' }, 403));
+    simularApi(() => resposta({ erro: 'Erro interno do servidor' }, 500));
     abrir('/produtos');
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Sua conta não está ligada a um mercado ativo');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro interno do servidor');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 

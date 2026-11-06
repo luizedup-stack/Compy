@@ -180,14 +180,11 @@ async function resolverMercado(
       return { mercado, criado: true };
     }
 
+    // Papel mercado: as ofertas vão para o mercado DELE e a aba "Mercado" da planilha é ignorada. O nome, o endereço
+    // completo e o telefone ficam na tela "Meu mercado"; uma planilha não pode sobrescrevê-los nem apontar para outro mercado.
     const proprio = await r.acharMercado(ator.mercadoId);
     if (!proprio || proprio.status !== 'ativo') throw new ErroPlanilha('Mercado não encontrado ou inativo');
-    if (proprio.nome === dados.nome && proprio.endereco === dados.endereco) {
-      return { mercado: proprio, criado: false };
-    }
-    const novos = { nome: dados.nome, endereco: dados.endereco, nomeNorm, enderecoNorm };
-    await r.atualizarMercado(proprio.id, novos);
-    return { mercado: { ...proprio, ...novos }, criado: false };
+    return { mercado: proprio, criado: false };
   } catch (erro) {
     if (erro instanceof ErroMercadoDuplicado) {
       throw new ErroPlanilha('Já existe outro mercado com este nome e endereço');

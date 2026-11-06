@@ -11,6 +11,7 @@ import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
 import { rotasBusca } from './rotas/busca';
 import { rotasMercados } from './rotas/mercados';
+import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
 import { rotasPrivacidade } from './rotas/privacidade';
@@ -122,6 +123,7 @@ export async function construirApp({
   await app.register(rotasPainel({ repo }));
   await app.register(rotasBusca({ repo }));
   await app.register(rotasMercados({ repo }));
+  await app.register(rotasMeusMercados({ repo }));
   await app.register(rotasPrivacidade());
   return app;
 }

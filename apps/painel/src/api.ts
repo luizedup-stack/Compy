@@ -1,8 +1,10 @@
-import type { ProdutoPainel, RelatorioImportacao } from '@mercado/shared';
+import type { EnderecoMercado, ProdutoPainel, RelatorioImportacao } from '@mercado/shared';
 
 const URL_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 const CHAVE_SESSAO = 'bolso-certo:sessao';
 const CHAVE_MERCADO_ESCOLHIDO = 'bolso-certo:mercado-escolhido';
+// Cópia da lista "meus mercados" (o cabeçalho a lê para mostrar o seletor sem fazer uma chamada própria a cada tela).
+const CHAVE_MEUS_MERCADOS = 'bolso-certo:meus-mercados';
 const MSG_SERVIDOR = 'Não foi possível falar com o servidor';
 
 export type Papel = 'cliente' | 'mercado' | 'admin';
@@ -43,9 +45,10 @@ export function lerSessao(): Sessao | null {
 export function limparSessao(): void {
   localStorage.removeItem(CHAVE_SESSAO);
   localStorage.removeItem(CHAVE_MERCADO_ESCOLHIDO);
+  localStorage.removeItem(CHAVE_MEUS_MERCADOS);
 }
 
-/** Mercado que o administrador está vendo/editando em Produtos (o login de mercado não usa isto). */
+/** Mercado que está sendo visto/editado: o do administrador (escolhido em Produtos) ou o do usuário de mercado (seletor do topo). */
 export function lerMercadoEscolhido(): number | null {
   const n = Number(localStorage.getItem(CHAVE_MERCADO_ESCOLHIDO));
   return Number.isSafeInteger(n) && n > 0 ? n : null;
@@ -56,9 +59,17 @@ export function guardarMercadoEscolhido(id: number | null): void {
   else localStorage.setItem(CHAVE_MERCADO_ESCOLHIDO, String(id));
 }
 
-/** Para o administrador, as chamadas /painel/* levam o mercado escolhido (`?mercadoId=`). */
+/**
+ * As chamadas de um mercado levam o mercado escolhido (`?mercadoId=`): o administrador escolhe qualquer um; o usuário
+ * de mercado escolhe entre os dele (quando tem mais de um). Valem as chamadas /painel/* (menos a lista dos meus
+ * mercados, que não depende da escolha) e o envio de planilha (/planilhas). O servidor confere de quem é o mercado.
+ */
 function comMercadoEscolhido(caminho: string): string {
-  if (!caminho.startsWith('/painel/') || lerSessao()?.papel !== 'admin') return caminho;
+  const papel = lerSessao()?.papel;
+  if (papel !== 'admin' && papel !== 'mercado') return caminho;
+  const dependeDoMercado =
+    (caminho.startsWith('/painel/') && !caminho.startsWith('/painel/meus-mercados')) || caminho === '/planilhas';
+  if (!dependeDoMercado) return caminho;
   const id = lerMercadoEscolhido();
   if (id === null) return caminho;
   return `${caminho}${caminho.includes('?') ? '&' : '?'}mercadoId=${id}`;
@@ -125,10 +136,21 @@ export async function redefinirSenha(token: string, senha: string): Promise<void
 }
 
 /** O próprio mercado cria a conta (e o mercado). Chamada pública: sem Bearer. */
-export async function cadastrarMercado(dados: { nome: string; endereco: string; email: string; senha: string }): Promise<void> {
-  await pedir(
+export async function cadastrarMercado(dados: { email: string; senha: string }): Promise<{ emailEnviado: boolean }> {
+  const resposta = await pedir(
     '/auth/cadastro-mercado',
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) },
+    false,
+  );
+  const corpo = (await resposta.json()) as { emailEnviado?: boolean };
+  return { emailEnviado: corpo.emailEnviado !== false };
+}
+
+/** Pede outro código de confirmação (o primeiro e-mail não chegou). Pública; a resposta não revela se o e-mail existe. */
+export async function reenviarCodigo(email: string): Promise<void> {
+  await pedir(
+    '/auth/reenviar-codigo',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) },
     false,
   );
 }
@@ -173,12 +195,56 @@ export function mensagemDoErro(e: unknown): string {
   return e instanceof ErroApi ? e.message : MSG_SERVIDOR;
 }
 
+/** Mensagem do servidor para uma conta de mercado que ainda não cadastrou nenhum mercado. */
+export const MSG_SEM_MERCADO = 'Sua conta não está ligada a um mercado ativo';
+
 export interface MercadoPainel {
+  id: number;
+  nome: string;
+  /** O endereço em uma linha (como o cliente vê). */
+  endereco: string;
+  /** Só dígitos; null enquanto não preenchido. */
+  telefone: string | null;
+  /** Endereço por partes; null em mercados que vieram só de planilha. */
+  detalhes: EnderecoMercado | null;
+  /** Já tem o endereço completo e o telefone. */
+  perfilCompleto: boolean;
+  totalProdutos: number;
+  produtosDesatualizados: number;
+}
+
+/** Os campos do formulário do mercado (tudo texto, como digitado). */
+export interface DadosDoMercado {
+  nome: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  cep: string;
+  telefone: string;
+}
+
+/** Um mercado da lista "meus mercados". */
+export interface ResumoDoMercado {
   id: number;
   nome: string;
   endereco: string;
   totalProdutos: number;
-  produtosDesatualizados: number;
+  perfilCompleto: boolean;
+}
+
+/** Avisa só o cabeçalho que a lista guardada de mercados foi atualizada (por exemplo, o nome mudou); as telas não recarregam. */
+export const EVENTO_LISTA_ATUALIZADA = 'bolso-certo:lista-atualizada';
+export function avisarListaAtualizada(): void {
+  window.dispatchEvent(new Event(EVENTO_LISTA_ATUALIZADA));
+}
+
+/** Avisa o resto do painel (cabeçalho, telas) que a lista de mercados ou o mercado escolhido mudou: as telas recarregam. */
+export const EVENTO_MERCADOS_MUDARAM = 'bolso-certo:mercados-mudaram';
+export function avisarMudancaDeMercados(): void {
+  window.dispatchEvent(new Event(EVENTO_MERCADOS_MUDARAM));
 }
 
 export interface PaginaProdutos {
@@ -209,13 +275,43 @@ export async function obterMercado(): Promise<MercadoPainel> {
   return (await resposta.json()) as MercadoPainel;
 }
 
-export async function atualizarMercado(campos: { nome?: string; endereco?: string }): Promise<MercadoPainel> {
+/** Salva os dados do mercado em uso (só os campos enviados mudam; o servidor confere tudo). */
+export async function atualizarMercado(campos: Partial<DadosDoMercado>): Promise<MercadoPainel> {
   const resposta = await pedir('/painel/mercado', {
     method: 'PATCH',
     headers: JSON_HEADERS,
     body: JSON.stringify(campos),
   });
   return (await resposta.json()) as MercadoPainel;
+}
+
+/** A última lista de mercados da conta que o painel recebeu do servidor (vazia se ainda não recebeu). */
+export function lerMeusMercadosGuardados(): ResumoDoMercado[] {
+  try {
+    const lido: unknown = JSON.parse(localStorage.getItem(CHAVE_MEUS_MERCADOS) ?? '[]');
+    return Array.isArray(lido) ? (lido as ResumoDoMercado[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Os mercados ativos da conta logada (usuário de mercado). Guarda a lista para o seletor do cabeçalho. */
+export async function listarMeusMercados(): Promise<ResumoDoMercado[]> {
+  const resposta = await pedir('/painel/meus-mercados');
+  const lido: unknown = await resposta.json();
+  const lista = Array.isArray(lido) ? (lido as ResumoDoMercado[]) : [];
+  localStorage.setItem(CHAVE_MEUS_MERCADOS, JSON.stringify(lista));
+  return lista;
+}
+
+/** Cadastra um mercado novo (ou o primeiro) na conta, com o endereço completo e o telefone. */
+export async function criarMercado(dados: DadosDoMercado): Promise<ResumoDoMercado> {
+  const resposta = await pedir('/painel/meus-mercados', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(dados),
+  });
+  return (await resposta.json()) as ResumoDoMercado;
 }
 
 export async function listarProdutos(pagina: number, busca = ''): Promise<PaginaProdutos> {

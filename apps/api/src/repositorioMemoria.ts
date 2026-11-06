@@ -188,6 +188,9 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
       }
       return null;
     },
+    async listarMercadosDoUsuario(usuarioId) {
+      return [...dados.mercados.values()].filter((x) => x.usuarioId === usuarioId).sort((a, b) => a.id - b.id).map(copia);
+    },
     async atualizarMercado(id, parcial) {
       const m = dados.mercados.get(id);
       if (!m) return;

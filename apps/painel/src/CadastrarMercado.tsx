@@ -1,3 +1,5 @@
+// Cadastro da CONTA do mercado: só o básico (e-mail e senha). O mercado em si (nome, endereço completo, telefone)
+// é cadastrado depois, na tela "Meu mercado". Em seguida a pessoa confirma o e-mail com o código recebido.
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cadastrarMercado, mensagemDoErro } from './api';
@@ -6,11 +8,8 @@ const TAMANHO_MINIMO_SENHA = 8;
 export const MSG_SENHA_CURTA = 'A senha precisa de pelo menos 8 caracteres';
 export const MSG_SENHAS_DIFERENTES = 'As senhas não são iguais';
 
-/** O próprio mercado cria a sua conta: nome, endereço, e-mail e senha. Depois confirma o e-mail com o código recebido. */
 export default function CadastrarMercado() {
   const navigate = useNavigate();
-  const [nome, setNome] = useState('');
-  const [endereco, setEndereco] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [repetir, setRepetir] = useState('');
@@ -19,6 +18,7 @@ export default function CadastrarMercado() {
 
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
+    // Confere aqui o que dá para conferir sem o servidor.
     if (senha.length < TAMANHO_MINIMO_SENHA) {
       setErro(MSG_SENHA_CURTA);
       return;
@@ -30,8 +30,9 @@ export default function CadastrarMercado() {
     setErro(null);
     setEnviando(true);
     try {
-      await cadastrarMercado({ nome: nome.trim(), endereco: endereco.trim(), email: email.trim(), senha });
-      navigate('/confirmar-email', { replace: true, state: { email: email.trim() } });
+      const { emailEnviado } = await cadastrarMercado({ email: email.trim(), senha });
+      // A tela seguinte avisa se o e-mail com o código não pôde ser enviado.
+      navigate('/confirmar-email', { replace: true, state: { email: email.trim(), emailEnviado } });
     } catch (falha) {
       setErro(mensagemDoErro(falha));
       setEnviando(false);
@@ -40,20 +41,12 @@ export default function CadastrarMercado() {
 
   return (
     <section className="cartao">
-      <h1>Cadastrar meu mercado</h1>
-      <p>Crie a conta do seu mercado. Você poderá cadastrar os seus produtos e preços, e só você vê e edita o que é seu.</p>
+      <h1>Criar conta</h1>
+      <p>
+        Informe seu e-mail e escolha uma senha. Depois de entrar, você cadastra os dados do seu mercado (endereço completo e
+        telefone) na tela <strong>Meu mercado</strong>. Só você vê e edita o que é seu.
+      </p>
       <form onSubmit={aoEnviar} noValidate>
-        <label htmlFor="nome-mercado">Nome do mercado</label>
-        <input id="nome-mercado" type="text" autoComplete="organization" required value={nome} onChange={(e) => setNome(e.target.value)} />
-        <label htmlFor="endereco-mercado">Endereço</label>
-        <input
-          id="endereco-mercado"
-          type="text"
-          autoComplete="street-address"
-          required
-          value={endereco}
-          onChange={(e) => setEndereco(e.target.value)}
-        />
         <label htmlFor="email-cadastro">E-mail</label>
         <input id="email-cadastro" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <label htmlFor="senha-cadastro">Senha (mínimo de 8 caracteres)</label>
@@ -80,7 +73,7 @@ export default function CadastrarMercado() {
           </p>
         )}
         <button type="submit" className="botao" disabled={enviando}>
-          {enviando ? 'Cadastrando…' : 'Cadastrar mercado'}
+          {enviando ? 'Criando…' : 'Criar conta'}
         </button>
       </form>
       <p>

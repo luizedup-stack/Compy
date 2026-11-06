@@ -193,6 +193,9 @@ describe('GET /painel/mercado', () => {
       id: mercado.id,
       nome: 'Mercado Um',
       endereco: 'Rua Um, 10',
+      telefone: null,
+      detalhes: null,
+      perfilCompleto: false,
       totalProdutos: 4,
       produtosDesatualizados: 2,
     });
@@ -220,6 +223,9 @@ describe('PATCH /painel/mercado', () => {
       id: mercado.id,
       nome: 'Empório Ação',
       endereco: 'Av. Nova, 99',
+      telefone: null,
+      detalhes: null,
+      perfilCompleto: false,
       totalProdutos: 1,
       produtosDesatualizados: 0,
     });
@@ -232,14 +238,20 @@ describe('PATCH /painel/mercado', () => {
     ).not.toBeNull();
   });
 
-  it('alterar só o nome mantém o endereço', async () => {
+  it('alterar só o nome mantém o endereço (mercado que já tem o endereço por partes)', async () => {
     const { mercado, token } = await criarMercadoComLogin('Mercado Um', 'Rua Um, 10', 'um@exemplo.com');
+    await amb.repo.atualizarMercado(mercado.id, {
+      endereco: 'Rua Um, 10 - Centro, São Paulo - SP, CEP 01001-000',
+      enderecoNorm: normalizarTexto('Rua Um, 10 - Centro, São Paulo - SP, CEP 01001-000'),
+      detalhes: { logradouro: 'Rua Um', numero: '10', complemento: null, bairro: 'Centro', cidade: 'São Paulo', uf: 'SP', cep: '01001000' },
+      telefone: '11912345678',
+    });
     const res = await patch(token, '/painel/mercado', { nome: 'Outro Nome' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ nome: 'Outro Nome', endereco: 'Rua Um, 10' });
+    expect(res.json()).toMatchObject({ nome: 'Outro Nome', endereco: 'Rua Um, 10 - Centro, São Paulo - SP, CEP 01001-000' });
     expect(await amb.repo.acharMercado(mercado.id)).toMatchObject({
       nomeNorm: 'outro nome',
-      enderecoNorm: normalizarTexto('Rua Um, 10'),
+      enderecoNorm: normalizarTexto('Rua Um, 10 - Centro, São Paulo - SP, CEP 01001-000'),
     });
   });
 
