@@ -124,6 +124,24 @@ export async function redefinirSenha(token: string, senha: string): Promise<void
   );
 }
 
+/** O próprio mercado cria a conta (e o mercado). Chamada pública: sem Bearer. */
+export async function cadastrarMercado(dados: { nome: string; endereco: string; email: string; senha: string }): Promise<void> {
+  await pedir(
+    '/auth/cadastro-mercado',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) },
+    false,
+  );
+}
+
+/** Confirma o e-mail com o código recebido. Chamada pública, como esqueciSenha. */
+export async function verificarEmail(token: string): Promise<void> {
+  await pedir(
+    '/auth/verificar-email',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) },
+    false,
+  );
+}
+
 export async function enviarPlanilha(arquivo: File): Promise<RelatorioImportacao> {
   const corpo = new FormData();
   corpo.append('arquivo', arquivo);
@@ -204,6 +222,22 @@ export async function listarProdutos(pagina: number, busca = ''): Promise<Pagina
   const filtro = busca.trim() === '' ? '' : `&q=${encodeURIComponent(busca.trim())}`;
   const resposta = await pedir(`/painel/produtos?pagina=${pagina}${filtro}`);
   return (await resposta.json()) as PaginaProdutos;
+}
+
+/** Campos para cadastrar um produto novo à mão; código de barras, nome e preço são obrigatórios. */
+export interface CamposNovoProduto extends CamposProduto {
+  codigoBarras: string;
+  nome: string;
+  preco: number | string;
+}
+
+export async function criarProduto(campos: CamposNovoProduto): Promise<ProdutoPainel> {
+  const resposta = await pedir('/painel/produtos', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(campos),
+  });
+  return (await resposta.json()) as ProdutoPainel;
 }
 
 export async function editarProduto(codigo: string, campos: CamposProduto): Promise<ProdutoPainel> {

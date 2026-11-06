@@ -65,8 +65,8 @@ describe('lista de produtos', () => {
     simularApi(() => resposta({ itens: [], total: 0 }));
     abrir('/produtos');
 
-    expect(await screen.findByText('Nenhum produto ainda. Envie uma planilha.')).toBeInTheDocument();
-    const vazio = screen.getByText('Nenhum produto ainda. Envie uma planilha.').closest('section')!;
+    expect(await screen.findByText('Nenhum produto ainda. Cadastre um produto ou envie uma planilha.')).toBeInTheDocument();
+    const vazio = screen.getByText('Nenhum produto ainda. Cadastre um produto ou envie uma planilha.').closest('section')!;
     expect(within(vazio).getByRole('link', { name: 'Enviar planilha' })).toHaveAttribute('href', '/planilha');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -405,7 +405,7 @@ describe('remover', () => {
     await user.click(linha.getByRole('button', { name: 'Remover' }));
     await user.click(linha.getByRole('button', { name: 'Confirmar remoção' }));
 
-    expect(await screen.findByText('Nenhum produto ainda. Envie uma planilha.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum produto ainda. Cadastre um produto ou envie uma planilha.')).toBeInTheDocument();
   });
 });
 
@@ -529,7 +529,7 @@ describe('paginação: bordas', () => {
     simularApi(() => resposta({ itens: [], total: 0 }));
     abrir('/produtos');
 
-    expect(await screen.findByText('Nenhum produto ainda. Envie uma planilha.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum produto ainda. Cadastre um produto ou envie uma planilha.')).toBeInTheDocument();
     expect(screen.queryByText(/Página/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Próxima' })).not.toBeInTheDocument();
   });
@@ -612,7 +612,7 @@ describe('busca de produtos', () => {
     await u.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText('Nenhum produto encontrado para essa busca.')).toBeInTheDocument();
-    expect(screen.queryByText('Nenhum produto ainda. Envie uma planilha.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nenhum produto ainda. Cadastre um produto ou envie uma planilha.')).not.toBeInTheDocument();
   });
 });
 

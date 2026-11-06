@@ -73,6 +73,9 @@ export default function Login() {
       <p>
         <Link to="/esqueci-senha">Esqueci minha senha</Link>
       </p>
+      <p>
+        Ainda não tem conta? <Link to="/cadastrar">Cadastrar meu mercado</Link>
+      </p>
     </section>
   );
 }

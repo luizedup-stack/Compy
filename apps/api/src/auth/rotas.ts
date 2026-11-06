@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import { normalizarTexto } from '@mercado/shared';
 import { z } from 'zod';
 import type { EmailSender } from '../email';
-import { ErroEmailJaExiste, type Repositorio, type TipoToken, type Usuario } from '../repositorio';
+import { ErroEmailJaExiste, ErroMercadoDuplicado, type Repositorio, type TipoToken, type Usuario } from '../repositorio';
 import { exigirPapel } from './guardas';
 import { conferirSenha, hashSenha } from './senha';
 
@@ -21,6 +22,16 @@ const emailSchema = z.string({ error: MSG_EMAIL }).trim().toLowerCase().pipe(z.e
 const senhaNovaSchema = z
   .string({ error: MSG_SENHA })
   .min(8, 'A senha deve ter pelo menos 8 caracteres');
+const nomeMercadoSchema = z
+  .string({ error: 'Informe o nome do mercado' })
+  .trim()
+  .min(2, 'Informe o nome do mercado')
+  .max(100, 'O nome do mercado é longo demais');
+const enderecoMercadoSchema = z
+  .string({ error: 'Informe o endereço do mercado' })
+  .trim()
+  .min(5, 'Informe o endereço do mercado')
+  .max(200, 'O endereço do mercado é longo demais');
 const codigoSchema = z.string({ error: MSG_CODIGO }).trim().min(1, MSG_CODIGO);
 
 // Corpo ausente ou que não é objeto cai na mensagem do próprio objeto.
@@ -109,6 +120,46 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
       }
       await enviarVerificacao(usuario);
       return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel });
+    });
+
+    // O próprio mercado se cadastra (software "Bolso Certo - Mercado"): cria a conta de acesso e o mercado, já ligados.
+    // Daí em diante ele só enxerga e edita o que é dele (veja rotas/painel.ts).
+    app.post('/auth/cadastro-mercado', async (req, reply) => {
+      const schema = objeto({
+        nome: nomeMercadoSchema,
+        endereco: enderecoMercadoSchema,
+        email: emailSchema,
+        senha: senhaNovaSchema,
+      });
+      const dados = lerCorpo(schema, req.body, reply);
+      if (!dados) return reply;
+      const senhaHash = await hashSenha(dados.senha);
+      let criado: { usuario: Usuario; mercadoId: number };
+      try {
+        criado = await repo.transacao(async (r) => {
+          const usuario = await r.criarUsuario({ email: dados.email, senhaHash, papel: 'mercado', emailVerificado: false });
+          const mercado = await r.criarMercado({
+            nome: dados.nome,
+            endereco: dados.endereco,
+            nomeNorm: normalizarTexto(dados.nome),
+            enderecoNorm: normalizarTexto(dados.endereco),
+            status: 'ativo',
+            contaSituacao: 'gratuita',
+            usuarioId: usuario.id,
+          });
+          return { usuario, mercadoId: mercado.id };
+        });
+      } catch (e) {
+        if (e instanceof ErroEmailJaExiste) return reply.code(409).send({ erro: 'E-mail já cadastrado' });
+        if (e instanceof ErroMercadoDuplicado) {
+          return reply.code(409).send({ erro: 'Já existe um mercado com esse nome e endereço' });
+        }
+        throw e;
+      }
+      await enviarVerificacao(criado.usuario);
+      return reply
+        .code(201)
+        .send({ id: criado.usuario.id, email: criado.usuario.email, papel: criado.usuario.papel, mercadoId: criado.mercadoId });
     });
 
     app.post('/auth/login', async (req, reply) => {

@@ -2,7 +2,7 @@
   "name": "@mercado/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Bolso Certo - programa de computador (Windows) com a API e o painel embutidos",
+  "description": "Bolso Certo - Mercado: programa de computador (Windows) com a API e o painel embutidos",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",

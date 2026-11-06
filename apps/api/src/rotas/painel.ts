@@ -1,4 +1,4 @@
-import { normalizarTexto, parsePreco, parseQuantidade, type ProdutoPainel } from '@mercado/shared';
+import { normalizarTexto, parsePreco, parseQuantidade, validarCodigoBarras, type ProdutoPainel } from '@mercado/shared';
 import type { FastifyPluginAsync, preHandlerAsyncHookHandler } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
@@ -100,6 +100,53 @@ function lerEdicaoProduto(corpo: unknown): Edicao {
   return { ok: true, parcial, renovaPreco };
 }
 
+type Novo = { ok: true; oferta: Omit<OfertaArmazenada, 'mercadoId' | 'precoAtualizadoEm'> } | { ok: false; erro: string };
+
+/** Valida o corpo do POST de produto novo (código de barras, nome e preço são obrigatórios). */
+function lerNovoProduto(corpo: unknown): Novo {
+  if (!ehObjeto(corpo)) return { ok: false, erro: 'Corpo inválido' };
+  const permitidos = ['codigoBarras', 'nome', 'preco', 'quantidade', 'categoria', 'disponivel'];
+  for (const chave of Object.keys(corpo)) {
+    if (!permitidos.includes(chave)) return { ok: false, erro: `Campo não permitido: ${chave}` };
+  }
+  const bruto = corpo.codigoBarras;
+  if (typeof bruto !== 'string' && typeof bruto !== 'number') return { ok: false, erro: 'Código de barras obrigatório' };
+  const barras = validarCodigoBarras(bruto);
+  if (!barras.ok) return { ok: false, erro: barras.motivo };
+  const nome = textoNaoVazio(corpo.nome);
+  if (nome === undefined) return { ok: false, erro: 'Nome inválido' };
+  const preco = typeof corpo.preco === 'number' || typeof corpo.preco === 'string' ? parsePreco(corpo.preco) : null;
+  if (preco === null) return { ok: false, erro: 'Preço inválido' };
+
+  const q = corpo.quantidade;
+  if (q !== undefined && q !== null && typeof q !== 'string') return { ok: false, erro: 'Quantidade inválida' };
+  const textoQuantidade = typeof q === 'string' ? q.trim() : '';
+  const parseada = textoQuantidade === '' ? null : parseQuantidade(textoQuantidade);
+
+  const c = corpo.categoria;
+  if (c !== undefined && c !== null && typeof c !== 'string') return { ok: false, erro: 'Categoria inválida' };
+  const d = corpo.disponivel;
+  if (d !== undefined && typeof d !== 'boolean') return { ok: false, erro: 'Disponível inválido' };
+
+  return {
+    ok: true,
+    oferta: {
+      codigoBarras: barras.codigo,
+      nome,
+      nomeNorm: normalizarTexto(nome),
+      preco,
+      quantidadeTexto: textoQuantidade === '' ? null : textoQuantidade,
+      quantidadeValor: parseada?.valor ?? null,
+      quantidadeUnidade: parseada?.unidade ?? null,
+      categoria: typeof c === 'string' ? (textoNaoVazio(c) ?? null) : null,
+      disponivel: d ?? true,
+      promocaoPreco: null,
+      promocaoInicio: null,
+      promocaoFim: null,
+    },
+  };
+}
+
 export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync {
   return async (app) => {
     app.decorateRequest('mercadoDoPainel', null as never);
@@ -193,6 +240,22 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
         itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoPainel(o, agora)),
         total: ofertas.length,
       };
+    });
+
+    // Produto novo cadastrado à mão (além da planilha). Vale para o mercado do usuário logado.
+    app.post('/painel/produtos', opcoes, async (req, reply) => {
+      const novo = lerNovoProduto(req.body);
+      if (!novo.ok) return reply.code(400).send({ erro: novo.erro });
+      const mercadoId = req.mercadoDoPainel.id;
+      const resultado = await repo.transacao(async (r) => {
+        if (await r.acharOferta(mercadoId, novo.oferta.codigoBarras)) return null;
+        const agora = new Date();
+        const oferta: OfertaArmazenada = { ...novo.oferta, mercadoId, precoAtualizadoEm: agora };
+        await r.salvarOferta(oferta);
+        return aProdutoPainel(oferta, agora);
+      });
+      if (!resultado) return reply.code(409).send({ erro: 'Já existe um produto com esse código de barras neste mercado' });
+      return reply.code(201).send(resultado);
     });
 
     app.patch<{ Params: { codigo: string } }>('/painel/produtos/:codigo', opcoes, async (req, reply) => {

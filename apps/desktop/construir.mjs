@@ -1,6 +1,6 @@
 // Gera o programa de computador (Windows): node apps/desktop/construir.mjs
 // 1) compila o painel apontando para a API embutida; 2) junta a API em um arquivo só (esbuild);
-// 3) reúne tudo em .build/app e 4) empacota com o Electron em programa/Bolso Certo-win32-x64.
+// 3) reúne tudo em .build/app e 4) empacota com o Electron em programa/Bolso Certo - Mercado-win32-x64.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -53,15 +53,15 @@ fs.copyFileSync(path.join(aqui, 'main.cjs'), path.join(montagem, 'main.cjs'));
 fs.copyFileSync(path.join(aqui, 'icones/icone.png'), path.join(montagem, 'icone.png'));
 fs.writeFileSync(
   path.join(montagem, 'package.json'),
-  JSON.stringify({ name: 'bolso-certo', productName: 'Bolso Certo', version: '0.1.0', main: 'main.cjs' }, null, 2),
+  JSON.stringify({ name: 'bolso-certo', productName: 'Bolso Certo - Mercado', version: '0.1.0', main: 'main.cjs' }, null, 2),
 );
 
 passo('Empacotando com o Electron');
 const [caminho] = await packager({
   dir: montagem,
   out: saida,
-  name: 'Bolso Certo',
-  executableName: 'Bolso Certo',
+  name: 'Bolso Certo - Mercado',
+  executableName: 'Bolso Certo - Mercado',
   platform: 'win32',
   arch: 'x64',
   icon: path.join(aqui, 'icones/icone.ico'),
@@ -69,6 +69,6 @@ const [caminho] = await packager({
   asar: false,
   prune: false,
   appCopyright: 'Bolso Certo',
-  win32metadata: { CompanyName: 'Bolso Certo', FileDescription: 'Bolso Certo', ProductName: 'Bolso Certo' },
+  win32metadata: { CompanyName: 'Bolso Certo', FileDescription: 'Bolso Certo - Mercado', ProductName: 'Bolso Certo - Mercado' },
 });
 console.log(`\nPronto: ${caminho}`);

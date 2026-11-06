@@ -8,10 +8,12 @@ O piloto é na **Vila Sônia, em São Paulo**, com poucos mercados.
 
 ## As três partes
 
+> Para se achar no código, veja o [guia do código](docs/GUIA-DO-CODIGO.md).
+
 | Parte | O que é | Quem usa | Pasta |
 |---|---|---|---|
 | **API** | O servidor: guarda os preços, faz o login, a busca e a comparação. | (as outras duas partes conversam com ela) | `apps/api` |
-| **Painel web** | O site em que o mercado envia a planilha e corrige preços, e em que o administrador cria o acesso dos mercados. | Mercado e administrador | `apps/painel` |
+| **Bolso Certo - Mercado** (painel) | O software do mercado: o mercado **se cadastra sozinho**, cadastra produtos e preços (à mão ou por planilha) e só vê o que é dele. O desenvolvedor (administrador) vê todos. | Mercado e desenvolvedor | `apps/painel` (dentro do programa de Windows, `apps/desktop`) |
 | **App de celular** | O aplicativo em que o cliente busca e compara preços. É só para ver: não edita nada. | Cliente | `apps/mobile` |
 
 Há também a pasta `packages/shared` (regras usadas pelas três partes, como ler a quantidade e calcular o preço por unidade) e a pasta **`marca/`**, que guarda o **logo** e o ícone do Bolso Certo (arquivos `.svg`).
@@ -48,11 +50,11 @@ Se o PowerShell reclamar de "execução de scripts desabilitada", rode antes: `S
 
 Para usar **sem abrir terminal e sem internet**, há um programa de Windows com a API e o painel dentro dele (Electron). Ele já abre com as planilhas reais de teste carregadas.
 
-- **Gerar o programa:** `npm run construir:exe`. O resultado fica em `programa/Bolso Certo-win32-x64/Bolso Certo.exe` (e a cópia compactada, `programa/Bolso-Certo-Windows.zip`, para enviar a outra pessoa; descompacte e abra o `.exe`). Essa pasta não vai para o git.
-- **Usar:** abra o `Bolso Certo.exe`. O painel aparece na janela; entre com o administrador de teste (`admin@bolsocerto.local` / `BolsoCerto-Teste-2026`). No menu **Bolso Certo → Códigos de e-mail e endereço do celular** ficam os códigos de confirmação de conta e o endereço da API para o celular (por exemplo `http://192.168.0.10:3000`).
+- **Gerar o programa:** `npm run construir:exe`. O resultado fica em `programa/Bolso Certo - Mercado-win32-x64/Bolso Certo - Mercado.exe` (e a cópia compactada, `programa/Bolso-Certo-Mercado-Windows.zip`, para enviar a outra pessoa; descompacte e abra o `.exe`). Essa pasta não vai para o git.
+- **Usar:** abra o `Bolso Certo - Mercado.exe`. O painel aparece na janela. **Mercado novo:** toque em "Cadastrar meu mercado" na tela de entrar (nome, endereço, e-mail e senha) e confirme o e-mail com o código. **Desenvolvedor (vê todos os mercados):** `admin@bolsocerto.local` / `BolsoCerto-Teste-2026` (senha só para teste local). No menu **Bolso Certo → Códigos de e-mail e endereço do celular** ficam os códigos de confirmação de conta e o endereço da API para o celular (por exemplo `http://192.168.0.10:3000`).
 - **Celular:** o app guarda uma cópia de todos os mercados e produtos e **funciona sem internet e com o programa fechado** (busca, mercados e produtos). Com o servidor respondendo, ele usa o servidor e renova a cópia. Instale `apk/bolso-certo.apk` (veja `apps/mobile/README.md`, seção "Gerar o APK") e, na tela de entrada, use **Configurar servidor** com o endereço mostrado no programa. O celular precisa estar na mesma rede do computador.
 - A API do programa usa sempre a porta **3000**; não deixe o `npm run testar` aberto ao mesmo tempo.
-- Os dados (contas, produtos, correções) são guardados em um arquivo no computador (`%APPDATA%Bolso Certosalvos`) e voltam quando o programa abre de novo; quem já entrou no app continua entrando. É um quebra-galho até existir o banco de dados. Para recomeçar do zero: menu **Bolso Certo → Apagar os dados salvos e recomeçar**. O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
+- Os dados (contas, produtos, correções) são guardados em um arquivo no computador (`%APPDATA%Bolso Certo - Mercadosalvos`) e voltam quando o programa abre de novo; quem já entrou no app continua entrando. É um quebra-galho até existir o banco de dados. Para recomeçar do zero: menu **Bolso Certo → Apagar os dados salvos e recomeçar**. O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
 - `npm run gerar-icones` refaz os ícones (programa e app) a partir de `marca/icone-bolso-certo.svg`.
 
 ## Como rodar cada parte (manual)

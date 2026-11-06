@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 
 import { renovarCopiaDosProdutos } from './api';
 import { AvisoEmail } from './componentes/AvisoEmail';
@@ -60,9 +60,18 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
   const { carregando, sessao, avisoDeSaida } = useSessao();
   const temSessao = sessao !== null;
 
-  // Ao entrar (ou abrir o app já logado), renova a cópia dos produtos guardada no celular, em segundo plano.
+  // Atualização dos PRODUTOS (não do app: o app em si só se atualiza pela loja de aplicativos).
+  // 1) Ao entrar (ou abrir o app já logado), renova a cópia dos produtos guardada no celular, em segundo plano.
+  // 2) Sempre que o app volta para a tela (o usuário saiu dele e voltou, por exemplo depois de recuperar o sinal),
+  //    tenta renovar de novo; sem internet a tentativa falha em silêncio e continua valendo a cópia guardada.
+  //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 10 minutos.)
   useEffect(() => {
-    if (temSessao) void renovarCopiaDosProdutos(true);
+    if (!temSessao) return;
+    void renovarCopiaDosProdutos(true);
+    const assinatura = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') void renovarCopiaDosProdutos();
+    });
+    return () => assinatura.remove();
   }, [temSessao]);
 
   // Enquanto a sessão guardada é lida, nada além de uma tela neutra.

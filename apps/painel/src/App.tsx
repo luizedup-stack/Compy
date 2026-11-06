@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Mercados from './admin/Mercados';
 import { lerSessao, limparSessao, type Papel } from './api';
+import CadastrarMercado from './CadastrarMercado';
 import Cobranca from './Cobranca';
+import ConfirmarEmail from './ConfirmarEmail';
 import EnviarPlanilha from './EnviarPlanilha';
 import EsqueciSenha from './EsqueciSenha';
 import Login from './Login';
@@ -45,7 +47,7 @@ function Cabecalho() {
       <div className="marca">
         <img src="/icone-bolso-certo.svg" alt="" width="32" height="32" />
         <span>
-          Bolso Certo <small>Painel do mercado</small>
+          Bolso Certo - Mercado
         </span>
       </div>
       {sessao && (
@@ -75,6 +77,9 @@ export default function App() {
       <main className="conteudo">
         <Routes>
           <Route path="/entrar" element={<Login />} />
+          {/* Públicas: o mercado cria a própria conta e confirma o e-mail. */}
+          <Route path="/cadastrar" element={<CadastrarMercado />} />
+          <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           {/* Pública, como /entrar: quem está logado também pode abrir. */}
           <Route path="/esqueci-senha" element={<EsqueciSenha />} />
           <Route

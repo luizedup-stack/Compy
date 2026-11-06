@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { ProdutoPainel } from '@mercado/shared';
 import { Link, useNavigate } from 'react-router-dom';
+import NovoProduto from './NovoProduto';
 import {
   editarProduto,
   guardarMercadoEscolhido,
@@ -440,6 +441,15 @@ export default function Produtos() {
     setMensagem('Produto atualizado');
   }
 
+  function aoCriar(p: ProdutoPainel) {
+    // O produto novo entra na ordem alfabética: recarrega a primeira página, sem busca, para ele aparecer.
+    setMensagem(`Produto cadastrado: ${p.nome}`);
+    setTextoBusca('');
+    setBusca('');
+    setPagina(1);
+    setTentativa((t) => t + 1);
+  }
+
   function aoRemover(codigo: string) {
     // Atualização funcional: várias remoções em andamento ao mesmo tempo não podem ressuscitar linhas.
     setItens((lista) => lista.filter((i) => i.codigoBarras !== codigo));
@@ -486,6 +496,11 @@ export default function Produtos() {
             Enviar planilha
           </Link>
         </div>
+      )}
+
+      {/* Cadastro de produto novo à mão (além da planilha). O administrador só vê depois de escolher o mercado. */}
+      {!precisaEscolher && !(ehAdmin && mercados.length === 0) && (
+        <NovoProduto aoCriar={aoCriar} aoSessaoRecusada={aoSessaoRecusada} />
       )}
 
       {!precisaEscolher && (
@@ -537,7 +552,7 @@ export default function Produtos() {
 
       {!carregando && !erro && !precisaEscolher && total === 0 && busca === '' && !(ehAdmin && mercados.length === 0) && (
         <div className="vazio">
-          <p>Nenhum produto ainda. Envie uma planilha.</p>
+          <p>Nenhum produto ainda. Cadastre um produto ou envie uma planilha.</p>
           <Link to="/planilha" className="botao botao-link">
             Enviar planilha
           </Link>

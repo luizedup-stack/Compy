@@ -435,3 +435,20 @@ input:disabled {
     padding: 28px;
   }
 }
+
+/* Cadastro de produto novo */
+.novo-produto {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  max-width: 480px;
+}
+.novo-produto h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+.novo-produto .linha-marcar {
+  display: block;
+  margin: 8px 0;
+}

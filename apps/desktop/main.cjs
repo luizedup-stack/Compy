@@ -1,5 +1,13 @@
-// Programa de computador do Bolso Certo (Electron): sobe a API e o painel dentro do próprio programa,
-// sem internet e sem instalar mais nada. Os dados ficam só na memória (ainda não há banco de dados).
+// Programa de computador "Bolso Certo - Mercado" (Electron).
+//
+// O que ele faz, em ordem:
+//   1. abre uma janela de "carregando";
+//   2. liga a API dentro do próprio programa (arquivo api.cjs, gerado de apps/api + apps/desktop/api-embutida.ts)
+//      na porta PORTA_API, que é a que o aplicativo do celular consulta;
+//   3. serve o painel do mercado (pasta painel/) numa porta local livre e mostra na janela;
+//   4. ao fechar, grava os dados em arquivo (veja api-embutida.ts) para voltarem na próxima abertura.
+// Não precisa de internet nem de instalar mais nada. Quem mexe só neste arquivo mexe na "casca" do programa;
+// as regras do sistema ficam em apps/api e apps/painel.
 const { app, BrowserWindow, Menu, dialog } = require('electron');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -8,8 +16,12 @@ const path = require('node:path');
 
 const PORTA_API = Number(process.env.BOLSO_PORTA_API) || 3000; // 3000 por padrão: o app do celular aponta para ela
 let portaPainel = 0; // qualquer porta livre (a 3001, por exemplo, pode estar em uso por outro programa)
+// Conta do DESENVOLVEDOR (papel "admin"): enxerga todos os mercados e pode escolher qualquer um no painel.
+// Os mercados comuns se cadastram sozinhos (tela "Cadastrar meu mercado") e só veem o que é deles.
+// Esta senha é só para teste local; antes de publicar na internet ela precisa ser trocada (variáveis ADMIN_EMAIL e
+// ADMIN_SENHA da API) e não deve ficar escrita no código.
 const ADMIN_EMAIL = 'admin@bolsocerto.local';
-const ADMIN_SENHA = 'BolsoCerto-Teste-2026'; // só para teste local, igual ao iniciar-teste.ps1
+const ADMIN_SENHA = 'BolsoCerto-Teste-2026';
 
 const TIPOS = {
   '.html': 'text/html; charset=utf-8',
@@ -57,7 +69,7 @@ function paginaDeCodigos() {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>Códigos de e-mail e celular</title>
 <style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933}h1{color:#0f7d99;font-size:22px}h2{font-size:17px;margin-top:28px}
 article{border:1px solid #c8d6dc;border-radius:8px;padding:10px 14px;margin:10px 0}pre{white-space:pre-wrap;font:14px Consolas,monospace;margin:4px 0}h3{margin:6px 0}li{margin:4px 0}</style></head><body>
-<h1>Bolso Certo</h1>
+<h1>Bolso Certo - Mercado</h1>
 <h2>Endereço para o celular (Configurar servidor no app)</h2><ul>${rede}</ul>
 <p><small>O celular precisa estar na mesma rede Wi-Fi deste computador. Se o Windows perguntar sobre o firewall, permita em "Redes privadas".</small></p>
 <h2>Códigos de e-mail (a página atualiza sozinha)</h2>${itens}</body></html>`;
@@ -111,7 +123,7 @@ function apagarSalvosERecomecar() {
     buttons: ['Cancelar', 'Apagar e recomeçar'],
     defaultId: 0,
     cancelId: 0,
-    title: 'Bolso Certo',
+    title: 'Bolso Certo - Mercado',
     message: 'Apagar tudo o que foi salvo?',
     detail: 'Contas de clientes e correções feitas à mão serão perdidas. O programa abre de novo com as planilhas originais.',
   });
@@ -141,11 +153,11 @@ function montarMenu() {
 
 async function iniciar() {
   montarMenu();
-  janela = new BrowserWindow({ width: 1200, height: 800, title: 'Bolso Certo', icon: iconeDaJanela(), backgroundColor: '#f2f7f9' });
+  janela = new BrowserWindow({ width: 1200, height: 800, title: 'Bolso Certo - Mercado', icon: iconeDaJanela(), backgroundColor: '#f2f7f9' });
   janela.loadURL(
     'data:text/html;charset=utf-8,' +
       encodeURIComponent(
-        '<body style="font:18px Segoe UI,Arial;display:flex;height:100vh;align-items:center;justify-content:center;color:#0f7d99;background:#f2f7f9">Iniciando o Bolso Certo… (carregando as planilhas)</body>',
+        '<body style="font:18px Segoe UI,Arial;display:flex;height:100vh;align-items:center;justify-content:center;color:#0f7d99;background:#f2f7f9">Iniciando o Bolso Certo - Mercado… (carregando as planilhas)</body>',
       ),
   );
   janela.on('closed', () => app.quit());
@@ -163,9 +175,9 @@ async function iniciar() {
   } catch (erro) {
     const emUso = erro && erro.code === 'EADDRINUSE';
     dialog.showErrorBox(
-      'Bolso Certo',
+      'Bolso Certo - Mercado',
       emUso
-        ? `A porta ${erro.port ?? ''} já está em uso. Feche o Bolso Certo que já estiver aberto (ou as janelas do "npm run testar") e abra de novo.`
+        ? `A porta ${erro.port ?? ''} já está em uso. Feche o Bolso Certo - Mercado que já estiver aberto (ou as janelas do "npm run testar") e abra de novo.`
         : `Não foi possível iniciar: ${erro && erro.message ? erro.message : erro}`,
     );
     app.exit(1);
