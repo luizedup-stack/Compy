@@ -1,8 +1,9 @@
 // Formulário dos dados de um mercado: nome, endereço completo (CEP, rua, número, complemento, bairro, cidade, estado)
 // e telefone. Serve para CADASTRAR um mercado (novo) e para EDITAR o mercado em uso; quem usa define o que fazer ao enviar.
-import { UFS, validarCep, validarTelefone } from '@mercado/shared';
-import { useState, type FormEvent } from 'react';
+import { UFS, soDigitos, validarCep, validarTelefone } from '@mercado/shared';
+import { useRef, useState, type FormEvent } from 'react';
 import type { DadosDoMercado } from './api';
+import { buscarCep } from './viaCep';
 
 export const DADOS_VAZIOS: DadosDoMercado = {
   nome: '',
@@ -50,8 +51,61 @@ export default function FormularioMercado({ inicial, rotuloBotao, prefixo, aoEnv
   const [enviando, setEnviando] = useState(false);
   const id = (campo: string) => `${prefixo}-${campo}`;
 
+  // Preenchimento pelo CEP: aviso mostrado embaixo do campo, último CEP consultado (para não repetir a consulta) e
+  // número da consulta mais recente (uma resposta atrasada de um CEP que já foi trocado é ignorada).
+  const [avisoCep, setAvisoCep] = useState<{ tipo: 'info' | 'ok' | 'erro'; texto: string } | null>(null);
+  const ultimoCep = useRef('');
+  const consultaAtual = useRef(0);
+  const campoNumero = useRef<HTMLInputElement>(null);
+
   function mudar(campo: keyof DadosDoMercado, valor: string) {
     setDados((d) => ({ ...d, [campo]: valor }));
+  }
+
+  /**
+   * Chamado a cada mudança no campo CEP. Quando os 8 números estão completos, consulta o endereço e preenche rua,
+   * bairro, cidade e estado (o número e o complemento continuam com a pessoa). Se a consulta não der certo, a pessoa
+   * preenche à mão: o formulário nunca trava por causa disso.
+   */
+  async function aoMudarCep(valor: string) {
+    mudar('cep', valor);
+    const digitos = soDigitos(valor);
+    if (digitos.length !== 8) {
+      // CEP incompleto: cancela qualquer consulta em andamento e limpa o aviso.
+      consultaAtual.current += 1;
+      ultimoCep.current = '';
+      setAvisoCep(null);
+      return;
+    }
+    if (digitos === ultimoCep.current || !validarCep(digitos).ok) return;
+    ultimoCep.current = digitos;
+    const numeroDaConsulta = ++consultaAtual.current;
+    setAvisoCep({ tipo: 'info', texto: 'Buscando o endereço…' });
+
+    const resultado = await buscarCep(digitos);
+    if (numeroDaConsulta !== consultaAtual.current) return; // o CEP mudou enquanto a consulta andava
+    if (resultado.situacao === 'achou') {
+      const e = resultado.endereco;
+      // Só preenche o que o CEP informa (alguns CEPs de cidade pequena não trazem rua ou bairro): o resto fica como está.
+      setDados((d) => ({
+        ...d,
+        logradouro: e.logradouro || d.logradouro,
+        bairro: e.bairro || d.bairro,
+        cidade: e.cidade || d.cidade,
+        uf: (UFS as readonly string[]).includes(e.uf) ? e.uf : d.uf,
+      }));
+      setAvisoCep({
+        tipo: 'ok',
+        texto: e.logradouro ? 'Endereço preenchido pelo CEP. Confira e informe o número.' : 'Cidade preenchida pelo CEP. Informe a rua, o bairro e o número.',
+      });
+      campoNumero.current?.focus();
+    } else if (resultado.situacao === 'nao-achou') {
+      ultimoCep.current = ''; // permite tentar de novo o mesmo CEP depois de corrigir
+      setAvisoCep({ tipo: 'erro', texto: 'CEP não encontrado. Confira os números ou preencha o endereço à mão.' });
+    } else {
+      ultimoCep.current = '';
+      setAvisoCep({ tipo: 'erro', texto: 'Não foi possível buscar o CEP agora. Preencha o endereço à mão.' });
+    }
   }
 
   async function aoSubmeter(e: FormEvent) {
@@ -85,8 +139,13 @@ export default function FormularioMercado({ inicial, rotuloBotao, prefixo, aoEnv
         autoComplete="postal-code"
         placeholder="05501-000"
         value={dados.cep}
-        onChange={(e) => mudar('cep', e.target.value)}
+        onChange={(e) => void aoMudarCep(e.target.value)}
       />
+      {avisoCep && (
+        <p role="status" className={avisoCep.tipo === 'erro' ? 'aviso aviso-erro' : avisoCep.tipo === 'ok' ? 'aviso aviso-ok' : 'aviso'}>
+          {avisoCep.texto}
+        </p>
+      )}
 
       <label htmlFor={id('logradouro')}>Rua ou avenida</label>
       <input
@@ -98,7 +157,7 @@ export default function FormularioMercado({ inicial, rotuloBotao, prefixo, aoEnv
       />
 
       <label htmlFor={id('numero')}>Número</label>
-      <input id={id('numero')} type="text" placeholder="120 ou S/N" value={dados.numero} onChange={(e) => mudar('numero', e.target.value)} />
+      <input ref={campoNumero} id={id('numero')} type="text" placeholder="120 ou S/N" value={dados.numero} onChange={(e) => mudar('numero', e.target.value)} />
 
       <label htmlFor={id('complemento')}>Complemento (opcional)</label>
       <input

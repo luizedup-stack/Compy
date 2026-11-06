@@ -33,6 +33,7 @@ app; um teste em `apps/api/src/rotas/catalogo.test.ts` garante que os dois dão 
 os dados do mercado são preenchidos em "Meu mercado":
 - tela: `apps/painel/src/MeuMercado.tsx` e `FormularioMercado.tsx` (campos e conferências), seletor de mercado no topo em `App.tsx`;
 - regras de CEP, telefone, UF e como o endereço vira uma linha: `packages/shared/src/endereco.ts`;
+- preenchimento automático pelo CEP (consulta ao ViaCEP, serviço público): `apps/painel/src/viaCep.ts` e a função `aoMudarCep` em `FormularioMercado.tsx`;
 - servidor: `apps/api/src/painel/dadosDoMercado.ts` (validação), `apps/api/src/rotas/meusMercados.ts` (listar e cadastrar mercado),
   `apps/api/src/painel/mercadoEscolhido.ts` (qual dos mercados do usuário está em uso; **checa que é dele**).
 
