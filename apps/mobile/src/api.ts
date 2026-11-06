@@ -30,6 +30,18 @@ export function definirUrlApi(url: string | null): void {
 }
 
 export const MSG_SEM_SERVIDOR = 'Não foi possível falar com o servidor';
+
+/**
+ * Endereços de rede local (192.168.x.x, 10.x.x.x, 172.16-31.x.x): só funcionam dentro da mesma rede Wi-Fi do computador.
+ * Quem está longe (ou usa a internet do celular) nunca alcança um deles.
+ */
+const REDE_LOCAL = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:|\/|$)/;
+
+/** A mensagem de "sem servidor"; se o app aponta para um endereço de rede local, explica por que pode não funcionar. */
+export function mensagemSemServidor(): string {
+  if (!REDE_LOCAL.test(urlApi())) return MSG_SEM_SERVIDOR;
+  return `${MSG_SEM_SERVIDOR}. Este app está apontando para um servidor da rede local (${urlApi()}), que só funciona perto do computador, na mesma rede Wi-Fi. Fora dela é preciso usar o endereço do servidor na internet (toque em Configurar servidor na tela de entrada).`;
+}
 export const MSG_ERRO_GENERICO = 'Algo deu errado. Tente novamente.';
 export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Mercados usam o painel na web.';
 export const MSG_EMAIL_REPETIDO = 'Esse e-mail já está cadastrado';
@@ -95,7 +107,7 @@ async function executar<T>(caminho: string, opcoes: Opcoes, autenticado: boolean
       body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
     });
   } catch {
-    throw new ErroApi(MSG_SEM_SERVIDOR, 0);
+    throw new ErroApi(mensagemSemServidor(), 0);
   }
 
   if (resposta.status === 204) return undefined as T;

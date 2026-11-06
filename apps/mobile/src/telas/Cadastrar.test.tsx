@@ -7,9 +7,10 @@ import { abrirApp, lerCofre, simularApi } from '../teste/ajudas';
 
 const POLITICA = 'Li e aceito a política de privacidade';
 
-async function preencher(user: ReturnType<typeof userEvent.setup>, email: string, senha: string) {
+async function preencher(user: ReturnType<typeof userEvent.setup>, email: string, senha: string, repetir = senha) {
   await user.type(screen.getByLabelText('E-mail'), email);
   await user.type(screen.getByLabelText('Senha'), senha);
+  await user.type(screen.getByLabelText('Repita a senha'), repetir);
 }
 
 async function aceitarPolitica() {
@@ -43,6 +44,18 @@ describe('Cadastrar', () => {
     await user.press(screen.getByRole('button', { name: 'Criar conta' }));
 
     expect(await screen.findByText('A senha precisa de pelo menos 8 caracteres')).toBeOnTheScreen();
+    expect(api.fetch).not.toHaveBeenCalled();
+  });
+
+  it('recusa senhas diferentes sem fazer requisição', async () => {
+    const api = simularApi({});
+    const user = userEvent.setup();
+    await abrirApp('Cadastrar');
+    await preencher(user, 'ana@exemplo.com', '12345678', '12345679');
+    await aceitarPolitica();
+    await user.press(screen.getByRole('button', { name: 'Criar conta' }));
+
+    expect(await screen.findByText('As senhas não são iguais')).toBeOnTheScreen();
     expect(api.fetch).not.toHaveBeenCalled();
   });
 

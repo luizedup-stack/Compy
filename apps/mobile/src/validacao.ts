@@ -3,6 +3,7 @@ import { normalizarTexto } from '@mercado/shared';
 export const MSG_EMAIL_INVALIDO = 'E-mail inválido';
 export const MSG_SENHA_CURTA = 'A senha precisa de pelo menos 8 caracteres';
 export const MSG_INFORME_SENHA = 'Informe a senha';
+export const MSG_SENHAS_DIFERENTES = 'As senhas não são iguais';
 export const MSG_INFORME_CODIGO = 'Informe o código';
 export const TAMANHO_MINIMO_SENHA = 8;
 

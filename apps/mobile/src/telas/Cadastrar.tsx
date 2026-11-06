@@ -10,7 +10,7 @@ import { Formulario } from '../componentes/Formulario';
 import type { RootStackParamList } from '../rotas';
 import { useSessao } from '../sessao';
 import { cores, estilos } from '../tema';
-import { MSG_EMAIL_INVALIDO, MSG_SENHA_CURTA, TAMANHO_MINIMO_SENHA, emailValido } from '../validacao';
+import { MSG_EMAIL_INVALIDO, MSG_SENHA_CURTA, MSG_SENHAS_DIFERENTES, TAMANHO_MINIMO_SENHA, emailValido } from '../validacao';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Cadastrar'>;
 
@@ -20,8 +20,9 @@ export function Cadastrar({ navigation }: Props) {
   const { iniciar } = useSessao();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [repetir, setRepetir] = useState('');
   const [aceitou, setAceitou] = useState(false);
-  const [erros, setErros] = useState<{ email?: string; senha?: string; geral?: string }>({});
+  const [erros, setErros] = useState<{ email?: string; senha?: string; repetir?: string; geral?: string }>({});
   const [enviando, setEnviando] = useState(false);
 
   function abrirPolitica() {
@@ -35,8 +36,10 @@ export function Cadastrar({ navigation }: Props) {
     const novos: typeof erros = {};
     if (!emailValido(emailLimpo)) novos.email = MSG_EMAIL_INVALIDO;
     if (senha.length < TAMANHO_MINIMO_SENHA) novos.senha = MSG_SENHA_CURTA;
+    // Quem digita a senha errada não descobriria sozinho: pede para repetir e confere se são iguais.
+    else if (senha !== repetir) novos.repetir = MSG_SENHAS_DIFERENTES;
     setErros(novos);
-    if (novos.email || novos.senha) return;
+    if (novos.email || novos.senha || novos.repetir) return;
 
     setEnviando(true);
     let contaCriada = false;
@@ -76,6 +79,16 @@ export function Cadastrar({ navigation }: Props) {
         value={senha}
         onChangeText={setSenha}
         erro={erros.senha}
+        secureTextEntry
+        autoCapitalize="none"
+        autoComplete="new-password"
+        textContentType="newPassword"
+      />
+      <Campo
+        rotulo="Repita a senha"
+        value={repetir}
+        onChangeText={setRepetir}
+        erro={erros.repetir}
         secureTextEntry
         autoCapitalize="none"
         autoComplete="new-password"

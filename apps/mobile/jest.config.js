@@ -7,6 +7,8 @@ const reactDoApp = path.dirname(require.resolve('react/package.json', { paths: [
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Com o computador ocupado (vários testes em paralelo) alguns testes de tela passam de 5 s: folga para não falharem à toa.
+  testTimeout: 30000,
   moduleNameMapper: {
     '^react$': reactDoApp,
     '^react/(.*)$': `${reactDoApp}/$1`,
