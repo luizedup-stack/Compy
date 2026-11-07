@@ -227,7 +227,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
    * é repetida; dentro dela não, porque a transação já foi perdida.
    */
   function montar(novo: NovoRequest, emTransacao: boolean, rodarTransacao: Repositorio['transacao']): Repositorio {
-    const tentar = <R>(f: () => Promise<R>): Promise<R> => (emTransacao ? f() : comTentativas(f, { tentativas: 4, esperaInicialMs: 3000, aviso: opcoes.aviso }));
+    const tentar = <R>(f: () => Promise<R>): Promise<R> => (emTransacao ? f() : comTentativas(f, { tentativas: 2, esperaInicialMs: 2000, aviso: opcoes.aviso }));
     const q = (texto: string, parametros?: (r: sql.Request) => void) => tentar(() => consultar(novo, texto, parametros));
     const escrever = async (texto: string, parametros?: (r: sql.Request) => void) => {
       const linhas = await q(texto, parametros);

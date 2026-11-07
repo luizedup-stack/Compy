@@ -13,7 +13,7 @@ import {
 } from '@mercado/shared';
 
 import { guardarCatalogoLocal, lerCatalogoLocal } from './catalogo';
-import { marcarComConexao, marcarSemConexao } from './conexao';
+import { comecouEsperarServidor, marcarComConexao, marcarSemConexao, terminouEsperarServidor } from './conexao';
 
 // O Expo troca `process.env.EXPO_PUBLIC_*` pelo valor na hora de empacotar, por isso a leitura é direta.
 export const URL_API: string = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -44,6 +44,19 @@ export function mensagemSemServidor(): string {
   return `${MSG_SEM_SERVIDOR}. Este app está apontando para um servidor da rede local (${urlApi()}), que só funciona perto do computador, na mesma rede Wi-Fi. Fora dela é preciso usar o endereço do servidor na internet (toque em Configurar servidor na tela de entrada).`;
 }
 export const MSG_ERRO_GENERICO = 'Algo deu errado. Tente novamente.';
+export const MSG_ACORDANDO = 'O servidor está acordando. Isso pode levar até 1 minuto; tente de novo em instantes.';
+
+/** Respostas de um servidor que ainda está ligando (o gratuito dorme sem uso): vale esperar e tentar de novo. */
+const STATUS_SERVIDOR_ACORDANDO = new Set([502, 503, 504]);
+/** Esperas, em ms, entre as tentativas enquanto o servidor acorda (no total, perto de 1 minuto). Os testes trocam por esperas curtas. */
+let esperasAcordando = [4000, 6000, 8000, 10000, 12000, 15000];
+export function definirEsperasAcordando(esperas: number[]): void {
+  esperasAcordando = esperas;
+}
+const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** O servidor não está atendendo agora (sem rede, ou ainda ligando): vale mostrar a cópia dos dados guardada no celular. */
+const servidorIndisponivel = (e: ErroApi): boolean => e.status === 0 || STATUS_SERVIDOR_ACORDANDO.has(e.status);
 export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Mercados usam o painel na web.';
 export const MSG_EMAIL_REPETIDO = 'Esse e-mail já está cadastrado';
 
@@ -96,36 +109,55 @@ interface Opcoes {
 }
 
 async function executar<T>(caminho: string, opcoes: Opcoes, autenticado: boolean): Promise<T> {
+  const metodo = opcoes.metodo ?? (opcoes.corpo !== undefined ? 'POST' : 'GET');
   const cabecalhos: Record<string, string> = { Accept: 'application/json' };
   if (opcoes.corpo !== undefined) cabecalhos['Content-Type'] = 'application/json';
   if (autenticado && tokenAtual) cabecalhos.Authorization = `Bearer ${tokenAtual}`;
 
-  let resposta: Response;
+  let esperando = false; // esta consulta está na fila de "servidor acordando"
   try {
-    resposta = await fetch(`${urlApi()}${caminho}`, {
-      method: opcoes.metodo ?? (opcoes.corpo !== undefined ? 'POST' : 'GET'),
-      headers: cabecalhos,
-      body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
-    });
-  } catch {
-    throw new ErroApi(mensagemSemServidor(), 0);
-  }
+    for (let tentativa = 0; ; tentativa++) {
+      let resposta: Response;
+      try {
+        resposta = await fetch(`${urlApi()}${caminho}`, {
+          method: metodo,
+          headers: cabecalhos,
+          body: opcoes.corpo !== undefined ? JSON.stringify(opcoes.corpo) : undefined,
+        });
+      } catch {
+        throw new ErroApi(mensagemSemServidor(), 0);
+      }
 
-  if (resposta.status === 204) return undefined as T;
+      // Servidor ligando: só consultas (GET) esperam e repetem sozinhas; um envio (login, cadastro) mostra o aviso e a pessoa repete.
+      if (STATUS_SERVIDOR_ACORDANDO.has(resposta.status) && metodo === 'GET' && tentativa < esperasAcordando.length) {
+        if (!esperando) {
+          esperando = true;
+          comecouEsperarServidor();
+        }
+        await esperar(esperasAcordando[tentativa]!);
+        continue;
+      }
 
-  let json: unknown;
-  try {
-    json = await resposta.json();
-  } catch {
-    json = undefined;
-  }
+      if (resposta.status === 204) return undefined as T;
 
-  if (!resposta.ok) {
-    if (resposta.status === 401 && autenticado) aoExpirar?.();
-    const erro = (json as { erro?: unknown } | undefined)?.erro;
-    throw new ErroApi(typeof erro === 'string' && erro ? erro : MSG_ERRO_GENERICO, resposta.status);
+      let json: unknown;
+      try {
+        json = await resposta.json();
+      } catch {
+        json = undefined;
+      }
+
+      if (!resposta.ok) {
+        if (resposta.status === 401 && autenticado) aoExpirar?.();
+        const erro = (json as { erro?: unknown } | undefined)?.erro;
+        const padrao = STATUS_SERVIDOR_ACORDANDO.has(resposta.status) ? MSG_ACORDANDO : MSG_ERRO_GENERICO;
+        throw new ErroApi(typeof erro === 'string' && erro ? erro : padrao, resposta.status);
+      }
+      return json as T;
+    }
+  } finally {
+    if (esperando) terminouEsperarServidor();
   }
-  return json as T;
 }
 
 /** Chamada com o token da sessão. Reutilizada pelas telas de busca, mercados e conta. */
@@ -237,7 +269,7 @@ async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo
     void renovarCopiaDosProdutos();
     return resultado;
   } catch (e) {
-    if (!(e instanceof ErroApi) || e.status !== 0) throw e;
+    if (!(e instanceof ErroApi) || !servidorIndisponivel(e)) throw e;
     const local = await lerCatalogoLocal();
     if (!local) throw e;
     marcarSemConexao(local.baixadoEm);

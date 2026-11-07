@@ -195,6 +195,18 @@ Seu IP precisa estar liberado no firewall (passo 1.5). Para tirar os 4 mercados 
 
 ---
 
+## Servidor dormindo: o que o app faz e como evitar a espera
+
+O plano gratuito dorme sem uso (o Render depois de ~15 minutos; o banco do Azure também). Na primeira consulta depois disso, o servidor leva de 30 a 60 segundos para ligar.
+Nesse tempo ele responde "ainda ligando" (502/503/504), e o **app espera e tenta de novo sozinho**, mostrando a faixa "Acordando o servidor…" em vez de um erro
+(a partir da versão 1.1.1 do app). Quando o banco é o que está acordando, o servidor responde 503 com o aviso "O servidor está acordando".
+
+Para o teste de hoje não ter espera nenhuma, **acorde tudo antes**: abra no navegador `https://bolso-certo.onrender.com/saude/banco` e espere aparecer `{"status":"ok"}`.
+
+Para o servidor do Render **não dormir** enquanto os testers usam, um serviço gratuito de monitoramento (por exemplo o UptimeRobot, com conta própria) pode abrir
+`https://bolso-certo.onrender.com/saude` a cada 5 minutos. Essa rota **não toca no banco**, então o banco do Azure continua dormindo quando ninguém usa (e não gasta a cota gratuita).
+O banco acorda sozinho na primeira busca de verdade. Não use `/saude/banco` no monitoramento: ela acordaria o banco o tempo todo e gastaria a cota do mês.
+
 ## Fotos dos produtos
 
 No Render, o servidor procura sozinho a foto de cada produto no Open Food Facts (variável `FOTOS_AUTOMATICAS`, ligada por padrão em produção). Ele faz isso devagar, em segundo

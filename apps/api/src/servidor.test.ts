@@ -241,3 +241,32 @@ describe('montarServidor: hospedagem e banco de dados', () => {
     expect((await entrar('198.51.100.99')).statusCode).toBe(429);
   });
 });
+
+describe('banco acordando (Azure gratuito)', () => {
+  const acordando = () => Object.assign(new Error('Database is not currently available'), { number: 40613 });
+
+  it('uma falha passageira do banco vira 503 com aviso claro e Retry-After, não "erro interno"', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false });
+    const original = app.repo.listarMercados;
+    app.repo.listarMercados = async () => {
+      throw acordando();
+    };
+    const res = await app.inject({ method: 'GET', url: '/mercados' });
+    app.repo.listarMercados = original;
+    expect(res.statusCode).toBe(503);
+    expect(res.headers['retry-after']).toBe('10');
+    expect(res.json()).toEqual({ erro: 'O servidor está acordando. Tente de novo em alguns instantes.' });
+  });
+
+  it('um erro de verdade continua sendo 500 genérico (sem vazar detalhes)', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false });
+    const original = app.repo.listarMercados;
+    app.repo.listarMercados = async () => {
+      throw new Error('segredo interno do banco');
+    };
+    const res = await app.inject({ method: 'GET', url: '/mercados' });
+    app.repo.listarMercados = original;
+    expect(res.statusCode).toBe(500);
+    expect(JSON.stringify(res.json())).not.toContain('segredo');
+  });
+});
