@@ -6,7 +6,8 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "construir": "node construir.mjs"
+    "construir": "node construir.mjs",
+    "test": "node --test"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",

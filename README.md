@@ -4,7 +4,7 @@ O Bolso Certo é um jeito de **comparar os preços dos supermercados antes de sa
 
 O piloto é na **Vila Sônia, em São Paulo**, com poucos mercados.
 
-> **Situação hoje:** tudo funciona de ponta a ponta, mas ainda **em modo de teste**. Os dados ficam só na memória do computador e **somem quando a API é desligada**. Veja "O que falta antes de publicar" no fim deste arquivo.
+> **Situação hoje:** tudo funciona de ponta a ponta, ainda **em modo de teste**. Os dados podem ficar num **banco SQL Server** (Azure SQL gratuito) com o servidor hospedado de graça no Render: veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md). Sem banco configurado (testes no computador), os dados ficam só na memória e **somem quando a API é desligada**. Veja "O que falta antes de publicar" no fim deste arquivo.
 
 ## As três partes
 
@@ -17,6 +17,16 @@ O piloto é na **Vila Sônia, em São Paulo**, com poucos mercados.
 | **App de celular** | O aplicativo em que o cliente busca e compara preços. É só para ver: não edita nada. | Cliente | `apps/mobile` |
 
 Há também a pasta `packages/shared` (regras usadas pelas três partes, como ler a quantidade e calcular o preço por unidade) e a pasta **`marca/`**, que guarda o **logo** e o ícone do Bolso Certo (arquivos `.svg`).
+
+## Banco de dados e hospedagem (grátis)
+
+A API guarda tudo num **banco SQL Server** quando a variável `BANCO_URL` está definida (o mesmo que você abre no SSMS), e o servidor
+inteiro (API + painel) pode rodar de graça no Render. Assim o programa de Windows e o app do celular usam o mesmo servidor e os mesmos dados,
+de qualquer lugar.
+
+- **Passo a passo para colocar no ar (Azure SQL gratuito + Render gratuito):** [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md)
+- **O que tem dentro do banco, consultas para o SSMS, como mudar a estrutura e como testar:** [`docs/BANCO.md`](docs/BANCO.md)
+- Sem `BANCO_URL`, tudo continua funcionando como antes (memória), inclusive o programa de Windows no modo local.
 
 ## Como instalar
 
@@ -56,6 +66,7 @@ Para usar **sem abrir terminal e sem internet**, há um programa de Windows com 
 - A API do programa usa sempre a porta **3000**; não deixe o `npm run testar` aberto ao mesmo tempo.
 - Os dados (contas, produtos, correções) são guardados em um arquivo no computador (`%APPDATA%Bolso Certo - Mercadosalvos`) e voltam quando o programa abre de novo; quem já entrou no app continua entrando. É um quebra-galho até existir o banco de dados. Para recomeçar do zero: menu **Bolso Certo → Apagar os dados salvos e recomeçar**. O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
 - **Acesso pela internet (temporário):** menu **Bolso Certo → Acesso pela internet (túnel)…** liga um túnel da Cloudflare (programa `cloudflared`, instalado com `winget install --id Cloudflare.cloudflared`) e mostra um endereço `https://….trycloudflare.com` para a pessoa digitar em **Configurar servidor** no aplicativo. O endereço **muda toda vez** que o túnel é ligado e só funciona com o computador e o programa ligados. É para testes: o caminho definitivo é hospedar o servidor.
+- **Modo nuvem:** no menu **Bolso Certo → Servidor na nuvem…** o programa passa a abrir o painel do servidor hospedado (e a usar o banco dele) em vez de ligar a API dentro do computador. Para gerar o programa já apontando para a nuvem: `$env:BOLSO_URL_NUVEM = "https://seu-servidor.onrender.com"` antes de `npm run construir:exe`. Veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md).
 - `npm run gerar-icones` refaz os ícones (programa e app) a partir de `marca/icone-bolso-certo.svg`.
 
 ## Como rodar cada parte (manual)
@@ -135,7 +146,7 @@ Na pasta do projeto:
 npm test
 ```
 
-Isso roda os testes das quatro partes (pacote compartilhado, API, painel e app). Um deles, em `apps/api/src/fimafim.test.ts`, é um **roteiro completo**: envia as 4 planilhas, cria o acesso de um mercado, corrige e reenvia preços, cadastra um cliente, busca papel higiênico, remove um mercado e exclui a conta, tudo contra a API (sem abrir porta), com os dados na memória.
+Isso roda os testes das cinco partes (pacote compartilhado, API, painel, app e programa de computador). Os testes do **banco SQL Server** só rodam se você informar um banco de testes vazio em `BANCO_TESTE_URL` (veja [`docs/BANCO.md`](docs/BANCO.md)); sem isso eles são pulados. Um deles, em `apps/api/src/fimafim.test.ts`, é um **roteiro completo**: envia as 4 planilhas, cria o acesso de um mercado, corrige e reenvia preços, cadastra um cliente, busca papel higiênico, remove um mercado e exclui a conta, tudo contra a API (sem abrir porta), com os dados na memória.
 
 ## Onde estão os documentos do projeto
 
@@ -143,34 +154,37 @@ Isso roda os testes das quatro partes (pacote compartilhado, API, painel e app).
 - **Plano de construção** (as tarefas, uma a uma): `docs/superpowers/plans/2026-11-04-comparador-de-precos.md`
 - **Dados de teste e o que cada planilha testa**: `dados-de-teste/LEIA-ME.md`
 - Detalhes técnicos: `apps/api/README.md` (API) e `apps/mobile/README.md` (app).
+- **Colocar no ar com banco de dados, de graça:** `docs/HOSPEDAGEM.md`. **O banco por dentro:** `docs/BANCO.md`.
 
 ## O que falta antes de publicar
 
 Hoje o Bolso Certo serve para **testar e mostrar**, não para o público usar. Faltam:
 
-- [ ] **Banco de dados de verdade (próxima fase).** Hoje tudo (contas, mercados, preços, buscas) fica na memória e **desaparece quando a API reinicia**.
+- [x] **Banco de dados de verdade.** Feito: SQL Server / Azure SQL (`docs/BANCO.md`). Com `BANCO_URL` os dados sobrevivem a reinícios e as sessões continuam valendo. Falta: rotina de backup além da que o Azure faz sozinho e um plano de crescimento (a oferta gratuita é limitada).
 - [ ] **Envio de e-mail de verdade.** Hoje os e-mails só são escritos no terminal da API. É preciso contratar um provedor de e-mail para o cliente receber o código de confirmação e de recuperação de senha.
 - [ ] **Texto da política de privacidade revisado** por alguém qualificado (por exemplo, um advogado). O texto atual (`/privacidade` na API) é um rascunho, e o contato ainda está "a definir".
-- [ ] **HTTPS e hospedagem.** Escolher onde a API vai rodar, com endereço seguro (HTTPS). Em produção, defina estas variáveis antes de ligar a API (exemplo no PowerShell do Windows; troque os valores):
+- [~] **HTTPS e hospedagem.** Para o piloto de teste, está resolvido de graça: Render (HTTPS) + Azure SQL, com `render.yaml` e o passo a passo em `docs/HOSPEDAGEM.md`. Para o público ainda é preciso: domínio próprio, plano que não durma, e decidir o provedor definitivo. Variáveis do servidor (já preenchidas pelo `render.yaml`, exceto as secretas):
 
   ```
-  $env:NODE_ENV="production"
-  $env:JWT_SECRET="uma-frase-longa-e-secreta-com-no-minimo-32-caracteres"
-  $env:ADMIN_EMAIL="seu-email@exemplo.com"
-  $env:ADMIN_SENHA="uma-senha-forte-com-no-minimo-8-caracteres"
-  npm start -w @mercado/api
+  NODE_ENV=production
+  BANCO_URL=<texto de conexão do banco>
+  JWT_SECRET=<frase longa e secreta, mínimo 32 caracteres>
+  ADMIN_EMAIL=<seu e-mail>
+  ADMIN_SENHA=<senha forte, mínimo 8 caracteres>
+  PERMITIR_EMAIL_NO_LOG=1
+  CONFIAR_PROXY=1
   ```
 
-  Em produção a API **não liga** se faltar alguma dessas variáveis, e não carrega os dados de teste. Nunca guarde esses valores em arquivos do projeto. Depois de usar `$env:` para testar, abra um terminal novo: as variáveis continuam valendo no terminal em que foram definidas.
+  Em produção a API **não liga** se faltar alguma dessas variáveis (o `BANCO_URL` só pode faltar com `PERMITIR_SEM_BANCO=1`, para um teste descartável), e não carrega os dados de teste (a menos que `CARREGAR_DADOS_DE_TESTE=1`, e então só com o banco vazio). Nunca guarde esses valores em arquivos do projeto.
 - [ ] **E-mail em produção sem provedor.** Enquanto não houver provedor de e-mail, a API só liga em produção com `$env:PERMITIR_EMAIL_NO_LOG="1"`, sabendo que os códigos de confirmação e de redefinição de senha (inclusive do administrador) aparecem no log do servidor: quem lê o log consegue redefinir qualquer senha.
 - [ ] **Limites de requisições.** Já existem (login e demais rotas de conta: 20 por minuto por endereço; busca: 60 por minuto), mas os números precisam ser ajustados com o uso real.
 - [ ] **CORS aberto.** Hoje a API aceita chamadas de qualquer origem (`origin: true`). Ao hospedar, restrinja ao endereço do painel.
-- [ ] **Endereço da API nos clientes.** `VITE_API_URL` (painel) e `EXPO_PUBLIC_API_URL` (app) precisam apontar para o endereço HTTPS da API; as versões de produção bloqueiam `http://`.
-- [ ] **Instalação na hospedagem.** `npm start` usa o `tsx`, que é uma dependência de desenvolvimento: a instalação no servidor não pode omitir as dependências de desenvolvimento.
+- [~] **Endereço da API nos clientes.** Na hospedagem do `render.yaml` o painel é entregue pela própria API (mesmo endereço), e o programa de Windows e o app trocam o endereço sem recompilar (menu "Servidor na nuvem…" e "Configurar servidor"). Para um APK que já nasça apontando para o servidor, use `EXPO_PUBLIC_API_URL` com `https://`; as versões de produção bloqueiam `http://`.
+- [x] **Instalação na hospedagem.** O `tsx` agora é dependência normal da API, e o `render.yaml` instala só o necessário.
 - [ ] **Log do servidor.** Guarda o endereço de quem acessa e as rotas (sem o texto das buscas). Defina por quanto tempo esse log fica guardado.
 - [ ] **Sessões depois de trocar a senha.** Redefinir a senha **não** derruba os logins já emitidos (lacuna conhecida), nem invalida outros códigos ainda pendentes.
-- [ ] **Reinício da API.** Depois de um reinício, todos precisam entrar de novo (a sessão é presa a cada início da API) e todos os dados se perdem até a fase do banco de dados.
-- [ ] **Métrica do piloto.** O registro de buscas ainda não tem data e hora: acrescente `feitaEm` antes de medir o uso do piloto.
+- [x] **Reinício da API.** Com banco, os dados e as sessões sobrevivem ao reinício (a identificação da sessão fica guardada no banco). Sem banco (memória), continua valendo: depois de reiniciar, todos entram de novo e os dados se perdem.
+- [x] **Métrica do piloto.** No banco, cada busca tem data e hora (`Buscas.feitaEm`); consultas prontas em `docs/BANCO.md`. (Na versão em memória o registro continua sem data.)
 - [ ] **Ícone do app e contas nas lojas.** Gerar o ícone em PNG a partir de `marca/icone-bolso-certo.svg`; preencher `scheme`, `android.package` e `ios.bundleIdentifier` em `apps/mobile/app.json`; e abrir as contas de desenvolvedor do **Google Play** e da **App Store** (pagas, com revisão).
 - [ ] **Conferir o nome "Bolso Certo"**: registro no INPI, disponibilidade no Google Play e na App Store, e se há domínio livre.
 - [ ] **Decisões de produto ainda em aberto** (seção 12 do documento de design): o valor e a forma da cobrança futura dos mercados, se a lista de compras com total fica para a versão 2, e como medir se o piloto deu certo (a sugestão é pelo menos 3 mercados com algumas centenas de produtos cada).

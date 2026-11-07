@@ -110,7 +110,7 @@ function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
   return (
     <header className="cabecalho">
       <div className="marca">
-        <img src="/icone-bolso-certo.svg" alt="" width="32" height="32" />
+        <img src={`${import.meta.env.BASE_URL}icone-bolso-certo.svg`} alt="" width="32" height="32" />
         <span>Bolso Certo - Mercado</span>
       </div>
       {sessao && (

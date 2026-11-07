@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { normalizarTexto, type GrupoProduto, type ProdutoMercado, type ProdutoPainel } from '@mercado/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { abrirBancoDeTeste, URL_BANCO_TESTE, type BancoDeTeste } from './banco/apoioTeste';
 import { lerConfig } from './config';
 import { criarEmailMemoria } from './email';
 import { comToken, enviarPlanilha, lerPlanilha } from './rotas/apoioTeste';
@@ -53,6 +54,7 @@ describe('roteiro fim a fim', () => {
 
   let app: Awaited<ReturnType<typeof montarServidor>>['app'];
   let repo: Awaited<ReturnType<typeof montarServidor>>['repo'];
+  let banco: BancoDeTeste | undefined;
   const email = criarEmailMemoria();
 
   let tokenAdmin = '';
@@ -69,11 +71,18 @@ describe('roteiro fim a fim', () => {
       CARREGAR_DADOS_DE_TESTE: '0',
     });
     expect(config.carregarDadosDeTeste).toBe(false);
-    ({ app, repo } = await montarServidor(config, { email }));
+    // Com BANCO_TESTE_URL definida, o mesmo roteiro roda contra um SQL Server de verdade (o banco de testes é apagado antes).
+    if (URL_BANCO_TESTE) {
+      banco = await abrirBancoDeTeste();
+      ({ app, repo } = await montarServidor(config, { email, repo: await banco.esvaziar() }));
+    } else {
+      ({ app, repo } = await montarServidor(config, { email }));
+    }
   });
 
   afterAll(async () => {
     await app.close();
+    await banco?.fechar();
   });
 
   const entrar = async (credenciais: { email: string; senha: string }) => {

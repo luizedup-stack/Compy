@@ -1,0 +1,43 @@
+# Hospedagem gratuita no Render (https://render.com): a API e o painel do mercado no mesmo serviço.
+# Como usar: veja docs/HOSPEDAGEM.md (no Render: New + > Blueprint > escolha este repositório).
+# Os valores marcados "sync: false" você digita no painel do Render (senhas nunca ficam neste arquivo).
+services:
+  - type: web
+    name: bolso-certo
+    runtime: node
+    plan: free
+    region: virginia
+    # Instala só o que a API e o painel precisam (--include=dev: o painel é compilado aqui e o tsx roda a API).
+    # PAINEL_BASE/VITE_API_URL: o painel fica em /painel-web/ e fala com a API do mesmo endereço.
+    buildCommand: >-
+      npm ci --include=dev --workspace=@mercado/shared --workspace=@mercado/api --workspace=@mercado/painel &&
+      PAINEL_BASE=/painel-web/ VITE_API_URL= npm run build -w @mercado/painel
+    startCommand: npm start -w @mercado/api
+    # Não toca no banco: o banco gratuito do Azure só "acorda" quando alguém usa o app de verdade.
+    healthCheckPath: /saude
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Gerado pelo Render na criação (assina os logins). Não troque depois, senão todos precisam entrar de novo.
+      - key: JWT_SECRET
+        generateValue: true
+      # Texto de conexão do Azure SQL (veja docs/HOSPEDAGEM.md, passo 3).
+      - key: BANCO_URL
+        sync: false
+      # Conta do desenvolvedor (vê todos os mercados no painel).
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_SENHA
+        sync: false
+      # O Render gratuito bloqueia o envio de e-mail (SMTP): o código de "esqueci minha senha" aparece no log do serviço.
+      - key: PERMITIR_EMAIL_NO_LOG
+        value: "1"
+      # Atrás do Render, cada pessoa chega com o endereço do proxy; este valor faz o limite de tentativas contar por pessoa.
+      - key: CONFIAR_PROXY
+        value: "1"
+      # Na primeira vez, carrega 4 mercados inventados (dados-de-teste/) para o app já ter o que mostrar.
+      # Só carrega se o banco estiver vazio. Para começar sem eles, troque para "0" antes do primeiro início.
+      - key: CARREGAR_DADOS_DE_TESTE
+        value: "1"

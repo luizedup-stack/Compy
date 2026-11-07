@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Endereço em que o painel fica. Na raiz ('/') no programa de computador; na hospedagem a API entrega o painel
+  // em /painel-web/ (PAINEL_BASE=/painel-web/ na hora de compilar).
+  base: process.env.PAINEL_BASE ?? '/',
   plugins: [react()],
   resolve: {
     alias: {

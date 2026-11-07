@@ -15,6 +15,14 @@ describe('normalizarServidor', () => {
     ['  http://192.168.0.10:3000/  ', 'http://192.168.0.10:3000'],
     ['192.168.0.10:3000', 'http://192.168.0.10:3000'],
     ['https://meu-servidor.com', 'https://meu-servidor.com'],
+    // Sem "http(s)://": nome de site na internet é https; rede local, localhost e endereço com porta continuam http.
+    ['bolso-certo.onrender.com', 'https://bolso-certo.onrender.com'],
+    ['  Bolso-Certo.onrender.com/  ', 'https://Bolso-Certo.onrender.com'],
+    ['localhost:3000', 'http://localhost:3000'],
+    ['localhost', 'http://localhost'],
+    ['meu-pc.local', 'http://meu-pc.local'],
+    ['meu-pc.local:3000', 'http://meu-pc.local:3000'],
+    ['bolso.onrender.com:8443', 'http://bolso.onrender.com:8443'],
     ['HTTPS://Meu-Servidor.com/api//', 'HTTPS://Meu-Servidor.com/api'],
   ])('%s → %s', (entrada, esperado) => {
     expect(normalizarServidor(entrada)).toBe(esperado);

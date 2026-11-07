@@ -27,6 +27,9 @@ Testes: `npm test -w @mercado/api`.
 | `CARREGAR_DADOS_DE_TESTE` | `1` carrega as planilhas de teste ao iniciar, `0` não carrega | ligado fora de produção, desligado em produção |
 | `PASTA_DADOS_DE_TESTE` | Pasta com as planilhas `.xlsx` a carregar | `dados-de-teste/` na raiz do repositório |
 | `LIMITAR_REQUISICOES` | `0` desliga os limites de requisições (veja abaixo) | ligado em qualquer ambiente |
+| `BANCO_URL` | Texto de conexão do SQL Server / Azure SQL (formato ADO.NET). Com ele os dados ficam no banco e as tabelas são criadas sozinhas. Sem ele, memória. **Obrigatório em produção** (ou `PERMITIR_SEM_BANCO=1` para um teste descartável). Veja `docs/BANCO.md`. | (vazio = memória) |
+| `PAINEL_DIST` | Pasta do painel já compilado; se existir, a API o entrega em `/painel-web/` (a raiz `/` leva para lá). | `apps/painel/dist` |
+| `CONFIAR_PROXY` | `1` quando a API está atrás de um proxy de hospedagem (Render): o IP de cada pessoa vem de `X-Forwarded-For`, para o limite de tentativas contar por pessoa. | desligado |
 | `PERMITIR_EMAIL_NO_LOG` | `1` aceita que os e-mails (com os códigos de verificação e de redefinição de senha) apareçam só no log. **Obrigatório em produção** enquanto não houver provedor de e-mail. | desligado |
 
 Se uma variável obrigatória faltar em produção, o servidor não inicia e diz qual é.
@@ -37,14 +40,17 @@ Por endereço do cliente, numa janela de 1 minuto: todas as rotas `POST /auth/*`
 
 ## Sessões e log
 
-- Cada início do servidor gera uma identificação nova; os logins emitidos antes de um reinício deixam de valer (`401 "Sessão inválida"`) e todos precisam entrar de novo. Como os dados ficam na memória, os ids recomeçam em 1 a cada início, e um login antigo apontaria para a conta de outra pessoa.
+- Cada login leva a identificação da "instância" do servidor. **Sem banco** (memória), ela é nova a cada início: os logins emitidos antes de um reinício deixam de valer (`401 "Sessão inválida"`) e todos entram de novo, porque os ids recomeçam em 1 e um login antigo apontaria para a conta de outra pessoa. **Com banco**, ela fica guardada no próprio banco (`dbo.Configuracao`): reiniciar o servidor não desloga ninguém; recriar o banco do zero sim.
 - O log de cada requisição guarda só o método, o caminho (sem a consulta, ou seja, sem o texto das buscas) e o endereço do cliente.
 
-## Dados na memória
+## Dados: banco SQL Server ou memória
 
-Ainda não existe banco de dados: tudo (usuários, mercados, preços, buscas) fica **na memória** e **se perde quando o servidor reinicia**. Isso é proposital nesta fase.
-
-Por isso não existe um comando `seed` separado: as planilhas só teriam onde ser gravadas dentro do próprio servidor. Em desenvolvimento, os 4 mercados de teste da pasta `dados-de-teste/` (dados inventados) são carregados sozinhos ao iniciar, como se o administrador tivesse enviado as planilhas. Use `CARREGAR_DADOS_DE_TESTE=0` para começar vazio.
+- **Com `BANCO_URL`:** tudo (contas, mercados, preços, buscas) fica no banco e sobrevive a reinícios. Ao ligar, o servidor aplica as migrações de `src/banco/migracoes/` (a partir do zero ou só as que faltam).
+  A carga dos dados de teste (`CARREGAR_DADOS_DE_TESTE=1`) só acontece se ainda não existe nenhum mercado, para não desfazer correções feitas à mão. Detalhes e consultas para o SSMS: `docs/BANCO.md`.
+- **Sem `BANCO_URL`:** tudo fica **na memória** e se perde quando o servidor reinicia (útil para desenvolver e testar). Em desenvolvimento os 4 mercados de teste de `dados-de-teste/`
+  (dados inventados) são carregados sozinhos ao iniciar; use `CARREGAR_DADOS_DE_TESTE=0` para começar vazio.
+- Planilhas reais em lote para o banco: `npm run carregar -w @mercado/api -- <pasta>` (com `BANCO_URL` definida).
+- Testes do banco: `BANCO_TESTE_URL` com o texto de conexão de um banco **vazio e só de testes** (veja `docs/BANCO.md`).
 
 ## Entrar como administrador (desenvolvimento)
 
@@ -53,7 +59,7 @@ Por isso não existe um comando `seed` separado: as planilhas só teriam onde se
 
 Para entrar: `POST /auth/login` com `{ "email": "...", "senha": "..." }`. A resposta traz um `token`, que vai nas outras chamadas no cabeçalho `Authorization: Bearer <token>`.
 
-Os e-mails do sistema (código de verificação, redefinição de senha) **não são enviados de verdade**: aparecem só no terminal do servidor.
+Os e-mails do sistema (código de verificação, redefinição de senha) **não são enviados de verdade** pelo servidor de linha de comando: aparecem só no terminal (ou no log da hospedagem). `/saude` responde `{"status":"ok"}` sem tocar no banco; `/saude/banco` confere o banco.
 
 ## Principais rotas
 
