@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { ProdutoPainel } from '@mercado/shared';
 import { Link, useNavigate } from 'react-router-dom';
+import { ErroDeFoto, reduzirImagem } from './foto';
 import NovoProduto from './NovoProduto';
 import {
   ErroApi,
   MSG_SEM_MERCADO,
   editarProduto,
+  enviarFotoDoProduto,
   guardarMercadoEscolhido,
   lerMercadoEscolhido,
   lerSessao,
   listarMercadosAdmin,
   listarProdutos,
   mensagemDoErro,
+  removerFotoDoProduto,
   removerProduto,
   sessaoRecusada,
+  urlDaFoto,
   type CamposProduto,
   type MercadoAdmin,
 } from './api';
@@ -83,6 +87,10 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
   const botaoRemover = useRef<HTMLButtonElement>(null);
   const campoNome = useRef<HTMLInputElement>(null);
   const botaoCancelarRemocao = useRef<HTMLButtonElement>(null);
+  const entradaFoto = useRef<HTMLInputElement>(null);
+  // Muda quando a foto é trocada: o navegador guarda a imagem antiga pelo endereço, então o endereço ganha um sufixo novo.
+  const [versaoFoto, setVersaoFoto] = useState(0);
+  const [fotoOcupada, setFotoOcupada] = useState(false);
   const idNome = `nome-${produto.codigoBarras}`;
   // Para onde o foco vai quando a linha troca de modo (o botão que o usuário apertou deixa de existir).
   const focoPendente = useRef<RefObject<HTMLElement> | null>(null);
@@ -169,6 +177,39 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
     }
   }
 
+  /** Escolhida a imagem: reduz e envia. A foto é do código de barras (vale para todos os mercados que vendem o produto). */
+  async function aoEscolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo
+    if (!arquivo) return;
+    setErro(null);
+    setFotoOcupada(true);
+    try {
+      const resposta = await enviarFotoDoProduto(produto.codigoBarras, await reduzirImagem(arquivo));
+      setVersaoFoto(Date.now());
+      aoAtualizar({ ...produto, foto: resposta.foto, fotoOrigem: resposta.fotoOrigem });
+    } catch (e2) {
+      if (sessaoRecusada(e2)) aoSessaoRecusada();
+      else setErro(e2 instanceof ErroDeFoto ? e2.message : mensagemDoErro(e2));
+    } finally {
+      setFotoOcupada(false);
+    }
+  }
+
+  async function removerFoto() {
+    setErro(null);
+    setFotoOcupada(true);
+    try {
+      await removerFotoDoProduto(produto.codigoBarras);
+      aoAtualizar({ ...produto, foto: null, fotoOrigem: null });
+    } catch (e2) {
+      if (sessaoRecusada(e2)) aoSessaoRecusada();
+      else setErro(mensagemDoErro(e2));
+    } finally {
+      setFotoOcupada(false);
+    }
+  }
+
   const editando = modo === 'editar';
 
   return (
@@ -192,6 +233,50 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
         ) : (
           produto.nome
         )}
+      </td>
+      <td data-label="Foto" className="coluna-foto">
+        {produto.foto ? (
+          <img
+            className="foto-produto"
+            src={`${urlDaFoto(produto.foto)}${versaoFoto ? `?v=${versaoFoto}` : ''}`}
+            alt={`Foto de ${produto.nome}`}
+            width={48}
+            height={48}
+            loading="lazy"
+          />
+        ) : (
+          <span className="sem-foto">Sem foto</span>
+        )}
+        <div className="acoes-botoes">
+          <input
+            ref={entradaFoto}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+            aria-label={`Escolher foto de ${produto.nome}`}
+            onChange={(e) => void aoEscolherFoto(e)}
+          />
+          <button
+            type="button"
+            className="botao botao-secundario botao-pequeno"
+            aria-describedby={idNome}
+            disabled={fotoOcupada || ocupado}
+            onClick={() => entradaFoto.current?.click()}
+          >
+            {fotoOcupada ? 'Enviando…' : produto.foto ? 'Trocar foto' : 'Enviar foto'}
+          </button>
+          {produto.fotoOrigem === 'mercado' && (
+            <button
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              aria-describedby={idNome}
+              disabled={fotoOcupada || ocupado}
+              onClick={() => void removerFoto()}
+            >
+              Remover foto
+            </button>
+          )}
+        </div>
       </td>
       <td data-label="Preço">
         {editando ? (
@@ -576,6 +661,7 @@ export default function Produtos() {
                 <tr>
                   <th scope="col">Código de barras</th>
                   <th scope="col">Produto</th>
+                  <th scope="col">Foto</th>
                   <th scope="col">Preço</th>
                   <th scope="col">Quantidade</th>
                   <th scope="col">Categoria</th>

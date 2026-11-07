@@ -18,7 +18,7 @@ describe('log de requisições (R33b)', () => {
       url: '/busca?q=segredo&ordem=unidade',
       headers: { authorization: 'Bearer token-muito-secreto', cookie: 'c=biscoito' },
     });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200); // a busca é pública: o token inválido é ignorado
     const log = linhas.join('\n');
     expect(log).not.toContain('segredo');
     expect(log).not.toContain('token-muito-secreto');

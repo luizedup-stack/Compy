@@ -186,10 +186,9 @@ describe('MercadoDetalhe', () => {
     expect(screen.getAllByTestId('mercado')).toHaveLength(4);
   });
 
-  it('401 encerra a sessão: apaga o token e volta para Entrar', async () => {
+  it('401 encerra a sessão (apaga o token); o app continua aberto, sem login', async () => {
     await abrirDetalhe({ [ROTA_PRODUTOS]: { status: 401, corpo: { erro: 'Sessão expirada' } } });
-    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeOnTheScreen();
-    expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
+    await waitFor(() => expect(lerCofre().has(CHAVE_SESSAO)).toBe(false));
   });
 
   it('cada linha traz nome, preço da embalagem com a quantidade, preço por unidade e idade, em um rótulo só', async () => {

@@ -19,14 +19,14 @@ const PAGINA = `<!doctype html>
 
 <h2>Quais dados coletamos</h2>
 <ul>
-  <li>Seu endereço de e-mail, informado ao criar a conta.</li>
-  <li>Sua senha, que guardamos apenas de forma criptografada (um código irreversível): nem nós conseguimos ler a sua senha.</li>
-  <li>As buscas que você faz no aplicativo. Elas ficam ligadas apenas à sua conta, sem nenhuma outra informação que identifique você.</li>
+  <li>Se você criar uma conta (é opcional: dá para usar o aplicativo sem conta), seu endereço de e-mail, informado ao criar a conta, e, se quiser, o nome de usuário e a foto do perfil.</li>
+  <li>Sua senha, se você criar uma conta, que guardamos apenas de forma criptografada (um código irreversível): nem nós conseguimos ler a sua senha.</li>
+  <li>As buscas que você faz no aplicativo. Sem conta, elas ficam anônimas. Com conta, ficam ligadas apenas à sua conta, sem nenhuma outra informação que identifique você.</li>
 </ul>
 
 <h2>Para que usamos</h2>
 <ul>
-  <li>Criar e manter a sua conta.</li>
+  <li>Criar e manter a sua conta, se você criar uma.</li>
   <li>Mostrar a você os preços dos produtos nos mercados.</li>
   <li>Medir o uso do serviço, para saber o que as pessoas procuram e melhorar o Bolso Certo.</li>
 </ul>

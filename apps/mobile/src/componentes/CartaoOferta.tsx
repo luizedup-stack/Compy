@@ -1,7 +1,8 @@
 import type { Oferta } from '@mercado/shared';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatarPreco, textoIdade, textoPorUnidade } from '../formatar';
+import { perguntarSeQuerIr } from '../rota';
 import { cores } from '../tema';
 
 interface Props {
@@ -12,7 +13,10 @@ interface Props {
 
 export const AVISO_SEM_QUANTIDADE = 'sem quantidade informada';
 
-/** Uma oferta de um mercado: nome, endereço, preço da embalagem, preço por unidade e idade do preço. */
+/**
+ * Uma oferta de um mercado: nome, endereço, preço da embalagem, preço por unidade e idade do preço.
+ * Tocar na oferta (é onde a pessoa escolhe comprar) pergunta se ela quer ir até o mercado e abre o Google Maps ou o Waze.
+ */
 export function CartaoOferta({ oferta, maisBarato = false }: Props) {
   const porUnidade = textoPorUnidade(oferta);
   const idade = textoIdade(oferta.diasDesdeAtualizacao);
@@ -29,7 +33,15 @@ export function CartaoOferta({ oferta, maisBarato = false }: Props) {
   if (maisBarato) partes.push('mais barato');
 
   return (
-    <View testID="oferta" accessible accessibilityLabel={partes.join(', ')} style={estilos.cartao}>
+    <Pressable
+      testID="oferta"
+      accessible
+      accessibilityRole="link"
+      accessibilityLabel={partes.join(', ')}
+      accessibilityHint="Toque para ver como chegar ao mercado"
+      onPress={() => perguntarSeQuerIr({ nome: oferta.mercadoNome, endereco: oferta.endereco })}
+      style={({ pressed }) => [estilos.cartao, pressed ? estilos.pressionado : null]}
+    >
       <View style={estilos.topo}>
         <Text style={estilos.mercado}>{oferta.mercadoNome}</Text>
         {maisBarato ? (
@@ -54,13 +66,16 @@ export function CartaoOferta({ oferta, maisBarato = false }: Props) {
             <Text style={estilos.textoChipAntigo}>Preço antigo</Text>
           </View>
         ) : null}
+        <Text style={estilos.comoChegar}>Como chegar</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const estilos = StyleSheet.create({
   cartao: { paddingVertical: 10, gap: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: cores.borda },
+  pressionado: { opacity: 0.6 },
+  comoChegar: { marginLeft: 'auto', fontSize: 14, fontWeight: '700', color: cores.marca },
   topo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   mercado: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: cores.texto },
   endereco: { fontSize: 13, color: cores.textoSuave },

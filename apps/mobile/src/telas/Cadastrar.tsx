@@ -48,10 +48,12 @@ export function Cadastrar({ navigation }: Props) {
       contaCriada = true;
       const resposta = await entrarComoCliente(emailLimpo, senha);
       await iniciar(resposta.token, resposta.emailVerificado);
+      // Volta para as abas, na aba Conta (já com a conta aberta).
+      navigation.reset({ index: 0, routes: [{ name: 'Principal', params: { screen: 'Conta' } }] });
     } catch (e) {
       setErros({
         geral: contaCriada
-          ? `Sua conta foi criada, mas não conseguimos entrar agora. ${mensagemDoErro(e)} Tente entrar pela tela inicial.`
+          ? `Sua conta foi criada, mas não conseguimos entrar agora. ${mensagemDoErro(e)} Toque em Entrar para continuar.`
           : mensagemDoErro(e),
       });
       setEnviando(false);

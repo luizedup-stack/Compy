@@ -2,6 +2,7 @@ import {
   ErroEmailJaExiste,
   ErroMercadoDuplicado,
   type BuscaRegistrada,
+  type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
   type Repositorio,
@@ -21,6 +22,7 @@ interface Dados {
   tokens: TokenArmazenado[];
   mercados: Map<number, Mercado>;
   ofertas: Map<string, OfertaArmazenada>;
+  fotos: Map<string, FotoProduto>;
   buscas: BuscaRegistrada[];
   proximoUsuarioId: number;
   proximoMercadoId: number;
@@ -32,6 +34,7 @@ function dadosVazios(): Dados {
     tokens: [],
     mercados: new Map(),
     ofertas: new Map(),
+    fotos: new Map(),
     buscas: [],
     proximoUsuarioId: 1,
     proximoMercadoId: 1,
@@ -73,6 +76,8 @@ function deTexto(texto: string): Dados {
     return valor;
   }) as { versao?: number; dados?: Dados };
   const d = lido.dados;
+  // Estado salvo por uma versão anterior ao recurso de fotos: sem fotos.
+  if (d && !(d.fotos instanceof Map)) d.fotos = new Map();
   if (
     lido.versao !== 1 ||
     !d ||
@@ -225,6 +230,38 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
         }
       }
       return itens;
+    },
+
+    async salvarFoto(f) {
+      dados.fotos.set(f.codigoBarras, copia(f));
+    },
+    async acharFoto(codigoBarras) {
+      const f = dados.fotos.get(codigoBarras);
+      return f ? copia(f) : null;
+    },
+    async removerFoto(codigoBarras) {
+      return dados.fotos.delete(codigoBarras);
+    },
+    async listarResumoDeFotos(codigos) {
+      const quais = new Set(codigos);
+      return [...dados.fotos.values()]
+        .filter((f) => quais.has(f.codigoBarras) && (f.url !== null || f.imagem !== null))
+        .map((f) => ({ codigoBarras: f.codigoBarras, origem: f.origem }))
+        .sort((a, b) => (a.codigoBarras < b.codigoBarras ? -1 : a.codigoBarras > b.codigoBarras ? 1 : 0));
+    },
+    async listarCodigosComFoto() {
+      return [...dados.fotos.values()].filter((f) => f.url !== null || f.imagem !== null).map((f) => f.codigoBarras).sort();
+    },
+    async listarCodigosSemFoto(limite, tentarDeNovoAntesDe) {
+      const codigos = new Set<string>();
+      for (const o of dados.ofertas.values()) codigos.add(o.codigoBarras);
+      return [...codigos]
+        .filter((c) => {
+          const f = dados.fotos.get(c);
+          return !f || (f.url === null && f.imagem === null && f.atualizadaEm.getTime() < tentarDeNovoAntesDe.getTime());
+        })
+        .sort()
+        .slice(0, Math.max(0, limite));
     },
 
     async registrarBusca(b) {

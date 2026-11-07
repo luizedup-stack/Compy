@@ -88,6 +88,14 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 
 **Colocar planilhas reais no banco em lote** → `apps/api/src/scripts/carregar.ts` (`npm run carregar -w @mercado/api -- <pasta>`).
 
+**Fotos dos produtos** → a foto é do código de barras.
+- busca automática no Open Food Facts: `apps/api/src/fotos/openFoodFacts.ts` (consulta e validação da resposta) e `apps/api/src/fotos/gerenciador.ts` (fila devagar, em segundo plano; não procura o mesmo produto duas vezes);
+- envio pelo mercado: `apps/api/src/rotas/painel.ts` (`PUT/DELETE /painel/produtos/:codigo/foto`), conferência da imagem em `apps/api/src/fotos/imagem.ts`, tela em `apps/painel/src/Produtos.tsx` e redução da imagem em `apps/painel/src/foto.ts`;
+- entrega da foto: `apps/api/src/rotas/fotos.ts` (`GET /fotos/:codigo`); no app, `apps/mobile/src/componentes/FotoDoProduto.tsx`;
+- armazenamento: tabela `FotosProduto` (`003-fotos.sql`) e os métodos `*Foto*` do repositório; ferramenta em lote `apps/api/src/scripts/fotos.ts`.
+
+**App sem login e "Como chegar"** → o app abre sempre nas abas (`apps/mobile/src/navegacao.tsx`); Entrar e Cadastrar abrem por cima, a partir da aba Conta (`telas/Conta.tsx`). As rotas de leitura da API são públicas (`usuarioOpcional` em `apps/api/src/auth/guardas.ts`). A pergunta "Ir até o mercado?" e os links do Google Maps e do Waze estão em `apps/mobile/src/rota.ts`.
+
 **Hospedagem** → `render.yaml` (como montar e iniciar no Render) e `docs/HOSPEDAGEM.md`. O painel compila com `PAINEL_BASE=/painel-web/` (`apps/painel/vite.config.ts`) e
 fala com a API do mesmo endereço (`VITE_API_URL=` vazio, em `apps/painel/src/api.ts`).
 

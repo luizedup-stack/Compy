@@ -324,6 +324,8 @@ describe('GET /painel/produtos', () => {
       disponivel: false,
       atualizadoEm: '2026-10-01T10:00:00.000Z',
       desatualizado: true,
+      foto: null,
+      fotoOrigem: null,
     });
   });
 

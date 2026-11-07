@@ -34,6 +34,8 @@ export function Entrar({ navigation, route }: Props) {
     try {
       const resposta = await entrarComoCliente(emailLimpo, senha);
       await iniciar(resposta.token, resposta.emailVerificado);
+      // Volta para as abas, na aba Conta (já com a conta aberta).
+      navigation.reset({ index: 0, routes: [{ name: 'Principal', params: { screen: 'Conta' } }] });
     } catch (e) {
       setErros({ geral: mensagemDoErro(e) });
       setEnviando(false);
@@ -45,7 +47,7 @@ export function Entrar({ navigation, route }: Props) {
       <Text style={estilos.titulo} accessibilityRole="header">
         Bolso Certo
       </Text>
-      <Text style={estilos.subtitulo}>Entre para comparar preços perto de você.</Text>
+      <Text style={estilos.subtitulo}>Entre na sua conta. Para só comparar preços, não precisa de conta.</Text>
       {aviso ? (
         <Text style={estilos.sucesso} accessibilityLiveRegion="polite">
           {aviso}

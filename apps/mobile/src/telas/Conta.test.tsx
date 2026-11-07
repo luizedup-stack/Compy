@@ -97,7 +97,7 @@ describe('Conta', () => {
       expect(screen.getByRole('button', CONFIRMAR)).toBeOnTheScreen();
     });
 
-    it('"Sim, excluir minha conta" chama DELETE /conta com o Bearer, apaga o token e mostra Entrar com o aviso', async () => {
+    it('"Sim, excluir minha conta" chama DELETE /conta com o Bearer, apaga o token e a aba Conta passa a oferecer Entrar, com o aviso', async () => {
       const { api, user } = await abrirConta({ 'DELETE /conta': { status: 204 } });
       await user.press(screen.getByRole('button', EXCLUIR));
       await user.press(screen.getByRole('button', CONFIRMAR));
@@ -107,7 +107,9 @@ describe('Conta', () => {
       expect(api.chamadas[0]).toMatchObject({ metodo: 'DELETE', caminho: '/conta', autorizacao: 'Bearer tok-conta' });
       expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
       expect(screen.getByText('Conta excluída.')).toBeOnTheScreen();
-      expect(screen.queryByText('Minha conta')).not.toBeOnTheScreen();
+      // A aba Conta passa a mostrar a versão sem login (o app continua aberto e usável).
+      expect(screen.getByTestId('tela-conta-sem-login')).toBeOnTheScreen();
+      expect(screen.queryByTestId('tela-conta')).not.toBeOnTheScreen();
     });
 
     it('durante o pedido os dois botões ficam desativados e dois toques rápidos mandam um DELETE só', async () => {

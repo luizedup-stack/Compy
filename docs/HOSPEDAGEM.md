@@ -170,8 +170,10 @@ use o gerador do GitHub (abaixo).
 4. Mande o `.apk` para o pessoal (WhatsApp, Drive...). No celular: abrir o arquivo → o Android pede para permitir "instalar apps desconhecidos" → instalar.
 
 O app já abre usando o servidor. A primeira consulta depois de um tempo parado pode levar até ~1 minuto (servidor e banco acordando). O APK usa a chave de
-teste do Android (serve para instalar direto, não para publicar na Play Store). Para atualizar o app já instalado, gere um APK novo e instale por cima; se o
-Android recusar, desinstale o antigo e instale de novo.
+teste do Android (serve para instalar direto, não para publicar na Play Store). **Atualizar quem já tem o app:** o tester só abre o `.apk` novo e toca em **Atualizar**; a conta e os dados ficam, não precisa desinstalar nem baixar nada de novo.
+O Android aceita a atualização quando o pacote e a assinatura são os mesmos (são: todos os APKs usam a mesma chave de teste) e o **número da versão não é menor**.
+Por isso, **antes de gerar um APK novo, suba `android.versionCode` (e `version`) em `apps/mobile/app.json`** (hoje: versão 1.1.0, código 2). Se o Android recusar mesmo assim,
+é sinal de que o APK antigo foi assinado com outra chave: aí vale desinstalar o antigo uma vez.
 
 Na primeira busca depois de um tempo parado o app pode demorar até ~1 minuto (servidor e banco acordando). Isso é do plano gratuito.
 
@@ -192,6 +194,14 @@ Ele manda todas as planilhas da pasta para o banco (se uma já existia, os preç
 Seu IP precisa estar liberado no firewall (passo 1.5). Para tirar os 4 mercados inventados: painel → **Administração** → remover.
 
 ---
+
+## Fotos dos produtos
+
+No Render, o servidor procura sozinho a foto de cada produto no Open Food Facts (variável `FOTOS_AUTOMATICAS`, ligada por padrão em produção). Ele faz isso devagar, em segundo
+plano, assim que sobe e sempre que entram produtos novos; o resultado fica no banco (tabela `FotosProduto`), então cada produto só é consultado uma vez. Produtos que o Open
+Food Facts não tem ficam "sem foto" e o dono do mercado envia a foto no painel (Produtos → Enviar foto). Para ver quantos já têm foto, use as consultas de `docs/BANCO.md`.
+Para procurar tudo de uma vez a partir do seu PC: `npm run fotos -w @mercado/api` com `BANCO_URL` definida (leva alguns minutos para muitos produtos).
+O servidor gratuito dorme sem uso, então a busca de fotos só avança enquanto ele estiver acordado.
 
 ## Dia a dia
 

@@ -30,6 +30,7 @@ Testes: `npm test -w @mercado/api`.
 | `BANCO_URL` | Texto de conexão do SQL Server / Azure SQL (formato ADO.NET). Com ele os dados ficam no banco e as tabelas são criadas sozinhas. Sem ele, memória. **Obrigatório em produção** (ou `PERMITIR_SEM_BANCO=1` para um teste descartável). Veja `docs/BANCO.md`. | (vazio = memória) |
 | `PAINEL_DIST` | Pasta do painel já compilado; se existir, a API o entrega em `/painel-web/` (a raiz `/` leva para lá). | `apps/painel/dist` |
 | `CONFIAR_PROXY` | `1` quando a API está atrás de um proxy de hospedagem (Render): o IP de cada pessoa vem de `X-Forwarded-For`, para o limite de tentativas contar por pessoa. | desligado |
+| `FOTOS_AUTOMATICAS` | `1` procura sozinho a foto dos produtos no Open Food Facts (devagar, em segundo plano; o resultado fica no banco); `0` desliga. | ligado em produção, desligado nos outros ambientes |
 | `PERMITIR_EMAIL_NO_LOG` | `1` aceita que os e-mails (com os códigos de verificação e de redefinição de senha) apareçam só no log. **Obrigatório em produção** enquanto não houver provedor de e-mail. | desligado |
 
 Se uma variável obrigatória faltar em produção, o servidor não inicia e diz qual é.
@@ -49,6 +50,7 @@ Por endereço do cliente, numa janela de 1 minuto: todas as rotas `POST /auth/*`
   A carga dos dados de teste (`CARREGAR_DADOS_DE_TESTE=1`) só acontece se ainda não existe nenhum mercado, para não desfazer correções feitas à mão. Detalhes e consultas para o SSMS: `docs/BANCO.md`.
 - **Sem `BANCO_URL`:** tudo fica **na memória** e se perde quando o servidor reinicia (útil para desenvolver e testar). Em desenvolvimento os 4 mercados de teste de `dados-de-teste/`
   (dados inventados) são carregados sozinhos ao iniciar; use `CARREGAR_DADOS_DE_TESTE=0` para começar vazio.
+- Fotos dos produtos: `npm run fotos -w @mercado/api` (com `BANCO_URL`) procura de uma vez a foto de todos os produtos que ainda não têm e mostra o resultado.
 - Planilhas reais em lote para o banco: `npm run carregar -w @mercado/api -- <pasta>` (com `BANCO_URL` definida).
 - Testes do banco: `BANCO_TESTE_URL` com o texto de conexão de um banco **vazio e só de testes** (veja `docs/BANCO.md`).
 
@@ -71,12 +73,15 @@ Os e-mails do sistema (código de verificação, redefinição de senha) **não 
 | `POST /auth/reenviar-verificacao` | Logado (exige login) | Enviar de novo o código de confirmação |
 | `POST /auth/esqueci-senha`, `POST /auth/redefinir-senha` | Público | Recuperar a senha |
 | `DELETE /conta` | Cliente | Excluir a própria conta (as buscas ficam anônimas) |
-| `GET /busca?q=...&ordem=unidade\|embalagem` | Cliente | Busca e compara preços entre mercados |
-| `GET /mercados`, `GET /mercados/:id/produtos` | Cliente | Mercados ativos e seus produtos |
+| `GET /busca?q=...&ordem=unidade\|embalagem` | **Público** (com login de cliente, a busca fica ligada à conta) | Busca e compara preços entre mercados; cada produto traz `foto` |
+| `GET /produtos`, `GET /catalogo` | **Público** | Lista da tela inicial e cópia dos produtos para o app funcionar sem internet |
+| `GET /mercados`, `GET /mercados/:id/produtos` | **Público** | Mercados ativos e seus produtos |
+| `GET /fotos/:codigo` | **Público** | Foto do produto pelo código de barras (enviada por mercado, ou redireciona para o Open Food Facts) |
 | `GET /planilhas/modelo`, `POST /planilhas` | Mercado, admin | Baixar o modelo e enviar a planilha de preços |
 | `GET /painel/mercado`, `PATCH /painel/mercado`, `GET /painel/cobranca` | Mercado | Painel do mercado |
 | `GET /painel/produtos?pagina=N` | Mercado | Lista paginada dos produtos do mercado |
 | `PATCH /painel/produtos/:codigo`, `DELETE /painel/produtos/:codigo` | Mercado | Corrigir ou remover um produto |
+| `PUT /painel/produtos/:codigo/foto`, `DELETE /painel/produtos/:codigo/foto` | Mercado | Enviar a foto do produto (JPEG/PNG/WebP, até 300 KB) ou remover a que o mercado enviou |
 | `GET /admin/mercados` e demais rotas `/admin/...` | Admin | Gestão dos mercados |
 
 ## Antes de publicar

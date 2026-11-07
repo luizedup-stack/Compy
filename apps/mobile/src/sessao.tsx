@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { definirAoExpirar, definirToken } from './api';
-import { apagarCatalogoLocal } from './catalogo';
 import { apagarDoCofre, guardarNoCofre, lerDoCofre } from './cofre';
 import { carregarServidor } from './servidor';
 
@@ -17,11 +16,11 @@ export interface ValorSessao {
   /** Verdadeiro enquanto a sessão guardada está sendo lida; o app mostra só uma tela neutra. */
   carregando: boolean;
   sessao: Sessao | null;
-  /** Mensagem para a tela Entrar depois de sair de propósito (ex.: "Conta excluída."); nula nos demais casos. */
+  /** Mensagem mostrada na aba Conta depois de sair de propósito (ex.: "Conta excluída."); nula nos demais casos. */
   avisoDeSaida: string | null;
   iniciar(token: string, emailVerificado: boolean): Promise<void>;
   marcarEmailVerificado(): Promise<void>;
-  /** Encerra a sessão e apaga o token do aparelho. `aviso` aparece na tela Entrar. */
+  /** Encerra a sessão e apaga o token do aparelho. `aviso` aparece na aba Conta. */
   sair(aviso?: string): Promise<void>;
 }
 
@@ -65,8 +64,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     async (aviso?: string) => {
       // Uma saída sem aviso feita com a sessão já encerrada (ex.: um 401 atrasado) não apaga o aviso que está na tela.
       if (aviso !== undefined || atual.current !== null) setAvisoDeSaida(aviso || null);
-      aplicar(null);
-      void apagarCatalogoLocal();
+      aplicar(null); // a cópia dos produtos no celular fica: ela é pública e o app funciona sem login
       try {
         await apagarDoCofre(CHAVE_SESSAO);
       } catch {

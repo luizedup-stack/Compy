@@ -22,6 +22,8 @@ export interface OpcoesServidor {
   repo?: Repositorio;
   /** Veja OpcoesApp.instancia. */
   instancia?: string;
+  /** Veja OpcoesApp.fotos. */
+  fotos?: { agendarPendentes(): void };
 }
 
 /** Prefixo em que a API entrega o painel do mercado (quando a pasta do painel compilado existe). */
@@ -46,7 +48,7 @@ export function completarAdminDeDesenvolvimento(config: Config): { config: Confi
 /** Monta tudo a partir da configuração (repositório em memória, administrador, dados de teste), sem escutar porta. */
 export async function montarServidor(
   config: Config,
-  { logger = false, email = criarEmailConsole(), repo = criarRepositorioMemoria(), instancia }: OpcoesServidor = {},
+  { logger = false, email = criarEmailConsole(), repo = criarRepositorioMemoria(), instancia, fotos }: OpcoesServidor = {},
 ): Promise<{ app: FastifyInstance; repo: Repositorio }> {
   const app = await construirApp({
     repo,
@@ -56,6 +58,7 @@ export async function montarServidor(
     limitarRequisicoes: config.limitarRequisicoes,
     instancia,
     confiarNoProxy: config.confiarNoProxy,
+    fotos,
   });
   try {
     if (config.adminEmail !== null && config.adminSenha !== null) {

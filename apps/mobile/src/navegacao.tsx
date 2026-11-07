@@ -28,7 +28,7 @@ const opcoesComuns = {
   contentStyle: { backgroundColor: cores.fundo },
 };
 
-/** Área principal: as abas Buscar, Mercados e Conta. O cabeçalho fica por conta da pilha ("Bolso Certo"). */
+/** Área principal: as abas Buscar, Mercados e Conta (para todos, com ou sem login). O cabeçalho fica por conta da pilha ("Bolso Certo"). */
 function Principal() {
   return (
     <Abas.Navigator
@@ -51,61 +51,52 @@ function Principal() {
 }
 
 /**
- * Pilha de telas: acesso (Entrar, Cadastrar, EsqueciSenha) quando não há sessão; principal
- * (as abas Buscar, Mercados e Conta, com MercadoDetalhe e VerificarEmail por cima) quando há. `rotaInicial` serve só para abrir direto numa tela de acesso (testes).
+ * Pilha de telas. O app funciona SEM login: as abas (Buscar, Mercados e Conta) e o MercadoDetalhe estão sempre
+ * disponíveis. Entrar, Cadastrar e EsqueciSenha abrem por cima, a partir da aba Conta, para quem quiser ter conta.
+ * `rotaInicial` serve só para abrir direto numa dessas telas (testes).
  */
 export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
-  const { carregando, sessao, avisoDeSaida } = useSessao();
-  const temSessao = sessao !== null;
+  const { carregando } = useSessao();
 
   // Atualização dos PRODUTOS (não do app: o app em si só se atualiza pela loja de aplicativos).
-  // 1) Ao entrar (ou abrir o app já logado), renova a cópia dos produtos guardada no celular, em segundo plano.
+  // 1) Ao abrir o app, renova a cópia dos produtos guardada no celular, em segundo plano (a consulta é pública).
   // 2) Sempre que o app volta para a tela (o usuário saiu dele e voltou, por exemplo depois de recuperar o sinal),
   //    tenta renovar de novo; sem internet a tentativa falha em silêncio e continua valendo a cópia guardada.
   //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 10 minutos.)
+  // Espera a leitura do endereço do servidor guardado (carregando) para não consultar o endereço errado.
   useEffect(() => {
-    if (!temSessao) return;
+    if (carregando) return;
     void renovarCopiaDosProdutos(true);
     const assinatura = AppState.addEventListener('change', (estado) => {
       if (estado === 'active') void renovarCopiaDosProdutos();
     });
     return () => assinatura.remove();
-  }, [temSessao]);
+  }, [carregando]);
 
-  // Enquanto a sessão guardada é lida, nada além de uma tela neutra.
+  // Enquanto o endereço do servidor e a sessão guardada são lidos, nada além de uma tela neutra.
   if (carregando) return <View testID="splash" style={{ flex: 1, backgroundColor: cores.fundo }} />;
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={opcoesComuns} initialRouteName={sessao ? undefined : rotaInicial}>
-        {sessao ? (
-          <Stack.Group
-            screenLayout={({ children, route }) => (
-              <View style={{ flex: 1 }}>
-                <AvisoSemConexao />
-                {children}
-              </View>
-            )}
-          >
-            <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo' }} />
-            <Stack.Screen
-              name="MercadoDetalhe"
-              component={MercadoDetalhe}
-              options={({ route }) => ({ title: route.params.nome })}
-            />
-          </Stack.Group>
-        ) : (
-          <>
-            <Stack.Screen
-              name="Entrar"
-              component={Entrar}
-              options={{ headerShown: false }}
-              initialParams={avisoDeSaida ? { aviso: avisoDeSaida } : undefined}
-            />
-            <Stack.Screen name="Cadastrar" component={Cadastrar} options={{ title: 'Cadastro' }} />
-            <Stack.Screen name="EsqueciSenha" component={EsqueciSenha} options={{ title: 'Recuperar senha' }} />
-          </>
-        )}
+      <Stack.Navigator screenOptions={opcoesComuns} initialRouteName={rotaInicial}>
+        <Stack.Group
+          screenLayout={({ children }) => (
+            <View style={{ flex: 1 }}>
+              <AvisoSemConexao />
+              {children}
+            </View>
+          )}
+        >
+          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo' }} />
+          <Stack.Screen
+            name="MercadoDetalhe"
+            component={MercadoDetalhe}
+            options={({ route }) => ({ title: route.params.nome })}
+          />
+          <Stack.Screen name="Entrar" component={Entrar} options={{ title: 'Entrar' }} />
+          <Stack.Screen name="Cadastrar" component={Cadastrar} options={{ title: 'Criar conta' }} />
+          <Stack.Screen name="EsqueciSenha" component={EsqueciSenha} options={{ title: 'Recuperar senha' }} />
+        </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>
   );

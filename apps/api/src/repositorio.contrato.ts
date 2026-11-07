@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ErroEmailJaExiste,
   ErroMercadoDuplicado,
+  type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
   type Repositorio,
@@ -43,6 +44,16 @@ const novaOferta = (mercadoId: number, codigoBarras = '7891000100103'): OfertaAr
   promocaoPreco: null,
   promocaoInicio: null,
   promocaoFim: null,
+});
+
+const novaFoto = (codigoBarras = '7891000100103', parcial: Partial<FotoProduto> = {}): FotoProduto => ({
+  codigoBarras,
+  origem: 'openfoodfacts',
+  url: `https://images.openfoodfacts.org/images/products/${codigoBarras}/front_pt.200.jpg`,
+  imagem: null,
+  mercadoId: null,
+  atualizadaEm: new Date('2026-11-07T12:00:00.000Z'),
+  ...parcial,
 });
 
 const AGORA = new Date('2026-11-04T00:00:00Z');
@@ -473,6 +484,107 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
           await r.registrarBusca({ usuarioId: null, termo: 'leite', resultados: 2, mercadosDistintos: 1 });
         });
         expect(await repo.listarBuscas()).toHaveLength(1);
+      });
+    });
+
+    describe('fotos dos produtos', () => {
+      it('grava e acha a foto pelo código de barras; sem foto, null', async () => {
+        const repo = await criar();
+        expect(await repo.acharFoto('7891000100103')).toBeNull();
+        await repo.salvarFoto(novaFoto());
+        expect(await repo.acharFoto('7891000100103')).toEqual(novaFoto());
+      });
+
+      it('guarda a imagem enviada por um mercado, com o mercado que enviou', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const imagem = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+        await repo.salvarFoto(novaFoto('7891000100103', { origem: 'mercado', url: null, imagem, mercadoId: m.id }));
+        expect(await repo.acharFoto('7891000100103')).toMatchObject({ origem: 'mercado', url: null, imagem, mercadoId: m.id });
+      });
+
+      it('uma foto só por código: salvar de novo substitui a anterior', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto());
+        await repo.salvarFoto(novaFoto('7891000100103', { url: 'https://exemplo.com/nova.jpg' }));
+        expect((await repo.acharFoto('7891000100103'))?.url).toBe('https://exemplo.com/nova.jpg');
+        expect(await repo.listarCodigosComFoto()).toEqual(['7891000100103']);
+      });
+
+      it('removerFoto apaga e diz se havia', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto());
+        expect(await repo.removerFoto('7891000100103')).toBe(true);
+        expect(await repo.acharFoto('7891000100103')).toBeNull();
+        expect(await repo.removerFoto('7891000100103')).toBe(false);
+      });
+
+      it('listarCodigosComFoto só traz os que têm foto de verdade (não os "procurou e não achou")', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto('7890000000002'));
+        await repo.salvarFoto(novaFoto('7890000000001', { url: null }));
+        await repo.salvarFoto(novaFoto('7890000000003', { origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA' }));
+        expect(await repo.listarCodigosComFoto()).toEqual(['7890000000002', '7890000000003']);
+      });
+
+      it('listarResumoDeFotos: só dos códigos pedidos que têm foto de verdade, com a origem e sem a imagem', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        await repo.salvarFoto(novaFoto('7890000000001')); // automática
+        await repo.salvarFoto(novaFoto('7890000000002', { origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA', mercadoId: m.id }));
+        await repo.salvarFoto(novaFoto('7890000000003', { url: null })); // procurou e não achou
+        await repo.salvarFoto(novaFoto('7890000000004')); // não foi pedido
+        const resumo = await repo.listarResumoDeFotos(['7890000000003', '7890000000002', '7890000000001', '7890000000009']);
+        expect(resumo).toEqual([
+          { codigoBarras: '7890000000001', origem: 'openfoodfacts' },
+          { codigoBarras: '7890000000002', origem: 'mercado' },
+        ]);
+        expect(await repo.listarResumoDeFotos([])).toEqual([]);
+      });
+
+      it('listarCodigosSemFoto: o que nunca foi procurado e o "não achou" antigo, só de produtos que têm oferta', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        for (const c of ['7890000000001', '7890000000002', '7890000000003', '7890000000004']) await repo.salvarOferta(novaOferta(m.id, c));
+        await repo.salvarFoto(novaFoto('7890000000001')); // tem foto
+        await repo.salvarFoto(novaFoto('7890000000002', { url: null, atualizadaEm: new Date('2026-11-06T00:00:00Z') })); // não achou ontem
+        // 7890000000003 e 7890000000004: nunca procurados. Uma foto de produto que ninguém vende não conta:
+        await repo.salvarFoto(novaFoto('7899999999999', { url: null }));
+
+        const corte = new Date('2026-11-05T00:00:00Z'); // "não achou" depois do corte ainda não vale tentar de novo
+        expect(await repo.listarCodigosSemFoto(10, corte)).toEqual(['7890000000003', '7890000000004']);
+        const corteNovo = new Date('2026-11-07T00:00:00Z'); // agora o "não achou" de ontem é antigo
+        expect(await repo.listarCodigosSemFoto(10, corteNovo)).toEqual(['7890000000002', '7890000000003', '7890000000004']);
+        expect(await repo.listarCodigosSemFoto(2, corteNovo)).toEqual(['7890000000002', '7890000000003']);
+        expect(await repo.listarCodigosSemFoto(0, corteNovo)).toEqual([]);
+      });
+
+      it('o mesmo código vendido em vários mercados aparece uma vez', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('Mercado A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('Mercado B', 'Rua 2'));
+        await repo.salvarOferta(novaOferta(a.id, '7890000000001'));
+        await repo.salvarOferta(novaOferta(b.id, '7890000000001'));
+        expect(await repo.listarCodigosSemFoto(10, AGORA)).toEqual(['7890000000001']);
+      });
+
+      it('devolve cópias: alterar o que veio não altera o guardado', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto());
+        const f = (await repo.acharFoto('7891000100103'))!;
+        f.url = 'https://alterado';
+        expect((await repo.acharFoto('7891000100103'))?.url).not.toBe('https://alterado');
+      });
+
+      it('uma transação que falha desfaz a foto gravada nela', async () => {
+        const repo = await criar();
+        await expect(
+          repo.transacao(async (r) => {
+            await r.salvarFoto(novaFoto());
+            throw new Error('falhou');
+          }),
+        ).rejects.toThrow('falhou');
+        expect(await repo.acharFoto('7891000100103')).toBeNull();
       });
     });
   });

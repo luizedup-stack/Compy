@@ -33,6 +33,7 @@ Criadas por `apps/api/src/banco/migracoes/001-criar-tabelas.sql` e `002-configur
 | `Mercados` | Cada mercado (nome, endereço, telefone, dono) | `status` = `ativo`/`removido` (remover não apaga). Nome + endereço não se repetem (`chave`, um hash). `detalhes` é um JSON com o endereço por partes. |
 | `Ofertas` | Produto + preço de cada mercado | Chave: (`mercadoId`, `codigoBarras`). `seq` é a ordem de entrada. |
 | `Buscas` | Cada busca feita no app | Sem ligação com a pessoa depois que ela exclui a conta. `feitaEm` (UTC) mede o uso do piloto. |
+| `FotosProduto` | Foto de cada produto, pelo **código de barras** (vale para todos os mercados) | `origem` = `openfoodfacts` (guarda só o endereço da imagem em `url`) ou `mercado` (imagem pequena enviada pelo painel, em `imagem`). Linha sem `url` e sem `imagem` = "procurou e não achou" (procura de novo depois de 30 dias). |
 | `Configuracao` | `instancia`: identifica **este banco** | Entra nas sessões (logins). Apagar e recriar o banco muda o valor e desloga todos, de propósito. |
 | `SchemaVersao` | Quais arquivos de migração já foram aplicados | |
 
@@ -63,6 +64,15 @@ FROM dbo.Buscas GROUP BY CAST(feitaEm AS date) ORDER BY dia DESC;
 
 -- O que as pessoas buscam e não encontram
 SELECT TOP 30 termo, COUNT(*) AS vezes FROM dbo.Buscas WHERE resultados = 0 GROUP BY termo ORDER BY vezes DESC;
+
+-- Quantos produtos têm foto, e de onde veio
+SELECT origem, COUNT(*) AS produtos FROM dbo.FotosProduto WHERE url IS NOT NULL OR imagem IS NOT NULL GROUP BY origem;
+
+-- Produtos à venda que ainda estão sem foto (nunca procurados ou não achados), com quantos mercados vendem
+SELECT o.codigoBarras, MIN(o.nome) AS nome, COUNT(*) AS mercados
+FROM dbo.Ofertas o LEFT JOIN dbo.FotosProduto f ON f.codigoBarras = o.codigoBarras
+WHERE f.url IS NULL AND f.imagem IS NULL
+GROUP BY o.codigoBarras ORDER BY mercados DESC, nome;
 
 -- Contas por papel
 SELECT papel, COUNT(*) AS contas FROM dbo.Usuarios GROUP BY papel;

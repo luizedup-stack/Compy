@@ -1,11 +1,12 @@
 import type { ProdutoMercado } from '@mercado/shared';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ErroApi, mensagemDoErro, produtosDoMercado } from '../api';
 import { Botao } from '../componentes/Botao';
 import { LinhaProduto } from '../componentes/LinhaProduto';
+import { perguntarSeQuerIr } from '../rota';
 import type { RootStackParamList } from '../rotas';
 import { cores } from '../tema';
 
@@ -21,7 +22,19 @@ export const MSG_ERRO_MAIS = 'Não foi possível carregar mais.';
 
 /** Produtos de um mercado (somente leitura), 50 por página, com rolagem infinita. */
 export function MercadoDetalhe({ navigation, route }: Props) {
-  const { id } = route.params;
+  const { id, nome, endereco } = route.params;
+
+  // "Como chegar" no cabeçalho: pergunta e abre o Google Maps ou o Waze com o endereço do mercado.
+  useEffect(() => {
+    if (!endereco) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable accessibilityRole="link" accessibilityLabel="Como chegar ao mercado" onPress={() => perguntarSeQuerIr({ nome, endereco })}>
+          <Text style={{ color: cores.marca, fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, nome, endereco]);
   const [estado, setEstado] = useState<Estado>({ tipo: 'primeira' });
   const [itens, setItens] = useState<ProdutoMercado[]>([]);
   const [carregandoMais, setCarregandoMais] = useState(false);

@@ -23,6 +23,11 @@ export type Config = {
   pastaPainel: string;
   /** A API está atrás de um proxy da hospedagem (CONFIAR_PROXY=1): o IP de cada pessoa vem do cabeçalho X-Forwarded-For. */
   confiarNoProxy: boolean;
+  /**
+   * Procura sozinho a foto dos produtos no Open Food Facts (FOTOS_AUTOMATICAS). Ligado por padrão em produção e desligado nos
+   * outros ambientes (para não consultar a internet em desenvolvimento e nos testes); `1` liga e `0` desliga em qualquer um.
+   */
+  fotosAutomaticas: boolean;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
@@ -107,5 +112,6 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     bancoUrl,
     pastaPainel: ler(env, 'PAINEL_DIST') ?? PAINEL_PADRAO,
     confiarNoProxy: ler(env, 'CONFIAR_PROXY') === '1',
+    fotosAutomaticas: (ler(env, 'FOTOS_AUTOMATICAS') ?? (producao ? '1' : '0')) === '1',
   };
 }

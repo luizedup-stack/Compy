@@ -9,7 +9,7 @@ const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const MSG_SEM_ARQUIVO = "Envie a planilha no campo 'arquivo'";
 const MSG_GRANDE = 'Planilha grande demais para ser importada';
 
-export function rotasPlanilhas({ repo }: { repo: Repositorio }): FastifyPluginAsync {
+export function rotasPlanilhas({ repo, aoMudarProdutos }: { repo: Repositorio; aoMudarProdutos?: () => void }): FastifyPluginAsync {
   return async (app) => {
     app.get('/planilhas/modelo', { preHandler: exigirPapel('mercado', 'admin') }, async (_req, reply) => {
       const modelo = await gerarModelo();
@@ -47,7 +47,9 @@ export function rotasPlanilhas({ repo }: { repo: Repositorio }): FastifyPluginAs
       }
 
       try {
-        return await importarPlanilha(repo, arquivo, ator);
+        const relatorio = await importarPlanilha(repo, arquivo, ator);
+        aoMudarProdutos?.(); // produtos novos: procura a foto deles
+        return relatorio;
       } catch (e) {
         if (e instanceof ErroPlanilha) return reply.code(422).send({ erro: e.message });
         throw e;

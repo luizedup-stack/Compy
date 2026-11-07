@@ -1,4 +1,4 @@
-import { DIAS_PRECO_VELHO, type GrupoProduto, type Oferta, type ProdutoMercado, type Unidade } from './constantes';
+import { DIAS_PRECO_VELHO, caminhoDaFoto, type GrupoProduto, type Oferta, type ProdutoMercado, type Unidade } from './constantes';
 import { precoPorUnidade } from './quantidade';
 import { similaridadeDeTrigramas, trigramas } from './similaridade';
 import { normalizarTexto } from './texto';
@@ -53,6 +53,8 @@ export interface Catalogo {
   geradoEm: string;
   mercados: MercadoCatalogo[];
   ofertas: OfertaCatalogo[];
+  /** Códigos de barras que têm foto na API. Ausente = a fonte não informa fotos (os produtos saem sem o campo `foto`). */
+  comFoto?: string[];
 }
 
 export interface MercadoComTotal extends MercadoCatalogo {
@@ -207,10 +209,20 @@ function agrupar(catalogo: Catalogo, codigos: Set<string> | null, ordem: OrdemBu
   return ordenadas;
 }
 
-const aGrupoProduto = (g: GrupoOrdenado): GrupoProduto => ({
+/** O campo `foto` só existe quando o catálogo informa quais produtos têm foto (`comFoto`). */
+const conjuntosDeFoto = new WeakMap<string[], Set<string>>();
+function campoFoto(catalogo: Catalogo, codigoBarras: string): { foto?: string | null } {
+  if (!catalogo.comFoto) return {};
+  let conjunto = conjuntosDeFoto.get(catalogo.comFoto);
+  if (!conjunto) conjuntosDeFoto.set(catalogo.comFoto, (conjunto = new Set(catalogo.comFoto)));
+  return { foto: conjunto.has(codigoBarras) ? caminhoDaFoto(codigoBarras) : null };
+}
+
+const aGrupoProduto = (g: GrupoOrdenado, catalogo: Catalogo): GrupoProduto => ({
   codigoBarras: g.codigoBarras,
   nome: g.nome,
   ofertas: g.entradas.map((e) => e.oferta),
+  ...campoFoto(catalogo, g.codigoBarras),
 });
 
 /**
@@ -235,7 +247,7 @@ export function buscarNoCatalogo(
     if (codigosQueCasam.has(o.codigoBarras)) continue;
     if (ofertaCasa(consulta, o.nomeNorm)) codigosQueCasam.add(o.codigoBarras);
   }
-  return agrupar(catalogo, codigosQueCasam, ordem, agora).slice(0, LIMITE_GRUPOS_BUSCA).map(aGrupoProduto);
+  return agrupar(catalogo, codigosQueCasam, ordem, agora).slice(0, LIMITE_GRUPOS_BUSCA).map((g) => aGrupoProduto(g, catalogo));
 }
 
 /**
@@ -256,7 +268,7 @@ export function listarProdutosNoCatalogo(
       comparar(a.codigoBarras, b.codigoBarras),
   );
   const inicio = (Math.max(1, pagina) - 1) * PRODUTOS_POR_PAGINA_INICIO;
-  return { grupos: todos.slice(inicio, inicio + PRODUTOS_POR_PAGINA_INICIO).map(aGrupoProduto), total: todos.length };
+  return { grupos: todos.slice(inicio, inicio + PRODUTOS_POR_PAGINA_INICIO).map((g) => aGrupoProduto(g, catalogo)), total: todos.length };
 }
 
 /** Mercados em ordem alfabética (pt-BR), cada um com o total de produtos disponíveis. */
@@ -292,6 +304,7 @@ export function produtosDoMercadoNoCatalogo(
         atualizadoEm: o.precoAtualizadoEm,
         diasDesdeAtualizacao: diasDesde(atualizadoEm, agora),
         desatualizado: precoDesatualizado(atualizadoEm, agora),
+        ...campoFoto(catalogo, o.codigoBarras),
       };
     }),
     total: ofertas.length,
