@@ -1,9 +1,11 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { GrupoProduto } from '@mercado/shared';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Config } from './config';
 import { criarEmailMemoria } from './email';
+import { criarRepositorioMemoria } from './repositorioMemoria';
 import { PASTA_DADOS } from './rotas/apoioTeste';
 import { ADMIN_DEV_EMAIL, completarAdminDeDesenvolvimento, montarServidor } from './servidor';
 
@@ -18,6 +20,9 @@ const base: Config = {
   pastaDadosDeTeste: PASTA_DADOS,
   limitarRequisicoes: true,
   permitirEmailNoLog: false,
+  bancoUrl: null,
+  pastaPainel: '/nao/existe',
+  confiarNoProxy: false,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;
@@ -139,5 +144,98 @@ describe('server.ts', () => {
       if (t === 'servidor.test.ts') continue;
       expect(conteudo, t).not.toMatch(importaEntrada);
     }
+  });
+});
+
+describe('montarServidor: hospedagem e banco de dados', () => {
+  it('só carrega os dados de teste se o banco ainda não tem nenhum mercado', async () => {
+    const repo = criarRepositorioMemoria();
+    await repo.criarMercado({ nome: 'Já existia', endereco: 'Rua 1', nomeNorm: 'ja existia', enderecoNorm: 'rua 1', status: 'ativo', contaSituacao: 'gratuita', usuarioId: null });
+    const { repo: usado } = await (aberto = await montarServidor(base, { email: criarEmailMemoria(), repo }));
+    expect(await usado.listarMercados()).toHaveLength(1);
+  });
+
+  it('com o banco vazio, carrega as planilhas de teste uma vez', async () => {
+    const { repo } = await montar(base);
+    expect((await repo.listarMercados()).length).toBeGreaterThan(1);
+  });
+
+  it('/saude responde sem tocar no banco', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false });
+    const r = await app.inject({ method: 'GET', url: '/saude' });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ status: 'ok' });
+    expect((await app.inject({ method: 'GET', url: '/saude/banco' })).statusCode).toBe(404);
+  });
+
+  it('/saude/banco confere o banco quando o repositório sabe fazer ping', async () => {
+    let falha = false;
+    const repo = Object.assign(criarRepositorioMemoria(), {
+      async ping() {
+        if (falha) throw new Error('fora do ar');
+      },
+    });
+    const { app } = await (aberto = await montarServidor({ ...base, carregarDadosDeTeste: false }, { email: criarEmailMemoria(), repo }));
+    expect((await app.inject({ method: 'GET', url: '/saude/banco' })).statusCode).toBe(200);
+    falha = true;
+    const r = await app.inject({ method: 'GET', url: '/saude/banco' });
+    expect(r.statusCode).toBe(503);
+    expect(JSON.stringify(r.json())).not.toContain('fora do ar');
+  });
+
+  describe('painel entregue pela API', () => {
+    let pasta: string;
+    beforeEach(() => {
+      pasta = mkdtempSync(path.join(tmpdir(), 'painel-'));
+      mkdirSync(path.join(pasta, 'assets'));
+      writeFileSync(path.join(pasta, 'index.html'), '<!doctype html><title>Painel</title>');
+      writeFileSync(path.join(pasta, 'assets', 'app.js'), 'console.log(1)');
+    });
+    afterEach(() => rmSync(pasta, { recursive: true, force: true }));
+
+    it('entrega o index, os arquivos e abre qualquer tela do painel; a raiz leva para o painel', async () => {
+      const { app } = await montar({ ...base, carregarDadosDeTeste: false, pastaPainel: pasta });
+      const raiz = await app.inject({ method: 'GET', url: '/' });
+      expect(raiz.statusCode).toBe(302);
+      expect(raiz.headers.location).toBe('/painel-web/');
+      for (const url of ['/painel-web/', '/painel-web/entrar', '/painel-web/produtos/123']) {
+        const r = await app.inject({ method: 'GET', url });
+        expect(r.statusCode, url).toBe(200);
+        expect(r.body, url).toContain('<title>Painel</title>');
+      }
+      const js = await app.inject({ method: 'GET', url: '/painel-web/assets/app.js' });
+      expect(js.statusCode).toBe(200);
+      expect(js.body).toBe('console.log(1)');
+    });
+
+    it('as rotas da API continuam valendo ao lado do painel', async () => {
+      const { app } = await montar({ ...base, carregarDadosDeTeste: false, pastaPainel: pasta });
+      expect((await app.inject({ method: 'GET', url: '/busca?q=arroz' })).statusCode).toBe(401);
+      expect((await app.inject({ method: 'GET', url: '/rota-que-nao-existe' })).statusCode).toBe(404);
+    });
+  });
+
+  it('sem a pasta do painel compilado a API não inventa um painel', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false });
+    expect((await app.inject({ method: 'GET', url: '/' })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/painel-web/' })).statusCode).toBe(404);
+  });
+
+  it('atrás do proxy da hospedagem, o limite de tentativas conta por pessoa (X-Forwarded-For), não pelo proxy', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false, confiarNoProxy: true });
+    const entrar = (ip: string) =>
+      app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.1.2.3', headers: { 'x-forwarded-for': ip }, payload: { email: 'x@y.com', senha: 'errada123' } });
+    for (let i = 0; i < 20; i++) expect((await entrar('203.0.113.1')).statusCode).toBe(401);
+    expect((await entrar('203.0.113.1')).statusCode).toBe(429);
+    // Outra pessoa, mesmo proxy: não é bloqueada.
+    expect((await entrar('203.0.113.2')).statusCode).toBe(401);
+  });
+
+  it('sem confiar no proxy, um cabeçalho X-Forwarded-For de fora não engana o limite', async () => {
+    const { app } = await montar({ ...base, carregarDadosDeTeste: false });
+    const entrar = (ip: string) =>
+      app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.1.2.3', headers: { 'x-forwarded-for': ip }, payload: { email: 'x@y.com', senha: 'errada123' } });
+    for (let i = 0; i < 20; i++) await entrar(`198.51.100.${i}`);
+    expect((await entrar('198.51.100.99')).statusCode).toBe(429);
   });
 });

@@ -51,6 +51,15 @@ for (const fonte of fontesDeDados) {
   break;
 }
 fs.copyFileSync(path.join(aqui, 'main.cjs'), path.join(montagem, 'main.cjs'));
+fs.copyFileSync(path.join(aqui, 'nuvem.cjs'), path.join(montagem, 'nuvem.cjs'));
+// Endereço do servidor na nuvem que o programa já vem usando (BOLSO_URL_NUVEM=https://seu-servidor.onrender.com). Sem ele, o programa
+// vem no modo local; em qualquer caso a pessoa troca pelo menu "Servidor na nuvem…".
+if (process.env.BOLSO_URL_NUVEM) {
+  const url = new URL(process.env.BOLSO_URL_NUVEM.trim());
+  if (url.protocol !== 'https:') throw new Error('BOLSO_URL_NUVEM precisa começar com https://');
+  fs.writeFileSync(path.join(montagem, 'nuvem-padrao.txt'), url.origin, 'utf8');
+  console.log(`Servidor na nuvem padrão: ${url.origin}`);
+}
 fs.copyFileSync(path.join(aqui, 'icones/icone.png'), path.join(montagem, 'icone.png'));
 fs.writeFileSync(
   path.join(montagem, 'package.json'),

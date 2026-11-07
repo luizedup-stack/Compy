@@ -7,16 +7,24 @@ export const CHAVE_SERVIDOR = 'bolso-certo.servidor';
 export const MSG_SERVIDOR_INVALIDO = 'Endereço inválido. Exemplo: http://192.168.0.10:3000 ou https://meu-servidor.com';
 
 /**
- * Aceita "192.168.0.10:3000" (assume http://) ou o endereço completo. Devolve o endereço sem a barra final,
- * ou null se não parecer um endereço.
+ * Aceita o endereço completo ou sem "http(s)://". Sem isso, assume https:// para nome de site ("meu-servidor.onrender.com":
+ * servidor hospedado) e http:// para número de rede local, "localhost" ou endereço com porta ("192.168.0.10:3000").
+ * Devolve o endereço sem a barra final, ou null se não parecer um endereço.
  */
 export function normalizarServidor(texto: string): string | null {
   const t = texto.trim();
   if (t === '') return null;
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t) && !/^https?:\/\//i.test(t)) return null; // outro tipo de endereço (ftp:// etc.)
-  const completo = /^https?:\/\//i.test(t) ? t : `http://${t}`;
+  const completo = /^https?:\/\//i.test(t) ? t : `${esquemaPadrao(t)}://${t}`;
   if (!/^https?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/i.test(completo)) return null;
   return completo.replace(/\/+$/, '');
+}
+
+/** Nome de site de verdade (tem letras e ponto, sem porta): é hospedagem na internet, que sempre usa https. */
+function esquemaPadrao(semEsquema: string): 'http' | 'https' {
+  const servidor = semEsquema.split(/[/?#]/)[0] ?? '';
+  const nomeDeSite = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]*$/i.test(servidor) && !/\.(local|lan|home|internal)$/i.test(servidor);
+  return nomeDeSite ? 'https' : 'http';
 }
 
 /** Ao abrir o app: usa o endereço que a pessoa escolheu antes, se houver. */

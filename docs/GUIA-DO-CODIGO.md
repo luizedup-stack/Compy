@@ -7,14 +7,15 @@ tem comentários em português no topo (para que serve) e nos trechos menos óbv
 
 | Pasta | O que é | Quem usa |
 |---|---|---|
-| `apps/api` | O **servidor**: login, cadastro, produtos, busca. Guarda os dados (hoje em memória). | As outras peças conversam com ele |
+| `apps/api` | O **servidor**: login, cadastro, produtos, busca. Guarda os dados num banco SQL Server (ou em memória, nos testes). Na hospedagem entrega também o painel. | As outras peças conversam com ele |
 | `apps/painel` | O site do **mercado** (cadastro do mercado, produtos, planilha). Roda dentro do programa de computador. | Mercado e desenvolvedor |
 | `apps/desktop` | O **programa de Windows** "Bolso Certo - Mercado": junta a API e o painel num `.exe`. | Mercado |
 | `apps/mobile` | O **aplicativo do cliente** (Android): busca e compara preços, funciona sem internet. | Cliente |
 | `packages/shared` | Regras usadas por todos: quantidade, preço por unidade, **busca** e comparação. | Todos |
 | `marca/` | Logo e ícone (`.svg`). | |
 | `dados-de-teste/` | Planilhas inventadas para teste. | |
-| `docs/` | Guias e documentos de projeto (este guia, `EMAIL.md`). | |
+| `docs/` | Guias e documentos de projeto (este guia, `HOSPEDAGEM.md`, `BANCO.md`, `EMAIL.md`, `GOOGLE.md`). | |
+| `render.yaml` | Receita da hospedagem gratuita no Render. | |
 | `exemplos/` | Planilha de exemplo para testar o envio de produtos. | |
 
 ## Onde mexer para...
@@ -75,14 +76,29 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 
 **Nome do programa ou do `.exe`** → `apps/desktop/construir.mjs` e `apps/desktop/main.cjs`.
 
-**Onde os dados são guardados** → `apps/api/src/repositorioMemoria.ts` (em memória, trocável por banco de dados: a
-interface está em `apps/api/src/repositorio.ts`) e `apps/desktop/api-embutida.ts` (grava/restaura em arquivo).
+**Onde os dados são guardados** → a interface é `apps/api/src/repositorio.ts`, com duas implementações que passam pelo **mesmo conjunto de testes**
+(`apps/api/src/repositorio.contrato.ts`):
+- `apps/api/src/repositorioSqlServer.ts` (o banco: usado quando `BANCO_URL` existe). Tabelas em `apps/api/src/banco/migracoes/*.sql` (aplicadas
+  sozinhas ao ligar), conexão e tentativas em `apps/api/src/banco/conexao.ts`. Veja `docs/BANCO.md`;
+- `apps/api/src/repositorioMemoria.ts` (memória, para testes e para o programa de Windows no modo local), que o programa grava em arquivo em `apps/desktop/api-embutida.ts`.
+
+**Qual banco o servidor usa, carga dos dados de teste, painel e saúde** → `apps/api/src/server.ts` (abre o banco e liga tudo), `apps/api/src/servidor.ts`
+(`montarServidor`: carga de teste só com banco vazio, painel em `/painel-web/`, rotas `/saude` e `/saude/banco`) e `apps/api/src/config.ts` (variáveis: `BANCO_URL`,
+`PAINEL_DIST`, `CONFIAR_PROXY`...).
+
+**Colocar planilhas reais no banco em lote** → `apps/api/src/scripts/carregar.ts` (`npm run carregar -w @mercado/api -- <pasta>`).
+
+**Hospedagem** → `render.yaml` (como montar e iniciar no Render) e `docs/HOSPEDAGEM.md`. O painel compila com `PAINEL_BASE=/painel-web/` (`apps/painel/vite.config.ts`) e
+fala com a API do mesmo endereço (`VITE_API_URL=` vazio, em `apps/painel/src/api.ts`).
+
+**Programa de Windows no modo nuvem** → `apps/desktop/main.cjs` (funções `lerUrlNuvem`, `abrirNaNuvem`, `abrirConfigNuvem`) e `apps/desktop/nuvem.cjs` (validação do endereço, com teste).
 
 ## Comandos úteis (na pasta do projeto)
 
 | Comando | Para quê |
 |---|---|
-| `npm test` | roda todos os testes |
+| `npm test` | roda todos os testes (os do banco só com `BANCO_TESTE_URL`) |
+| `npm run carregar -w @mercado/api -- <pasta>` | manda as planilhas de uma pasta para o banco (`BANCO_URL`) |
 | `npm run construir:exe` | gera o programa de Windows em `programa/` |
 | `npm run testar` | modo de teste com 3 janelas (API, painel e app web) |
 | `npm run gerar-icones` | refaz os ícones a partir de `marca/icone-bolso-certo.svg` |
@@ -94,8 +110,9 @@ O APK do celular é gerado como descrito em `apps/mobile/README.md` (seção "Ge
 ```
  Mercado (painel dentro do .exe) ──► API ◄── app do cliente
                                       │            │
-                                  dados (hoje      └─ guarda uma cópia dos produtos no celular
-                                  em memória)         e usa quando está sem internet
+                                  banco SQL Server └─ guarda uma cópia dos produtos no celular
+                                  (ou memória, nos     e usa quando está sem internet
+                                  testes locais)
 ```
 
 O app do cliente **não depende** do programa do mercado estar aberto: ele usa a cópia guardada e atualiza os

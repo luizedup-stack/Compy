@@ -48,7 +48,15 @@ const novaOferta = (mercadoId: number, codigoBarras = '7891000100103'): OfertaAr
 const AGORA = new Date('2026-11-04T00:00:00Z');
 const AMANHA = new Date('2026-11-05T00:00:00Z');
 
-export function testarRepositorio(nome: string, criar: () => Promise<Repositorio>): void {
+export interface OpcoesContrato {
+  /**
+   * true (padrão, versão em memória): uma leitura feita fora da transação espera ela terminar (fila única).
+   * false (banco de dados): a leitura não espera, mas também não pode ver dados ainda não confirmados.
+   */
+  leituraEsperaTransacao?: boolean;
+}
+
+export function testarRepositorio(nome: string, criar: () => Promise<Repositorio>, { leituraEsperaTransacao = true }: OpcoesContrato = {}): void {
   describe(`contrato do repositório: ${nome}`, () => {
     describe('usuários', () => {
       it('cria e acha usuário por id e por e-mail', async () => {
@@ -358,26 +366,38 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarMercados()).toEqual([]);
       });
 
-      // Comportamento da implementação em memória (fila única), não exigência do contrato: no
-      // PostgreSQL esta leitura poderia rodar em paralelo e ver o estado anterior. A implementação
-      // com banco pode trocar este teste por um que confira só que ela não vê dados não confirmados.
-      it('leitura feita fora da transação só resolve depois que ela termina', async () => {
-        const repo = await criar();
-        const eventos: string[] = [];
-        const tx = repo.transacao(async (r) => {
-          await r.criarMercado(novoMercado());
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          eventos.push('transacao terminou');
+      if (leituraEsperaTransacao) {
+        // Comportamento da implementação em memória (fila única), não exigência do contrato.
+        it('leitura feita fora da transação só resolve depois que ela termina', async () => {
+          const repo = await criar();
+          const eventos: string[] = [];
+          const tx = repo.transacao(async (r) => {
+            await r.criarMercado(novoMercado());
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            eventos.push('transacao terminou');
+          });
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          const leitura = repo.listarMercados().then((mercados) => {
+            eventos.push('leitura resolveu');
+            return mercados;
+          });
+          await Promise.all([tx, leitura]);
+          expect(eventos).toEqual(['transacao terminou', 'leitura resolveu']);
+          expect(await leitura).toHaveLength(1);
         });
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        const leitura = repo.listarMercados().then((mercados) => {
-          eventos.push('leitura resolveu');
-          return mercados;
+      } else {
+        // Banco de dados: a leitura de fora não espera, mas nunca vê o que a transação ainda não confirmou.
+        it('leitura feita fora da transação não vê dados ainda não confirmados', async () => {
+          const repo = await criar();
+          let visto = -1;
+          await repo.transacao(async (r) => {
+            await r.criarMercado(novoMercado());
+            visto = (await repo.listarMercados()).length;
+          });
+          expect(visto).toBe(0);
+          expect(await repo.listarMercados()).toHaveLength(1);
         });
-        await Promise.all([tx, leitura]);
-        expect(eventos).toEqual(['transacao terminou', 'leitura resolveu']);
-        expect(await leitura).toHaveLength(1);
-      });
+      }
 
       it('o repositório recebido é reentrante: transacao interna roda inline', async () => {
         const repo = await criar();

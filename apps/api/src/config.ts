@@ -17,9 +17,16 @@ export type Config = {
    * precisa ser aceito de forma explícita com PERMITIR_EMAIL_NO_LOG=1 (R33b).
    */
   permitirEmailNoLog: boolean;
+  /** Texto de conexão do SQL Server / Azure SQL (BANCO_URL). Sem ele, os dados ficam só na memória e somem ao reiniciar. */
+  bancoUrl: string | null;
+  /** Pasta do painel já compilado (PAINEL_DIST). Se existir, a própria API entrega o painel em /painel-web/. */
+  pastaPainel: string;
+  /** A API está atrás de um proxy da hospedagem (CONFIAR_PROXY=1): o IP de cada pessoa vem do cabeçalho X-Forwarded-For. */
+  confiarNoProxy: boolean;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
+const PAINEL_PADRAO = path.resolve(__dirname, '../../painel/dist');
 const MIN_SEGREDO = 32;
 const MIN_SENHA_ADMIN = 8;
 
@@ -58,6 +65,7 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
   const adminEmail = ler(env, 'ADMIN_EMAIL');
   const adminSenha = ler(env, 'ADMIN_SENHA');
   const permitirEmailNoLog = ler(env, 'PERMITIR_EMAIL_NO_LOG') === '1';
+  const bancoUrl = ler(env, 'BANCO_URL');
 
   if (producao) {
     if (segredo === null) {
@@ -70,6 +78,11 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     if (adminSenha === null) throw new Error('A variável ADMIN_SENHA é obrigatória em produção.');
     if (adminSenha.length < MIN_SENHA_ADMIN) {
       throw new Error(`ADMIN_SENHA é curta demais: use pelo menos ${MIN_SENHA_ADMIN} caracteres.`);
+    }
+    if (bancoUrl === null && ler(env, 'PERMITIR_SEM_BANCO') !== '1') {
+      throw new Error(
+        'Em produção é preciso informar o banco de dados em BANCO_URL (sem ele, tudo some quando o servidor reinicia). Só para um teste descartável, defina PERMITIR_SEM_BANCO=1.',
+      );
     }
     if (!permitirEmailNoLog) {
       throw new Error(
@@ -91,5 +104,8 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     pastaDadosDeTeste: ler(env, 'PASTA_DADOS_DE_TESTE') ?? PASTA_PADRAO,
     limitarRequisicoes: ler(env, 'LIMITAR_REQUISICOES') !== '0',
     permitirEmailNoLog,
+    bancoUrl,
+    pastaPainel: ler(env, 'PAINEL_DIST') ?? PAINEL_PADRAO,
+    confiarNoProxy: ler(env, 'CONFIAR_PROXY') === '1',
   };
 }

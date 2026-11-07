@@ -15,6 +15,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { normalizarUrlNuvem } = require('./nuvem.cjs');
 
 const PORTA_API = Number(process.env.BOLSO_PORTA_API) || 3000; // 3000 por padrão: o app do celular aponta para ela
 let portaPainel = 0; // qualquer porta livre (a 3001, por exemplo, pode estar em uso por outro programa)
@@ -60,6 +61,9 @@ let janela = null;
 let janelaCodigos = null;
 let janelaEmail = null;
 let janelaInternet = null;
+let janelaNuvem = null;
+let urlNuvem = null; // endereço do servidor na nuvem (modo nuvem) ou null (modo local, com a API dentro do programa)
+let temporizadorNuvem = null;
 
 // ---- Acesso pela internet (túnel temporário da Cloudflare) ---------------------------------------------------------
 // O programa roda no seu computador; para alguém de longe usar o aplicativo, o servidor (porta PORTA_API) precisa de um
@@ -359,17 +363,141 @@ function apagarSalvosERecomecar() {
   app.exit(0);
 }
 
+// ---- Modo "servidor na nuvem" ---------------------------------------------------------------------------------------
+// Com um endereço de servidor configurado, o programa NÃO liga a API dentro dele: abre o painel que a API hospedada entrega
+// (em /painel-web/) e tudo (contas, produtos, preços) fica no banco de dados da nuvem. Sem endereço, funciona como sempre,
+// tudo no próprio computador. O endereço fica em servidor-nuvem.json (pasta de dados do programa), trocado pelo menu
+// "Servidor na nuvem…"; BOLSO_SERVIDOR_NUVEM (variável de ambiente) tem prioridade, e nuvem-padrao.txt (gravado na hora de gerar
+// o programa com BOLSO_URL_NUVEM) vale quando o usuário ainda não escolheu nada.
+const CAMINHO_PAINEL_NUVEM = '/painel-web/';
+
+function arquivoNuvem() {
+  return path.join(app.getPath('userData'), 'servidor-nuvem.json');
+}
+
+function lerUrlNuvem() {
+  try {
+    if (process.env.BOLSO_SERVIDOR_NUVEM) return normalizarUrlNuvem(process.env.BOLSO_SERVIDOR_NUVEM);
+    try {
+      const guardado = JSON.parse(fs.readFileSync(arquivoNuvem(), 'utf8'));
+      // url vazia = a pessoa escolheu voltar ao modo local (vale mais que o endereço padrão do programa).
+      return guardado && guardado.url ? normalizarUrlNuvem(guardado.url) : null;
+    } catch (e) {
+      if (!e || e.code !== 'ENOENT') throw e;
+    }
+    const padrao = path.join(__dirname, 'nuvem-padrao.txt');
+    return fs.existsSync(padrao) ? normalizarUrlNuvem(fs.readFileSync(padrao, 'utf8')) : null;
+  } catch {
+    return null; // arquivo estragado ou endereço inválido: cai no modo local em vez de não abrir
+  }
+}
+
+const PAGINA_CARREGANDO = (texto) =>
+  'data:text/html;charset=utf-8,' +
+  encodeURIComponent(
+    `<body style="font:18px Segoe UI,Arial;display:flex;height:100vh;align-items:center;justify-content:center;text-align:center;padding:0 40px;color:#0f7d99;background:#f2f7f9">${texto}</body>`,
+  );
+
+/** Abre o painel hospedado. Se o servidor não responde (o gratuito dorme e leva até ~1 minuto para acordar), tenta de novo sozinho. */
+function abrirNaNuvem() {
+  const destino = urlNuvem + CAMINHO_PAINEL_NUVEM;
+  janela.loadURL(PAGINA_CARREGANDO('Conectando ao servidor na nuvem…<br><small>O servidor gratuito dorme quando ninguém usa e pode levar até 1 minuto para acordar.</small>'));
+  janela.webContents.on('did-fail-load', (_evento, codigo, _descricao, _url, principal) => {
+    if (!principal || codigo === -3) return; // -3: carregamento cancelado pela própria navegação
+    janela.loadURL(PAGINA_CARREGANDO('Não consegui falar com o servidor.<br><small>Verifique a internet. Tentando de novo em alguns segundos…</small>'));
+    clearTimeout(temporizadorNuvem);
+    temporizadorNuvem = setTimeout(() => {
+      if (janela && !janela.isDestroyed()) janela.loadURL(destino);
+    }, 6000);
+  });
+  // Pequena pausa para a página de "conectando" aparecer antes de a navegação (que pode demorar) começar.
+  setTimeout(() => janela && !janela.isDestroyed() && janela.loadURL(destino), 300);
+}
+
+function paginaDeNuvem(atual) {
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Servidor na nuvem</title>
+<style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933;max-width:560px}h1{color:#0f7d99;font-size:22px}
+.erro{color:#a32d2d}button,input{font:inherit;padding:6px 10px}button{cursor:pointer}input{width:100%;box-sizing:border-box}</style></head><body>
+<h1>Servidor na nuvem</h1>
+<p>Com um endereço aqui, o programa usa o servidor e o banco de dados da nuvem (as contas, os produtos e os preços ficam lá). Deixe em branco para voltar a usar tudo só neste computador.</p>
+<p><input id="url" placeholder="https://bolso-certo.onrender.com" value="${escapar(atual)}"></p>
+<p><button id="salvar">Salvar e reiniciar o programa</button></p>
+<p class="erro" id="erro" hidden></p>
+<script>
+document.getElementById('salvar').onclick = async () => {
+  const r = await fetch('/salvar', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-bolso': '1' }, body: JSON.stringify({ url: document.getElementById('url').value }) });
+  const j = await r.json();
+  const e = document.getElementById('erro');
+  if (!j.ok) { e.hidden = false; e.textContent = j.mensagem; }
+};
+</script></body></html>`;
+}
+
+function abrirConfigNuvem() {
+  if (janelaNuvem && !janelaNuvem.isDestroyed()) {
+    janelaNuvem.focus();
+    return;
+  }
+  const servidor = http.createServer((req, res) => {
+    const caminho = (req.url ?? '/').split('?')[0];
+    if (req.method === 'GET' && caminho === '/') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(paginaDeNuvem(urlNuvem || ''));
+      return;
+    }
+    if (req.method === 'POST' && caminho === '/salvar' && req.headers['x-bolso'] === '1') {
+      let corpo = '';
+      req.on('data', (parte) => (corpo += parte));
+      req.on('end', async () => {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        try {
+          const texto = String(JSON.parse(corpo || '{}').url ?? '').trim();
+          const url = texto === '' ? '' : normalizarUrlNuvem(texto);
+          fs.mkdirSync(path.dirname(arquivoNuvem()), { recursive: true });
+          fs.writeFileSync(arquivoNuvem(), JSON.stringify({ url }, null, 2), 'utf8');
+          res.end(JSON.stringify({ ok: true }));
+          try {
+            await api?.salvarAgora();
+          } catch {
+            // sem espaço ou permissão: reinicia mesmo assim
+          }
+          app.relaunch();
+          app.exit(0);
+        } catch (e) {
+          res.end(JSON.stringify({ ok: false, mensagem: e && e.message ? e.message : String(e) }));
+        }
+      });
+      return;
+    }
+    res.writeHead(404).end();
+  });
+  servidor.listen(0, '127.0.0.1', () => {
+    janelaNuvem = new BrowserWindow({ width: 620, height: 400, title: 'Servidor na nuvem', icon: iconeDaJanela(), parent: janela || undefined });
+    janelaNuvem.setMenu(null);
+    janelaNuvem.loadURL(`http://127.0.0.1:${servidor.address().port}/`);
+    janelaNuvem.on('closed', () => {
+      servidor.close();
+      janelaNuvem = null;
+    });
+  });
+}
+
 function montarMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
         label: 'Bolso Certo',
         submenu: [
-          { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
-          { label: 'Configurar e-mail…', click: abrirConfigEmail },
-          { label: 'Acesso pela internet (túnel)…', click: abrirInternet },
+          ...(urlNuvem
+            ? [{ label: `Usando o servidor na nuvem: ${urlNuvem}`, enabled: false }, { type: 'separator' }]
+            : [
+                { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
+                { label: 'Configurar e-mail…', click: abrirConfigEmail },
+                { label: 'Acesso pela internet (túnel)…', click: abrirInternet },
+              ]),
+          { label: 'Servidor na nuvem…', click: abrirConfigNuvem },
           { label: 'Recarregar', accelerator: 'CmdOrCtrl+R', click: () => janela?.reload() },
-          { label: 'Apagar os dados salvos e recomeçar…', click: apagarSalvosERecomecar },
+          ...(urlNuvem ? [] : [{ label: 'Apagar os dados salvos e recomeçar…', click: apagarSalvosERecomecar }]),
           { type: 'separator' },
           { label: 'Sair', accelerator: 'Alt+F4', click: () => app.quit() },
         ],
@@ -380,6 +508,7 @@ function montarMenu() {
 }
 
 async function iniciar() {
+  urlNuvem = lerUrlNuvem();
   montarMenu();
   janela = new BrowserWindow({ width: 1200, height: 800, title: 'Bolso Certo - Mercado', icon: iconeDaJanela(), backgroundColor: '#f2f7f9' });
   janela.loadURL(
@@ -389,6 +518,11 @@ async function iniciar() {
       ),
   );
   janela.on('closed', () => app.quit());
+
+  if (urlNuvem) {
+    abrirNaNuvem();
+    return;
+  }
 
   try {
     ADMIN_SENHA = senhaDoDesenvolvedor();

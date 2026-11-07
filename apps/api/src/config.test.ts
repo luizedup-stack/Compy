@@ -8,6 +8,7 @@ const producao = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
   ADMIN_EMAIL: 'dono@exemplo.com',
   ADMIN_SENHA: 'senha-forte-1',
   PERMITIR_EMAIL_NO_LOG: '1',
+  BANCO_URL: 'Server=s;Database=d;User Id=u;Password=p',
   ...extra,
 });
 
@@ -145,5 +146,34 @@ describe('lerConfig: e-mail no log (R33b)', () => {
     expect(lerConfig({}).permitirEmailNoLog).toBe(false);
     expect(lerConfig({ NODE_ENV: 'test' }).permitirEmailNoLog).toBe(false);
     expect(lerConfig({ PERMITIR_EMAIL_NO_LOG: '1' }).permitirEmailNoLog).toBe(true);
+  });
+});
+
+describe('lerConfig: banco de dados e hospedagem', () => {
+  it('em produção sem BANCO_URL o servidor não sobe (os dados sumiriam a cada reinício)', () => {
+    const semBanco = { ...producao(), BANCO_URL: undefined };
+    expect(() => lerConfig(semBanco)).toThrow(/BANCO_URL/);
+  });
+
+  it('PERMITIR_SEM_BANCO=1 deixa subir sem banco, só para um teste descartável', () => {
+    const c = lerConfig({ ...producao(), BANCO_URL: undefined, PERMITIR_SEM_BANCO: '1' });
+    expect(c.bancoUrl).toBeNull();
+  });
+
+  it('guarda o texto de conexão; fora de produção ele é opcional', () => {
+    expect(lerConfig(producao()).bancoUrl).toBe('Server=s;Database=d;User Id=u;Password=p');
+    expect(lerConfig({}).bancoUrl).toBeNull();
+    expect(lerConfig({ BANCO_URL: '  ' }).bancoUrl).toBeNull();
+  });
+
+  it('CONFIAR_PROXY=1 liga a confiança no proxy da hospedagem; desligado por padrão', () => {
+    expect(lerConfig({}).confiarNoProxy).toBe(false);
+    expect(lerConfig({ CONFIAR_PROXY: '1' }).confiarNoProxy).toBe(true);
+    expect(lerConfig({ CONFIAR_PROXY: 'sim' }).confiarNoProxy).toBe(false);
+  });
+
+  it('PAINEL_DIST troca a pasta do painel compilado', () => {
+    expect(lerConfig({ PAINEL_DIST: '/x/painel' }).pastaPainel).toBe('/x/painel');
+    expect(lerConfig({}).pastaPainel).toMatch(/painel[\\/]dist$/);
   });
 });

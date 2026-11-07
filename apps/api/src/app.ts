@@ -29,6 +29,8 @@ export interface OpcoesApp {
   limitarRequisicoes?: boolean;
   /** Identifica este início do servidor nos tokens. Padrão: nova a cada início (sessões antigas deixam de valer); o programa de computador guarda a sua para as sessões sobreviverem ao reabrir. */
   instancia?: string;
+  /** A API está atrás de um proxy da hospedagem: confia no X-Forwarded-For para achar o IP de cada pessoa (limites de tentativas). */
+  confiarNoProxy?: boolean;
 }
 
 /**
@@ -82,12 +84,14 @@ export async function construirApp({
   limitarRequisicoes = false,
   destinoDoLog,
   instancia,
+  confiarNoProxy = false,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
     // O túnel (cloudflared) roda no mesmo computador e entrega a requisição pelo endereço local, trazendo o IP real de
     // quem acessou no cabeçalho X-Forwarded-For. Só confiamos nesse cabeçalho quando quem entrega é este próprio computador:
     // assim o limite de tentativas (R32) vale por pessoa, e ninguém de fora falsifica o IP.
-    trustProxy: ['127.0.0.1', '::1'],
+    // Em hospedagem (Render etc.) quem entrega é o proxy da hospedagem, então ali se confia no cabeçalho de qualquer origem.
+    trustProxy: confiarNoProxy ? true : ['127.0.0.1', '::1'],
     logger: logger
       ? {
           level: 'info',
@@ -121,6 +125,9 @@ export async function construirApp({
     }
     return reply.code(status).send({ erro: 'Requisição inválida' });
   });
+
+  // Para a hospedagem conferir se o servidor está de pé. Não toca no banco (não acorda o banco gratuito à toa).
+  app.get('/saude', async () => ({ status: 'ok' }));
 
   await app.register(rotasAuth({ repo, email }));
   await app.register(rotasPlanilhas({ repo }));
