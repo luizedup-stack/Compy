@@ -30,14 +30,14 @@ for (const rede of REDES) {
   m.addRow(['Endereço', rede.endereco]);
   m.getColumn(1).width = 20; m.getColumn(2).width = 80;
   const p = wb.addWorksheet('Produtos');
-  p.addRow(['Código de barras*', 'Produto*', 'Preço*', 'Quantidade', 'Categoria', 'Disponível']);
+  p.addRow(['Código de barras*', 'Produto*', 'Preço*', 'Quantidade', 'Categoria', 'Disponível', 'Foto']);
   p.getColumn(1).numFmt = '@';
   for (const it of itens) {
-    const r = p.addRow([it.ean, it.nome, it.preco, quantidadeDoNome(it.nome), it.categoria, 'sim']);
+    const r = p.addRow([it.ean, it.nome, it.preco, quantidadeDoNome(it.nome), it.categoria, 'sim', it.foto ?? '']);
     r.getCell(1).numFmt = '@';
     r.getCell(3).numFmt = '0.00';
   }
-  p.columns.forEach((c, i) => { c.width = [18, 60, 10, 14, 24, 11][i]; });
+  p.columns.forEach((c, i) => { c.width = [18, 60, 10, 14, 24, 11, 60][i]; });
   await wb.xlsx.writeFile(fileURLToPath(new URL(`../../dados-reais/${rede.saida}`, import.meta.url)));
-  console.log(rede.saida, itens.length, 'produtos');
+  console.log(rede.saida, itens.length, 'produtos,', itens.filter((i) => i.foto).length, 'com link de foto');
 }

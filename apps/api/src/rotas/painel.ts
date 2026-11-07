@@ -2,7 +2,7 @@ import { caminhoDaFoto, normalizarTexto, parsePreco, parseQuantidade, validarCod
 import type { FastifyPluginAsync, preHandlerAsyncHookHandler } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
 import { lerImagem } from '../fotos/imagem';
-import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
+import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type OrigemFoto, type Repositorio } from '../repositorio';
 import { lerEdicaoMercado } from '../painel/dadosDoMercado';
 import { MSG_SEM_MERCADO, mercadoEscolhidoDoUsuario } from '../painel/mercadoEscolhido';
 import { precoDesatualizado } from '../tempo';
@@ -28,7 +28,7 @@ declare module 'fastify' {
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** De onde veio a foto de cada código (só os que têm foto). */
-type OrigensDeFoto = Map<string, 'openfoodfacts' | 'mercado'>;
+type OrigensDeFoto = Map<string, OrigemFoto>;
 
 const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: OrigensDeFoto = new Map()): ProdutoPainel => ({
   codigoBarras: o.codigoBarras,

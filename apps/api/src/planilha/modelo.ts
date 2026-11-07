@@ -14,10 +14,11 @@ export async function gerarModelo(): Promise<Buffer> {
   mercado.getColumn(2).width = 50;
   mercado.getColumn(1).font = { bold: true };
 
-  const cabecalho = COLUNAS_PRODUTOS.map((nome, i) => (i < OBRIGATORIAS ? `${nome}*` : nome));
+  // "Foto" é opcional (link da imagem do produto) e não faz parte das colunas obrigatórias do pacote compartilhado.
+  const cabecalho = [...COLUNAS_PRODUTOS.map((nome, i) => (i < OBRIGATORIAS ? `${nome}*` : nome)), 'Foto'];
   const produtos = wb.addWorksheet(ABA_PRODUTOS);
   produtos.addRow(cabecalho).font = { bold: true };
-  const larguras = [20, 40, 12, 16, 20, 14];
+  const larguras = [20, 40, 12, 16, 20, 14, 50];
   larguras.forEach((largura, i) => {
     produtos.getColumn(i + 1).width = largura;
   });
@@ -36,13 +37,14 @@ export async function gerarModelo(): Promise<Buffer> {
     '5. Quantidade: texto livre como "1 L", "500 g" ou "12 rolos". Permite comparar o preço por unidade.',
     '6. Disponível: sim ou não. Em branco vale sim.',
     `7. Até ${LIMITE_LINHAS} produtos por planilha. Enviar de novo atualiza os preços; a planilha sempre vale mais.`,
-    '8. Esta aba de instruções é ignorada na importação.',
+    '8. Foto (opcional): o link (começando com https://) da imagem do produto. O sistema baixa e guarda a foto. Sem link, ele procura a foto sozinho pelo código de barras, e você também pode enviar a foto no painel.',
+    '9. Esta aba de instruções é ignorada na importação.',
     '',
     'Exemplo de linha da aba Produtos:',
   ].forEach((texto) => instrucoes.addRow([texto]));
   instrucoes.getRow(1).font = { bold: true, size: 14 };
   instrucoes.addRow([cabecalho.join(' | ')]).font = { bold: true };
-  instrucoes.addRow(['7891000100103 | Leite integral 1 L | 5,49 | 1 L | Laticínios | sim']);
+  instrucoes.addRow(['7891000100103 | Leite integral 1 L | 5,49 | 1 L | Laticínios | sim | https://exemplo.com/fotos/leite.jpg']);
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

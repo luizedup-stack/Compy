@@ -473,15 +473,22 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           `SELECT f.codigoBarras, f.origem
            FROM dbo.FotosProduto f
            JOIN OPENJSON(@codigos) WITH (c varchar(32) '$') j ON j.c = f.codigoBarras
-           WHERE f.url IS NOT NULL OR f.imagem IS NOT NULL
+           WHERE f.imagem IS NOT NULL OR (f.origem = 'openfoodfacts' AND f.url IS NOT NULL)
            ORDER BY f.codigoBarras`,
           (r) => r.input('codigos', sql.NVarChar(sql.MAX), JSON.stringify(codigos)),
         );
         return l.map((x) => ({ codigoBarras: x.codigoBarras as string, origem: x.origem as FotoProduto['origem'] }));
       },
+      async listarFotosParaBaixar(limite) {
+        const l = await q(
+          'SELECT TOP (@limite) codigoBarras, url FROM dbo.FotosProduto WHERE url IS NOT NULL AND imagem IS NULL ORDER BY codigoBarras',
+          (r) => r.input('limite', sql.Int, Math.max(0, limite)),
+        );
+        return l.map((x) => ({ codigoBarras: x.codigoBarras as string, url: x.url as string }));
+      },
       listarCodigosComFoto() {
         return comCache('codigosComFoto', async () =>
-          (await q('SELECT codigoBarras FROM dbo.FotosProduto WHERE url IS NOT NULL OR imagem IS NOT NULL ORDER BY codigoBarras')).map((x) => x.codigoBarras as string),
+          (await q("SELECT codigoBarras FROM dbo.FotosProduto WHERE imagem IS NOT NULL OR (origem = 'openfoodfacts' AND url IS NOT NULL) ORDER BY codigoBarras")).map((x) => x.codigoBarras as string),
         );
       },
       async listarCodigosSemFoto(limite, tentarDeNovoAntesDe) {

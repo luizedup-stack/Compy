@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { OfertaArmazenada } from '../repositorio';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
+import { ImagemInvalida } from './baixar';
 import { criarGerenciadorDeFotos } from './gerenciador';
 import { candidatosDoCodigo, criarBuscadorOpenFoodFacts, ErroTemporario, type BuscadorDeFotos } from './openFoodFacts';
 
@@ -87,7 +88,8 @@ describe('gerenciador de fotos', () => {
     for (const c of codigos) await repo.salvarOferta(oferta(m.id, c));
     return { repo, m };
   }
-  const sem = { intervaloMs: 0, esperar: async () => undefined };
+  const IMAGEM = 'data:image/jpeg;base64,/9j/4AAQ';
+  const sem = { intervaloMs: 0, esperar: async () => undefined, baixador: async () => IMAGEM };
 
   it('procura o que falta: grava as fotos achadas e marca como "não achou" as que não existem', async () => {
     const { repo } = await cenario(['7890000000001', '7890000000002']);
@@ -95,7 +97,71 @@ describe('gerenciador de fotos', () => {
     const resumo = await criarGerenciadorDeFotos({ repo, buscador, ...sem }).processarPendentes();
     expect(resumo).toEqual({ achadas: 1, naoAchadas: 1, adiadas: false });
     expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001']);
+    // A imagem é BAIXADA e guardada no banco (não só o link): a foto não depende do outro site depois.
+    expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'openfoodfacts', url: IMG, imagem: IMAGEM });
     expect(await repo.acharFoto('7890000000002')).toMatchObject({ url: null, imagem: null }); // procurou e não achou
+  });
+
+  it('achou o produto mas a imagem não presta: vale como "sem foto" (sem erro)', async () => {
+    const { repo } = await cenario(['7890000000001']);
+    const buscador: BuscadorDeFotos = { buscar: async () => ({ url: IMG }) };
+    const baixador = async () => {
+      throw new ImagemInvalida('não é imagem');
+    };
+    const resumo = await criarGerenciadorDeFotos({ repo, buscador, ...sem, baixador }).processarPendentes();
+    expect(resumo).toEqual({ achadas: 0, naoAchadas: 1, adiadas: false });
+    expect(await repo.listarCodigosComFoto()).toEqual([]);
+  });
+
+  describe('fotos indicadas na planilha do mercado (coluna "Foto")', () => {
+    const planilha = (codigoBarras: string, url: string) => ({ codigoBarras, origem: 'planilha' as const, url, imagem: null, mercadoId: null, atualizadaEm: new Date('2026-11-01T00:00:00Z') });
+
+    it('baixa o link e guarda a imagem no banco, sem precisar do banco aberto', async () => {
+      const { repo } = await cenario(['7890000000001']);
+      await repo.salvarFoto(planilha('7890000000001', 'https://loja.exemplo.com/a.jpg'));
+      const buscar = vi.fn(async () => null);
+      const baixador = vi.fn(async () => IMAGEM);
+      const resumo = await criarGerenciadorDeFotos({ repo, buscador: { buscar }, ...sem, baixador }).processarPendentes();
+      expect(baixador).toHaveBeenCalledWith('https://loja.exemplo.com/a.jpg');
+      expect(buscar).not.toHaveBeenCalled(); // já tinha foto: não precisa procurar
+      expect(resumo.achadas).toBe(1);
+      expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg', imagem: IMAGEM });
+    });
+
+    it('link que não serve: apaga o registro e o produto é procurado no banco aberto', async () => {
+      const { repo } = await cenario(['7890000000001']);
+      await repo.salvarFoto(planilha('7890000000001', 'https://loja.exemplo.com/quebrado.jpg'));
+      const baixador = vi.fn(async (u: string) => {
+        if (u.includes('quebrado')) throw new ImagemInvalida('404');
+        return IMAGEM;
+      });
+      const buscador: BuscadorDeFotos = { buscar: async () => ({ url: IMG }) };
+      await criarGerenciadorDeFotos({ repo, buscador, ...sem, baixador }).processarPendentes();
+      expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'openfoodfacts', url: IMG, imagem: IMAGEM });
+    });
+
+    it('serviço fora do ar ao baixar: para, não apaga o link e tenta de novo depois', async () => {
+      const { repo } = await cenario(['7890000000001']);
+      await repo.salvarFoto(planilha('7890000000001', 'https://loja.exemplo.com/a.jpg'));
+      const baixador = async () => {
+        throw new ErroTemporario('sem resposta');
+      };
+      const resumo = await criarGerenciadorDeFotos({ repo, buscador: { buscar: async () => null }, ...sem, baixador }).processarPendentes();
+      expect(resumo.adiadas).toBe(true);
+      expect(await repo.acharFoto('7890000000001')).toMatchObject({ url: 'https://loja.exemplo.com/a.jpg', imagem: null });
+      expect(await repo.listarFotosParaBaixar(10)).toHaveLength(1);
+    });
+
+    it('a foto que um mercado enviou à mão enquanto baixava não é sobrescrita', async () => {
+      const { repo, m } = await cenario(['7890000000001']);
+      await repo.salvarFoto(planilha('7890000000001', 'https://loja.exemplo.com/a.jpg'));
+      const baixador = async () => {
+        await repo.salvarFoto({ codigoBarras: '7890000000001', origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,MANUAL', mercadoId: m.id, atualizadaEm: new Date() });
+        return IMAGEM;
+      };
+      await criarGerenciadorDeFotos({ repo, buscador: { buscar: async () => null }, ...sem, baixador }).processarPendentes();
+      expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'mercado', imagem: 'data:image/jpeg;base64,MANUAL' });
+    });
   });
 
   it('cada produto é consultado uma vez só, mesmo rodando de novo', async () => {

@@ -42,6 +42,8 @@ function dadosVazios(): Dados {
 }
 
 const copia = <T>(valor: T): T => structuredClone(valor);
+/** Foto que já dá para mostrar: a imagem está guardada, ou é um link do banco aberto (entregue por redirecionamento). */
+const fotoPronta = (f: FotoProduto): boolean => f.imagem !== null || (f.origem === 'openfoodfacts' && f.url !== null);
 const chaveOferta = (mercadoId: number, codigoBarras: string) => `${mercadoId}:${codigoBarras}`;
 const emailNorm = (email: string) => email.toLowerCase();
 
@@ -245,12 +247,19 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async listarResumoDeFotos(codigos) {
       const quais = new Set(codigos);
       return [...dados.fotos.values()]
-        .filter((f) => quais.has(f.codigoBarras) && (f.url !== null || f.imagem !== null))
+        .filter((f) => quais.has(f.codigoBarras) && fotoPronta(f))
         .map((f) => ({ codigoBarras: f.codigoBarras, origem: f.origem }))
         .sort((a, b) => (a.codigoBarras < b.codigoBarras ? -1 : a.codigoBarras > b.codigoBarras ? 1 : 0));
     },
+    async listarFotosParaBaixar(limite) {
+      return [...dados.fotos.values()]
+        .filter((f) => f.url !== null && f.imagem === null)
+        .map((f) => ({ codigoBarras: f.codigoBarras, url: f.url as string }))
+        .sort((a, b) => (a.codigoBarras < b.codigoBarras ? -1 : a.codigoBarras > b.codigoBarras ? 1 : 0))
+        .slice(0, Math.max(0, limite));
+    },
     async listarCodigosComFoto() {
-      return [...dados.fotos.values()].filter((f) => f.url !== null || f.imagem !== null).map((f) => f.codigoBarras).sort();
+      return [...dados.fotos.values()].filter(fotoPronta).map((f) => f.codigoBarras).sort();
     },
     async listarCodigosSemFoto(limite, tentarDeNovoAntesDe) {
       const codigos = new Set<string>();

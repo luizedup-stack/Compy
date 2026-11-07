@@ -542,6 +542,36 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarResumoDeFotos([])).toEqual([]);
       });
 
+      it('foto "na fila" (link da planilha sem imagem ainda) não conta como pronta; depois de baixada, conta', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg' }));
+        expect(await repo.listarCodigosComFoto()).toEqual([]);
+        expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([]);
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg', imagem: 'data:image/jpeg;base64,AAAA' }));
+        expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001']);
+        expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([{ codigoBarras: '7890000000001', origem: 'planilha' }]);
+      });
+
+      it('listarFotosParaBaixar: só as que têm o link e ainda não a imagem, em ordem, até o limite', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto('7890000000003', { origem: 'planilha', url: 'https://loja.exemplo.com/c.jpg' })); // falta baixar
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg' })); // falta baixar
+        await repo.salvarFoto(novaFoto('7890000000002', { origem: 'planilha', url: 'https://loja.exemplo.com/b.jpg', imagem: 'data:image/jpeg;base64,AAAA' })); // já baixada
+        await repo.salvarFoto(novaFoto('7890000000004', { url: null })); // "não achou"
+        expect(await repo.listarFotosParaBaixar(10)).toEqual([
+          { codigoBarras: '7890000000001', url: 'https://loja.exemplo.com/a.jpg' },
+          { codigoBarras: '7890000000003', url: 'https://loja.exemplo.com/c.jpg' },
+        ]);
+        expect(await repo.listarFotosParaBaixar(1)).toHaveLength(1);
+        expect(await repo.listarFotosParaBaixar(0)).toEqual([]);
+      });
+
+      it('aceita a origem "planilha"', async () => {
+        const repo = await criar();
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg' }));
+        expect((await repo.acharFoto('7890000000001'))?.origem).toBe('planilha');
+      });
+
       it('listarCodigosSemFoto: o que nunca foi procurado e o "não achou" antigo, só de produtos que têm oferta', async () => {
         const repo = await criar();
         const m = await repo.criarMercado(novoMercado());

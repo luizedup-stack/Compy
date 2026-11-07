@@ -47,6 +47,18 @@ function primitivo(valor: unknown): Primitivo {
 
 const texto = (valor: unknown): string => String(primitivo(valor) ?? '').trim();
 
+/** Nomes aceitos para a coluna opcional com o link da foto do produto (comparados sem acento e sem maiúsculas). */
+const NOMES_COLUNA_FOTO = ['foto', 'link da foto', 'imagem', 'link da imagem', 'url da foto'];
+const LINK_DE_FOTO_VALIDO = /^https:\/\/\S{4,990}$/i;
+
+/** O link da foto: se a célula é um hiperlink do Excel (texto + endereço), vale o endereço, não o texto que aparece. */
+function linkDaFoto(valor: unknown): string {
+  if (valor && typeof valor === 'object' && typeof (valor as { hyperlink?: unknown }).hyperlink === 'string') {
+    return ((valor as { hyperlink: string }).hyperlink).trim();
+  }
+  return texto(valor);
+}
+
 const DISPONIVEL: Record<string, boolean> = {
   sim: true, s: true, true: true, '1': true,
   nao: false, n: false, false: false, '0': false,
@@ -92,8 +104,11 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
     return numero;
   }) as [number, number, number];
   const [quantidade, categoria, disponivel] = COLUNAS_PRODUTOS.slice(3).map(coluna);
+  // Coluna opcional "Foto" (link da imagem do produto): quem não tem não precisa preencher.
+  const colunaFoto = NOMES_COLUNA_FOTO.map(coluna).find((n) => n !== undefined);
 
   const validas = new Map<string, LinhaValida>();
+  const fotos = new Map<string, string>(); // código de barras -> link da foto (só de linhas válidas)
   const erros: RelatorioImportacao['erros'] = [];
   let preenchidas = 0;
 
@@ -130,6 +145,12 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
         motivo: `Código de barras duplicado: vale a última ocorrência (linha ${numeroLinha})`,
       });
     }
+    const linkFoto = linkDaFoto(celula(colunaFoto));
+    if (linkFoto !== '') {
+      if (LINK_DE_FOTO_VALIDO.test(linkFoto)) fotos.set(barras.codigo, linkFoto);
+      // Foto com problema não derruba o produto: ele entra, só a foto é ignorada (o relatório avisa).
+      else erros.push({ linha: numeroLinha, motivo: `Foto ignorada: o link precisa começar com https:// (${linkFoto.slice(0, 40)})` });
+    } else fotos.delete(barras.codigo); // a última ocorrência do código vale, também para a foto
     const textoQuantidade = texto(celula(quantidade));
     const parseada = parseQuantidade(textoQuantidade || null);
     validas.set(barras.codigo, {
@@ -152,7 +173,7 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
   });
 
   erros.sort((a, b) => a.linha - b.linha);
-  return { ofertas: [...validas.values()].map((v) => v.oferta), erros };
+  return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros };
 }
 
 /** Só usa `r`, o repositório da transação (nunca o externo, que travaria esperando a si mesmo). */
@@ -207,13 +228,21 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
     throw new ErroPlanilha('Arquivo inválido: envie uma planilha .xlsx');
   }
   const dadosMercado = lerMercado(encontrarAba(wb, ABA_MERCADO));
-  const { ofertas, erros } = lerProdutos(encontrarAba(wb, ABA_PRODUTOS));
+  const { ofertas, fotos, erros } = lerProdutos(encontrarAba(wb, ABA_PRODUTOS));
 
   return repo.transacao(async (r) => {
     const { mercado, criado } = await resolverMercado(r, ator, dadosMercado);
     const agora = new Date();
     for (const oferta of ofertas) {
       await r.salvarOferta({ ...oferta, mercadoId: mercado.id, precoAtualizadoEm: agora });
+    }
+    // Fotos indicadas na planilha: o servidor baixa e guarda depois (veja fotos/gerenciador.ts). A foto que um mercado enviou à
+    // mão pelo painel vale mais e não é trocada; um link já indicado antes (igual) também não é refeito.
+    for (const [codigo, url] of fotos) {
+      const atual = await r.acharFoto(codigo);
+      if (atual?.origem === 'mercado' && atual.imagem !== null) continue;
+      if (atual?.origem === 'planilha' && atual.url === url) continue;
+      await r.salvarFoto({ codigoBarras: codigo, origem: 'planilha', url, imagem: null, mercadoId: mercado.id, atualizadaEm: agora });
     }
     return { mercadoId: mercado.id, mercadoCriado: criado, importadas: ofertas.length, erros };
   });
