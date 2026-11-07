@@ -1,8 +1,14 @@
 import { definirUrlApi, urlApi } from './api';
 import { apagarDoCofre, guardarNoCofre, lerDoCofre } from './cofre';
 
-/** Chave do cofre onde fica o endereço do servidor escolhido na tela Entrar. */
-export const CHAVE_SERVIDOR = 'bolso-certo.servidor';
+/**
+ * Chave do cofre onde fica o endereço do servidor escolhido na tela Entrar. O ".2" existe de propósito: versões antigas do app
+ * guardavam aqui um endereço de teste (de rede local, por exemplo) que, ao atualizar o app por cima, passava na frente do endereço
+ * de fábrica do APK novo. Com a chave nova, o que foi guardado antes é ignorado; o que a pessoa escolher agora continua valendo.
+ */
+export const CHAVE_SERVIDOR = 'bolso-certo.servidor.2';
+/** Chave das versões anteriores: o que está nela não vale mais e é apagado ao abrir o app. */
+export const CHAVE_SERVIDOR_ANTIGA = 'bolso-certo.servidor';
 
 export const MSG_SERVIDOR_INVALIDO = 'Endereço inválido. Exemplo: http://192.168.0.10:3000 ou https://meu-servidor.com';
 
@@ -29,6 +35,11 @@ function esquemaPadrao(semEsquema: string): 'http' | 'https' {
 
 /** Ao abrir o app: usa o endereço que a pessoa escolheu antes, se houver. */
 export async function carregarServidor(): Promise<void> {
+  try {
+    await apagarDoCofre(CHAVE_SERVIDOR_ANTIGA);
+  } catch {
+    // Sem o cofre, nada a apagar.
+  }
   try {
     const guardado = await lerDoCofre(CHAVE_SERVIDOR);
     const url = guardado ? normalizarServidor(guardado) : null;

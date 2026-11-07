@@ -116,3 +116,9 @@ A aba "Conta" (`src/telas/Conta.tsx`) tem:
   corre). Se der certo, o token é apagado e o app volta para Entrar com o aviso "Conta excluída."; se der erro, a
   mensagem aparece e a confirmação continua aberta para tentar de novo. "Cancelar" fecha a confirmação sem chamar a API.
   A API apaga a conta e deixa as buscas anônimas; depois disso o token deixa de valer.
+
+## Atualizar o app já instalado (sem desinstalar)
+
+Quem já tem o app instala o APK novo por cima (o Android mostra "Atualizar") e mantém a conta e os dados. Para o Android aceitar, o pacote e a assinatura têm de ser os mesmos
+(todos os APKs usam a chave de teste que o `expo prebuild` coloca no projeto) e o número da versão não pode diminuir: **suba `android.versionCode` (e `version`) em `app.json` a cada APK novo**.
+O endereço do servidor escolhido em "Configurar servidor" fica guardado na chave `bolso-certo.servidor.2`; o que versões antigas guardaram na chave anterior é ignorado de propósito.

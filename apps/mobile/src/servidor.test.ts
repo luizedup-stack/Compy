@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 import { definirUrlApi, urlApi, URL_API } from './api';
-import { CHAVE_SERVIDOR, carregarServidor, normalizarServidor, salvarServidor } from './servidor';
+import { CHAVE_SERVIDOR, CHAVE_SERVIDOR_ANTIGA, carregarServidor, normalizarServidor, salvarServidor } from './servidor';
 
 const cofre = SecureStore as jest.Mocked<typeof SecureStore>;
 
@@ -65,8 +65,26 @@ describe('salvarServidor / carregarServidor', () => {
     await carregarServidor();
     expect(urlApi()).toBe(URL_API);
 
-    cofre.getItemAsync.mockRejectedValue(new Error('cofre indisponível'));
+    cofre.getItemAsync.mockRejectedValueOnce(new Error('cofre indisponível'));
     await expect(carregarServidor()).resolves.toBeUndefined();
     expect(urlApi()).toBe(URL_API);
+  });
+});
+
+describe('atualizar o app por cima de uma versão antiga', () => {
+  it('ignora (e apaga) o endereço guardado pelas versões antigas: o de fábrica do APK novo volta a valer', async () => {
+    await SecureStore.setItemAsync(CHAVE_SERVIDOR_ANTIGA, 'http://172.16.16.114:3000');
+    jest.clearAllMocks();
+    await carregarServidor();
+    expect(urlApi()).toBe(URL_API);
+    expect(cofre.deleteItemAsync).toHaveBeenCalledWith(CHAVE_SERVIDOR_ANTIGA);
+    expect(await SecureStore.getItemAsync(CHAVE_SERVIDOR_ANTIGA)).toBeNull();
+  });
+
+  it('o endereço que a pessoa escolhe depois da atualização continua valendo ao reabrir o app', async () => {
+    await salvarServidor('http://10.0.0.5:3000');
+    definirUrlApi(null);
+    await carregarServidor();
+    expect(urlApi()).toBe('http://10.0.0.5:3000');
   });
 });

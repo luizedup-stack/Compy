@@ -170,8 +170,10 @@ use o gerador do GitHub (abaixo).
 4. Mande o `.apk` para o pessoal (WhatsApp, Drive...). No celular: abrir o arquivo → o Android pede para permitir "instalar apps desconhecidos" → instalar.
 
 O app já abre usando o servidor. A primeira consulta depois de um tempo parado pode levar até ~1 minuto (servidor e banco acordando). O APK usa a chave de
-teste do Android (serve para instalar direto, não para publicar na Play Store). Para atualizar o app já instalado, gere um APK novo e instale por cima; se o
-Android recusar, desinstale o antigo e instale de novo.
+teste do Android (serve para instalar direto, não para publicar na Play Store). **Atualizar quem já tem o app:** o tester só abre o `.apk` novo e toca em **Atualizar**; a conta e os dados ficam, não precisa desinstalar nem baixar nada de novo.
+O Android aceita a atualização quando o pacote e a assinatura são os mesmos (são: todos os APKs usam a mesma chave de teste) e o **número da versão não é menor**.
+Por isso, **antes de gerar um APK novo, suba `android.versionCode` (e `version`) em `apps/mobile/app.json`** (hoje: versão 1.1.0, código 2). Se o Android recusar mesmo assim,
+é sinal de que o APK antigo foi assinado com outra chave: aí vale desinstalar o antigo uma vez.
 
 Na primeira busca depois de um tempo parado o app pode demorar até ~1 minuto (servidor e banco acordando). Isso é do plano gratuito.
 
