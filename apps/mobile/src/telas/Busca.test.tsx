@@ -1,5 +1,5 @@
 import type { GrupoProduto, Oferta } from '@mercado/shared';
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { CHAVE_SESSAO } from '../sessao';
 import { abrirApp, guardarSessao, lerCofre, simularApi, type RespostaFalsa } from '../teste/ajudas';
@@ -552,14 +552,13 @@ describe('Busca', () => {
       expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade', '?q=fox&ordem=unidade']);
     });
 
-    it('um 401 encerra a sessão e volta para a tela de entrada', async () => {
+    it('um 401 encerra a sessão (apaga o token); o app continua aberto, sem login', async () => {
       simularApi({ 'GET /busca': { status: 401, corpo: { erro: 'Não autenticado' } } });
       await abrirApp();
       await buscarTexto('papel');
 
-      expect(await screen.findByRole('button', { name: 'Entrar' })).toBeOnTheScreen();
-      expect(screen.queryByLabelText(BUSCA)).not.toBeOnTheScreen();
-      expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
+      await waitFor(() => expect(lerCofre().has(CHAVE_SESSAO)).toBe(false));
+      expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
     });
   });
 

@@ -12,7 +12,7 @@ O Luiz quer olhar o preço dos produtos em vários mercados **antes de sair de c
 São dois produtos que conversam entre si:
 
 1. **Painel do mercado (software web).** O mercado envia uma **planilha Excel com tudo dentro** (dados do estabelecimento, produtos e preços). Depois de enviada, tudo sobe sozinho para o software e para o app, sem outro passo. Se algo estiver errado, o mercado pode **corrigir à mão dentro do software** (preço, nome, quantidade, remover produto, dados do estabelecimento). Não é para cadastrar tudo um a um: a planilha sobe tudo de uma vez e a edição manual serve só para ajustes.
-2. **App do cliente (celular).** O cliente faz cadastro para entrar, vê os mercados e os produtos e compara preços entre mercados. O app é **só para ver e comparar: não tem nenhuma edição** de produtos, preços ou mercados. Toda correção é feita no software, pelo mercado.
+2. **App do cliente (celular).** O cliente usa o app **sem precisar de conta** (desde 2026-11-07; cadastro e login são opcionais, na aba Conta), vê os mercados e os produtos e compara preços entre mercados. O app é **só para ver e comparar: não tem nenhuma edição** de produtos, preços ou mercados. Toda correção é feita no software, pelo mercado.
 
 Começa do zero: **não existe nenhum mercado parceiro ainda.** O Luiz mora na Vila Sônia e quer começar por ali.
 
@@ -77,7 +77,7 @@ Comportamento da planilha (minha decisão):
 
 Decidido pelo Luiz:
 
-- O cliente **faz cadastro para entrar** no app.
+- O cliente **usa o app sem login**; se quiser, entra ou cria conta pela aba Conta. (Mudança de 2026-11-07: antes o cadastro era obrigatório.)
 - Vê os supermercados e os produtos.
 - Compara cada produto entre os mercados, com preços.
 
@@ -124,7 +124,7 @@ Sem mercados parceiros, o app nasce vazio. Plano (minha decisão):
 ## 9. Restrições
 
 - Cliente e mercado têm login próprio (e-mail e senha). Guardar só os dados mínimos do cliente por causa da LGPD. (minha decisão)
-- Cadastro do cliente é obrigatório para entrar (decisão do Luiz). Dados: e-mail e senha, com recuperação de senha. Verificação de e-mail e política de privacidade com exclusão de conta entram na primeira versão. (minha decisão)
+- Cadastro do cliente é **opcional** (decisão do Luiz, 2026-11-07; antes era obrigatório): buscar, ver mercados e produtos é público. Quem cria conta tem perfil (foto, nome). Dados: e-mail e senha, com recuperação de senha. Verificação de e-mail e política de privacidade com exclusão de conta entram na primeira versão. (minha decisão)
 - Uma conta de mercado = um estabelecimento (um nome e um endereço) e um login. Rede com várias lojas cadastra cada loja separadamente. O modelo de dados deve permitir, depois, vários usuários por loja e várias lojas por dono. Mercado removido por um administrador deixa de aparecer no app, mas os dados são mantidos. Um mercado com login que envia planilha com nome ou endereço diferentes do cadastrado **atualiza o próprio cadastro** e não cria outro mercado; só o administrador cria mercados novos. (minha decisão)
 - A primeira versão deve poder ser construída e mantida por uma equipe muito pequena.
 

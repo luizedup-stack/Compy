@@ -95,7 +95,7 @@ export function Mercados() {
             testID="mercado"
             accessibilityRole="button"
             accessibilityLabel={`${item.nome}, ${item.endereco}, ${textoTotal(item.totalProdutos)}`}
-            onPress={() => navigation.navigate('MercadoDetalhe', { id: item.id, nome: item.nome })}
+            onPress={() => navigation.navigate('MercadoDetalhe', { id: item.id, nome: item.nome, endereco: item.endereco })}
             style={({ pressed }) => [estilos.linha, pressed ? estilos.linhaPressionada : null]}
           >
             <Text style={estilos.nome}>{item.nome}</Text>

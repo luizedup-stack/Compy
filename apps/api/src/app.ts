@@ -11,6 +11,7 @@ import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
 import { rotasBusca } from './rotas/busca';
 import { rotasConta } from './rotas/conta';
+import { rotasFotos } from './rotas/fotos';
 import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
@@ -31,6 +32,8 @@ export interface OpcoesApp {
   instancia?: string;
   /** A API está atrás de um proxy da hospedagem: confia no X-Forwarded-For para achar o IP de cada pessoa (limites de tentativas). */
   confiarNoProxy?: boolean;
+  /** Procura sozinho a foto dos produtos novos (veja fotos/gerenciador.ts). Sem ele, só entram fotos enviadas pelos mercados. */
+  fotos?: { agendarPendentes(): void };
 }
 
 /**
@@ -48,9 +51,11 @@ function resumoDaRequisicao(req: { method: string; url: string; ip?: string; soc
 /** Limites por endereço do cliente, numa janela de 1 minuto (R32). */
 export const LIMITE_AUTH_POR_MINUTO = 20;
 export const LIMITE_BUSCA_POR_MINUTO = 60;
+/** Demais consultas públicas (catálogo, lista de produtos, mercados): por endereço, numa janela de 1 minuto. */
+export const LIMITE_LEITURA_POR_MINUTO = 120;
 const MSG_LIMITE = 'Muitas tentativas. Tente de novo em alguns instantes.';
 
-/** Todas as rotas POST /auth/* contam juntas; GET /busca tem a sua conta. As outras rotas não são limitadas. */
+/** Todas as rotas POST /auth/* contam juntas; GET /busca tem a sua conta, e as consultas públicas (catálogo, produtos, mercados) outra. As demais rotas não são limitadas. */
 async function registrarLimites(app: FastifyInstance): Promise<void> {
   await app.register(rateLimit, { global: false });
   const limiteAuth = app.createRateLimit({
@@ -63,11 +68,18 @@ async function registrarLimites(app: FastifyInstance): Promise<void> {
     timeWindow: 60_000,
     keyGenerator: (req) => `busca|${req.ip}`,
   });
+  const limiteLeitura = app.createRateLimit({
+    max: LIMITE_LEITURA_POR_MINUTO,
+    timeWindow: 60_000,
+    keyGenerator: (req) => `leitura|${req.ip}`,
+  });
+  const ROTAS_DE_LEITURA = new Set(['/catalogo', '/produtos', '/mercados', '/mercados/:id/produtos']);
   app.addHook('onRequest', async (req, reply) => {
     const rota = req.routeOptions.url;
     let limite: typeof limiteAuth | null = null;
     if (req.method === 'POST' && rota?.startsWith('/auth/')) limite = limiteAuth;
     else if (req.method === 'GET' && rota === '/busca') limite = limiteBusca;
+    else if (req.method === 'GET' && rota && ROTAS_DE_LEITURA.has(rota)) limite = limiteLeitura;
     if (!limite) return;
     const r = await limite(req);
     if (!r.isAllowed && r.isExceeded) {
@@ -85,6 +97,7 @@ export async function construirApp({
   destinoDoLog,
   instancia,
   confiarNoProxy = false,
+  fotos,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
     // O túnel (cloudflared) roda no mesmo computador e entrega a requisição pelo endereço local, trazendo o IP real de
@@ -130,13 +143,15 @@ export async function construirApp({
   app.get('/saude', async () => ({ status: 'ok' }));
 
   await app.register(rotasAuth({ repo, email }));
-  await app.register(rotasPlanilhas({ repo }));
+  const aoMudarProdutos = () => fotos?.agendarPendentes();
+  await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
-  await app.register(rotasPainel({ repo }));
+  await app.register(rotasPainel({ repo, aoMudarProdutos }));
   await app.register(rotasBusca({ repo }));
   await app.register(rotasConta({ repo }));
   await app.register(rotasMercados({ repo }));
   await app.register(rotasMeusMercados({ repo }));
+  await app.register(rotasFotos({ repo }));
   await app.register(rotasPrivacidade());
   return app;
 }

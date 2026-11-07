@@ -9,9 +9,9 @@ async function preencher(user: ReturnType<typeof userEvent.setup>, email: string
 }
 
 describe('Entrar', () => {
-  it('é a primeira tela quando não há sessão e oferece os links', async () => {
+  it('a tela de entrada oferece Criar conta e Esqueci minha senha', async () => {
     simularApi({});
-    await abrirApp();
+    await abrirApp('Entrar');
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeOnTheScreen();
     expect(screen.getByRole('link', { name: 'Criar conta' })).toBeOnTheScreen();
     expect(screen.getByRole('link', { name: 'Esqueci minha senha' })).toBeOnTheScreen();
@@ -20,7 +20,7 @@ describe('Entrar', () => {
   it('mostra o texto do servidor quando as credenciais estão erradas', async () => {
     simularApi({ 'POST /auth/login': { status: 401, corpo: { erro: 'E-mail ou senha incorretos' } } });
     const user = userEvent.setup();
-    await abrirApp();
+    await abrirApp('Entrar');
     await preencher(user, 'ana@exemplo.com', 'senha-errada');
     await user.press(screen.getByRole('button', { name: 'Entrar' }));
 
@@ -31,7 +31,7 @@ describe('Entrar', () => {
   it('rejeita papel diferente de cliente e não guarda nada', async () => {
     simularApi({ 'POST /auth/login': { status: 200, corpo: { token: 'tok-m', papel: 'mercado', emailVerificado: true } } });
     const user = userEvent.setup();
-    await abrirApp();
+    await abrirApp('Entrar');
     await preencher(user, 'loja@exemplo.com', '12345678');
     await user.press(screen.getByRole('button', { name: 'Entrar' }));
 
@@ -40,16 +40,16 @@ describe('Entrar', () => {
     expect(screen.queryByLabelText('Buscar produto')).not.toBeOnTheScreen();
   });
 
-  it('guarda a sessão no cofre e mostra a busca quando o login dá certo', async () => {
+  it('guarda a sessão no cofre e abre a aba Conta já com a conta quando o login dá certo', async () => {
     const api = simularApi({
       'POST /auth/login': { status: 200, corpo: { token: 'tok-ok', papel: 'cliente', emailVerificado: true } },
     });
     const user = userEvent.setup();
-    await abrirApp();
+    await abrirApp('Entrar');
     await preencher(user, 'ana@exemplo.com', '12345678');
     await user.press(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByLabelText('Buscar produto')).toBeOnTheScreen();
+    expect(await screen.findByTestId('tela-conta')).toBeOnTheScreen();
     expect(api.chamadas[0].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });
     expect(JSON.parse(lerCofre().get(CHAVE_SESSAO) as string)).toEqual({ token: 'tok-ok', emailVerificado: true });
   });
@@ -57,7 +57,7 @@ describe('Entrar', () => {
   it('abre a tela de senha esquecida pelo link', async () => {
     simularApi({});
     const user = userEvent.setup();
-    await abrirApp();
+    await abrirApp('Entrar');
     await user.press(screen.getByRole('link', { name: 'Esqueci minha senha' }));
     expect(await screen.findByRole('button', { name: 'Enviar código' })).toBeOnTheScreen();
   });

@@ -177,3 +177,16 @@ describe('lerConfig: banco de dados e hospedagem', () => {
     expect(lerConfig({}).pastaPainel).toMatch(/painel[\\/]dist$/);
   });
 });
+
+describe('lerConfig: fotos automáticas', () => {
+  it('ligadas por padrão em produção e desligadas nos outros ambientes', () => {
+    expect(lerConfig(producao()).fotosAutomaticas).toBe(true);
+    expect(lerConfig({}).fotosAutomaticas).toBe(false);
+    expect(lerConfig({ NODE_ENV: 'test' }).fotosAutomaticas).toBe(false);
+  });
+
+  it('FOTOS_AUTOMATICAS troca o padrão: 1 liga, 0 desliga', () => {
+    expect(lerConfig({ FOTOS_AUTOMATICAS: '1' }).fotosAutomaticas).toBe(true);
+    expect(lerConfig(producao({ FOTOS_AUTOMATICAS: '0' })).fotosAutomaticas).toBe(false);
+  });
+});

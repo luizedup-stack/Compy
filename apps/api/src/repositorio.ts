@@ -46,6 +46,26 @@ export interface OfertaArmazenada {
   promocaoFim: Date | null;
 }
 
+export type OrigemFoto = 'openfoodfacts' | 'mercado';
+
+/**
+ * Foto de um produto. É do CÓDIGO DE BARRAS (igual para todos os mercados que vendem o produto): uma foto achada sozinha
+ * num banco aberto de produtos ou enviada por um mercado. Sem `url` nem `imagem` significa "procurou e não achou":
+ * a busca automática só tenta de novo depois de um tempo.
+ */
+export interface FotoProduto {
+  codigoBarras: string;
+  origem: OrigemFoto;
+  /** Endereço da imagem no banco aberto de produtos (origem "openfoodfacts"). */
+  url: string | null;
+  /** Imagem enviada por um mercado, como texto "data:image/jpeg;base64,..." (pequena). */
+  imagem: string | null;
+  /** Mercado que enviou a foto (origem "mercado"). */
+  mercadoId: number | null;
+  /** Quando foi buscada ou enviada. */
+  atualizadaEm: Date;
+}
+
 export type TipoToken = 'verificar_email' | 'redefinir_senha';
 
 export interface BuscaRegistrada {
@@ -110,6 +130,20 @@ export interface Repositorio {
   removerOferta(mercadoId: number, codigoBarras: string): Promise<boolean>;
   listarOfertasDoMercado(mercadoId: number): Promise<OfertaArmazenada[]>;
   listarOfertasParaBusca(): Promise<{ oferta: OfertaArmazenada; mercado: Mercado }[]>;
+  /** Grava a foto do produto (uma só por código de barras: a nova substitui a anterior). */
+  salvarFoto(f: FotoProduto): Promise<void>;
+  acharFoto(codigoBarras: string): Promise<FotoProduto | null>;
+  /** Apaga a foto do produto (também o registro de "não achou"). Devolve false se não havia. */
+  removerFoto(codigoBarras: string): Promise<boolean>;
+  /** De quais dos `codigos` há foto de verdade e de onde veio, sem trazer a imagem (para listas). Códigos sem foto não aparecem. */
+  listarResumoDeFotos(codigos: string[]): Promise<{ codigoBarras: string; origem: OrigemFoto }[]>;
+  /** Códigos de barras que têm foto de verdade (com `url` ou `imagem`), em ordem. */
+  listarCodigosComFoto(): Promise<string[]>;
+  /**
+   * Até `limite` códigos de barras que têm oferta em algum mercado e ainda não foram procurados, ou foram procurados e não
+   * achados antes de `tentarDeNovoAntesDe`. Em ordem de código de barras.
+   */
+  listarCodigosSemFoto(limite: number, tentarDeNovoAntesDe: Date): Promise<string[]>;
   registrarBusca(b: BuscaRegistrada): Promise<void>;
   listarBuscas(): Promise<BuscaRegistrada[]>;
 }

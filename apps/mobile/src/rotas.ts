@@ -1,6 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
-/** Abas da área principal (com sessão). */
+/** Abas da área principal (com ou sem login). */
 export type AbasParamList = {
   Busca: undefined;
   Mercados: undefined;
@@ -9,14 +9,14 @@ export type AbasParamList = {
 
 /** Telas do app e os parâmetros de cada uma. */
 export type RootStackParamList = {
-  // Sem sessão
+  // Abrem por cima das abas, a partir da aba Conta (o login é opcional)
   Entrar: { aviso?: string } | undefined;
   Cadastrar: undefined;
   EsqueciSenha: undefined;
-  // Com sessão: as abas (Busca, Mercados, Conta) e as telas que abrem por cima delas
+  // As abas (Busca, Mercados, Conta) e o detalhe de um mercado
   Principal: NavigatorScreenParams<AbasParamList> | undefined;
-  MercadoDetalhe: { id: number; nome: string };
+  MercadoDetalhe: { id: number; nome: string; /** Para o "Como chegar". */ endereco?: string };
 };
 
-/** Telas de quem ainda não entrou; usadas também como tela inicial nos testes. */
+/** Telas de acesso à conta; usadas também como tela inicial nos testes. */
 export type RotaInicial = 'Entrar' | 'Cadastrar' | 'EsqueciSenha';

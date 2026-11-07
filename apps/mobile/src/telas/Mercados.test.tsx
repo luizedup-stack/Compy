@@ -1,4 +1,4 @@
-import { act, screen, userEvent } from '@testing-library/react-native';
+import { waitFor, act, screen, userEvent } from '@testing-library/react-native';
 
 import { CHAVE_SESSAO } from '../sessao';
 import { aba, abrirApp, guardarSessao, lerCofre, simularApi, type RespostaFalsa } from '../teste/ajudas';
@@ -107,11 +107,11 @@ describe('Mercados', () => {
     expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeOnTheScreen();
   });
 
-  it('401 encerra a sessão: apaga o token e volta para Entrar', async () => {
+  it('401 encerra a sessão (apaga o token); o app continua aberto, sem login', async () => {
     simularApi({ 'GET /mercados': { status: 401, corpo: { erro: 'Sessão expirada' } } });
     await abrirMercados();
-    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeOnTheScreen();
-    expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
+    await waitFor(() => expect(lerCofre().has(CHAVE_SESSAO)).toBe(false));
+    expect(screen.getByLabelText(/^Mercados(,|$)/)).toBeOnTheScreen();
   });
 
   it('puxar para atualizar busca a lista de novo e mostra a versão mais nova', async () => {

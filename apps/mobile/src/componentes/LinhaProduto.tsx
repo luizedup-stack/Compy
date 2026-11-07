@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { formatarPreco, textoIdade, textoPorUnidade } from '../formatar';
 import { cores } from '../tema';
 import { AVISO_SEM_QUANTIDADE } from './CartaoOferta';
+import { FotoDoProduto } from './FotoDoProduto';
 
 /** Um produto de um mercado: nome, preço da embalagem, preço por unidade e idade do preço. */
 export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
@@ -22,7 +23,10 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
 
   return (
     <View testID="produto" accessible accessibilityLabel={partes.join(', ')} style={estilos.linha}>
-      <Text style={estilos.nome}>{produto.nome}</Text>
+      <View style={estilos.topo}>
+        <FotoDoProduto foto={produto.foto} nome={produto.nome} tamanho={56} />
+        <Text style={estilos.nome}>{produto.nome}</Text>
+      </View>
 
       <View style={estilos.linhaPreco}>
         <Text style={estilos.preco}>{preco}</Text>
@@ -45,7 +49,8 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
 
 const estilos = StyleSheet.create({
   linha: { paddingVertical: 10, gap: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: cores.borda },
-  nome: { fontSize: 16, fontWeight: '700', color: cores.texto },
+  topo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  nome: { flex: 1, fontSize: 16, fontWeight: '700', color: cores.texto },
   linhaPreco: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   preco: { fontSize: 22, fontWeight: '700', color: cores.texto },
   quantidade: { fontSize: 14, color: cores.textoSuave },

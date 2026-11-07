@@ -325,6 +325,27 @@ export async function editarProduto(codigo: string, campos: CamposProduto): Prom
   return (await resposta.json()) as ProdutoPainel;
 }
 
+/** Endereço completo de uma foto (o servidor devolve só o caminho, ex.: "/fotos/7891000100103"). */
+export const urlDaFoto = (caminho: string): string => `${URL_BASE}${caminho}`;
+
+/** Envia a foto do produto (texto "data:image/jpeg;base64,..." já reduzido). A foto vale para todos os mercados que vendem o produto. */
+export async function enviarFotoDoProduto(
+  codigo: string,
+  imagem: string,
+): Promise<{ foto: string; fotoOrigem: 'mercado' }> {
+  const resposta = await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/foto`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ imagem }),
+  });
+  return (await resposta.json()) as { foto: string; fotoOrigem: 'mercado' };
+}
+
+/** Remove a foto que o mercado enviou (a achada sozinha não se remove). */
+export async function removerFotoDoProduto(codigo: string): Promise<void> {
+  await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/foto`, { method: 'DELETE' });
+}
+
 export async function removerProduto(codigo: string): Promise<void> {
   await pedir(`/painel/produtos/${encodeURIComponent(codigo)}`, { method: 'DELETE' });
 }

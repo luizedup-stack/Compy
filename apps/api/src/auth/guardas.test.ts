@@ -124,7 +124,7 @@ describe('sessão presa à instância do servidor (R29)', () => {
     expect(a.app.jwt.verify<{ inst: string }>(token).inst).toBe(a.app.instancia);
   });
 
-  it('token de outra instância (mesmo segredo, ids que se repetem) responde 401 e não age como outra conta', async () => {
+  it('token de outra instância (mesmo segredo, ids que se repetem) é recusado nas rotas da conta e não age como outra conta', async () => {
     const a = await instancia();
     const b = await instancia();
     const tokenAna = await cadastrarEEntrar(a.app, 'ana@exemplo.com');
@@ -137,8 +137,9 @@ describe('sessão presa à instância do servidor (R29)', () => {
       url: '/busca?q=arroz',
       headers: { authorization: `Bearer ${tokenAna}` },
     });
-    expect(busca.statusCode).toBe(401);
-    expect(busca.json()).toEqual({ erro: 'Sessão inválida' });
+    // A busca é pública: o token de outra instância é IGNORADO (nada de 401), e a busca fica anônima: não vale como a conta da Bia.
+    expect(busca.statusCode).toBe(200);
+    expect((await b.repo.listarBuscas()).every((x) => x.usuarioId === null)).toBe(true);
 
     const apagar = await b.app.inject({
       method: 'DELETE',

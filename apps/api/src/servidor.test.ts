@@ -23,6 +23,7 @@ const base: Config = {
   bancoUrl: null,
   pastaPainel: '/nao/existe',
   confiarNoProxy: false,
+  fotosAutomaticas: false,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;
@@ -210,7 +211,8 @@ describe('montarServidor: hospedagem e banco de dados', () => {
 
     it('as rotas da API continuam valendo ao lado do painel', async () => {
       const { app } = await montar({ ...base, carregarDadosDeTeste: false, pastaPainel: pasta });
-      expect((await app.inject({ method: 'GET', url: '/busca?q=arroz' })).statusCode).toBe(401);
+      expect((await app.inject({ method: 'GET', url: '/busca?q=arroz' })).statusCode).toBe(200); // pública
+      expect((await app.inject({ method: 'GET', url: '/conta' })).statusCode).toBe(401); // da conta: exige login
       expect((await app.inject({ method: 'GET', url: '/rota-que-nao-existe' })).statusCode).toBe(404);
     });
   });

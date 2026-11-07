@@ -95,9 +95,9 @@ describe('GET /produtos (lista da tela inicial, sem busca)', () => {
     for (const p of ['0', '-1', 'abc', '1.5']) expect((await get(`/produtos?pagina=${p}`)).statusCode).toBe(400);
   });
 
-  it('exige login de cliente', async () => {
-    expect((await amb.app.inject({ method: 'GET', url: '/produtos' })).statusCode).toBe(401);
+  it('é público: responde sem login e com qualquer papel', async () => {
+    expect((await amb.app.inject({ method: 'GET', url: '/produtos' })).statusCode).toBe(200);
     const { token: tokenMercado } = await amb.criarComPapel('mercado');
-    expect((await amb.app.inject({ method: 'GET', url: '/produtos', headers: comToken(tokenMercado) })).statusCode).toBe(403);
+    expect((await amb.app.inject({ method: 'GET', url: '/produtos', headers: comToken(tokenMercado) })).statusCode).toBe(200);
   });
 });

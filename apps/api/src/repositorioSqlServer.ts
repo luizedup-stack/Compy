@@ -14,6 +14,7 @@ import {
   ErroEmailJaExiste,
   ErroMercadoDuplicado,
   type BuscaRegistrada,
+  type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
   type Repositorio,
@@ -67,6 +68,17 @@ function linhaParaMercado(l: Linha): Mercado {
   if (l.detalhes !== null && l.detalhes !== undefined) m.detalhes = JSON.parse(l.detalhes as string) as Mercado['detalhes'];
   if (l.telefone !== null && l.telefone !== undefined) m.telefone = l.telefone as string;
   return m;
+}
+
+function linhaParaFoto(l: Linha): FotoProduto {
+  return {
+    codigoBarras: l.codigoBarras as string,
+    origem: l.origem as FotoProduto['origem'],
+    url: (l.url as string | null) ?? null,
+    imagem: (l.imagem as string | null) ?? null,
+    mercadoId: (l.mercadoId as number | null) ?? null,
+    atualizadaEm: comoData(l.atualizadaEm),
+  };
 }
 
 function linhaParaOferta(l: Linha): OfertaArmazenada {
@@ -419,6 +431,72 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
             }),
           }));
         });
+      },
+
+      async salvarFoto(f) {
+        // Só a lista de códigos com foto é descartada: gravar fotos (a busca automática grava muitas) não pode apagar o cache das ofertas.
+        await q(
+          `BEGIN TRAN;
+           UPDATE dbo.FotosProduto WITH (UPDLOCK, SERIALIZABLE)
+             SET origem = @origem, url = @url, imagem = @imagem, mercadoId = @mercadoId, atualizadaEm = @atualizadaEm
+             WHERE codigoBarras = @codigoBarras;
+           IF @@ROWCOUNT = 0
+             INSERT INTO dbo.FotosProduto (codigoBarras, origem, url, imagem, mercadoId, atualizadaEm)
+             VALUES (@codigoBarras, @origem, @url, @imagem, @mercadoId, @atualizadaEm);
+           COMMIT;`,
+          (r) => {
+            r.input('codigoBarras', sql.VarChar(32), f.codigoBarras);
+            r.input('origem', sql.VarChar(15), f.origem);
+            r.input('url', sql.NVarChar(1000), f.url);
+            r.input('imagem', sql.NVarChar(sql.MAX), f.imagem);
+            r.input('mercadoId', sql.Int, f.mercadoId);
+            r.input('atualizadaEm', sql.DateTime2(3), f.atualizadaEm);
+          },
+        );
+        cache.delete('codigosComFoto');
+      },
+      async acharFoto(codigoBarras) {
+        const l = await q('SELECT * FROM dbo.FotosProduto WHERE codigoBarras = @codigoBarras', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
+        return l[0] ? linhaParaFoto(l[0]) : null;
+      },
+      async removerFoto(codigoBarras) {
+        const l = await q(
+          'DELETE FROM dbo.FotosProduto OUTPUT deleted.codigoBarras WHERE codigoBarras = @codigoBarras',
+          (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras),
+        );
+        cache.delete('codigosComFoto');
+        return l.length > 0;
+      },
+      async listarResumoDeFotos(codigos) {
+        if (codigos.length === 0) return [];
+        const l = await q(
+          `SELECT f.codigoBarras, f.origem
+           FROM dbo.FotosProduto f
+           JOIN OPENJSON(@codigos) WITH (c varchar(32) '$') j ON j.c = f.codigoBarras
+           WHERE f.url IS NOT NULL OR f.imagem IS NOT NULL
+           ORDER BY f.codigoBarras`,
+          (r) => r.input('codigos', sql.NVarChar(sql.MAX), JSON.stringify(codigos)),
+        );
+        return l.map((x) => ({ codigoBarras: x.codigoBarras as string, origem: x.origem as FotoProduto['origem'] }));
+      },
+      listarCodigosComFoto() {
+        return comCache('codigosComFoto', async () =>
+          (await q('SELECT codigoBarras FROM dbo.FotosProduto WHERE url IS NOT NULL OR imagem IS NOT NULL ORDER BY codigoBarras')).map((x) => x.codigoBarras as string),
+        );
+      },
+      async listarCodigosSemFoto(limite, tentarDeNovoAntesDe) {
+        const l = await q(
+          `SELECT TOP (@limite) o.codigoBarras
+           FROM (SELECT DISTINCT codigoBarras FROM dbo.Ofertas) o
+           LEFT JOIN dbo.FotosProduto f ON f.codigoBarras = o.codigoBarras
+           WHERE f.codigoBarras IS NULL OR (f.url IS NULL AND f.imagem IS NULL AND f.atualizadaEm < @antes)
+           ORDER BY o.codigoBarras`,
+          (r) => {
+            r.input('limite', sql.Int, Math.max(0, limite));
+            r.input('antes', sql.DateTime2(3), tentarDeNovoAntesDe);
+          },
+        );
+        return l.map((x) => x.codigoBarras as string);
       },
 
       async registrarBusca(b) {

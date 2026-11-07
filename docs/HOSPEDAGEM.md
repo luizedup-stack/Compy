@@ -193,6 +193,14 @@ Seu IP precisa estar liberado no firewall (passo 1.5). Para tirar os 4 mercados 
 
 ---
 
+## Fotos dos produtos
+
+No Render, o servidor procura sozinho a foto de cada produto no Open Food Facts (variável `FOTOS_AUTOMATICAS`, ligada por padrão em produção). Ele faz isso devagar, em segundo
+plano, assim que sobe e sempre que entram produtos novos; o resultado fica no banco (tabela `FotosProduto`), então cada produto só é consultado uma vez. Produtos que o Open
+Food Facts não tem ficam "sem foto" e o dono do mercado envia a foto no painel (Produtos → Enviar foto). Para ver quantos já têm foto, use as consultas de `docs/BANCO.md`.
+Para procurar tudo de uma vez a partir do seu PC: `npm run fotos -w @mercado/api` com `BANCO_URL` definida (leva alguns minutos para muitos produtos).
+O servidor gratuito dorme sem uso, então a busca de fotos só avança enquanto ele estiver acordado.
+
 ## Dia a dia
 
 - **Ver os dados:** SSMS → banco `bolso` → tabelas `dbo.Mercados`, `dbo.Ofertas`, `dbo.Usuarios`, `dbo.Buscas`. Consultas prontas em `docs/BANCO.md`.

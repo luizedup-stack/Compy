@@ -7,7 +7,7 @@ const TOKEN = 'b'.repeat(64);
 describe('EsqueciSenha', () => {
   async function abrirTela() {
     const user = userEvent.setup();
-    await abrirApp();
+    await abrirApp('Entrar');
     await user.press(screen.getByRole('link', { name: 'Esqueci minha senha' }));
     await screen.findByRole('button', { name: 'Enviar código' });
     return user;

@@ -6,7 +6,8 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "test": "vitest run",
-    "carregar": "tsx src/scripts/carregar.ts"
+    "carregar": "tsx src/scripts/carregar.ts",
+    "fotos": "tsx src/scripts/fotos.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.4.0",

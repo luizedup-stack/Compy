@@ -1,6 +1,7 @@
-import { normalizarTexto, parsePreco, parseQuantidade, validarCodigoBarras, type ProdutoPainel } from '@mercado/shared';
+import { caminhoDaFoto, normalizarTexto, parsePreco, parseQuantidade, validarCodigoBarras, type ProdutoPainel } from '@mercado/shared';
 import type { FastifyPluginAsync, preHandlerAsyncHookHandler } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
+import { lerImagem } from '../fotos/imagem';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
 import { lerEdicaoMercado } from '../painel/dadosDoMercado';
 import { MSG_SEM_MERCADO, mercadoEscolhidoDoUsuario } from '../painel/mercadoEscolhido';
@@ -26,7 +27,10 @@ declare module 'fastify' {
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-const aProdutoPainel = (o: OfertaArmazenada, agora: Date): ProdutoPainel => ({
+/** De onde veio a foto de cada código (só os que têm foto). */
+type OrigensDeFoto = Map<string, 'openfoodfacts' | 'mercado'>;
+
+const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: OrigensDeFoto = new Map()): ProdutoPainel => ({
   codigoBarras: o.codigoBarras,
   nome: o.nome,
   preco: o.preco,
@@ -35,6 +39,8 @@ const aProdutoPainel = (o: OfertaArmazenada, agora: Date): ProdutoPainel => ({
   disponivel: o.disponivel,
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
+  foto: fotos.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
+  fotoOrigem: fotos.has(o.codigoBarras) ? (fotos.get(o.codigoBarras) === 'mercado' ? 'mercado' : 'automatica') : null,
 });
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -148,7 +154,7 @@ function lerNovoProduto(corpo: unknown): Novo {
   };
 }
 
-export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync {
+export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMudarProdutos?: () => void }): FastifyPluginAsync {
   return async (app) => {
     app.decorateRequest('mercadoDoPainel', null as never);
 
@@ -224,10 +230,9 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
         .sort((a, b) => comparar(a.nomeNorm, b.nomeNorm) || comparar(a.codigoBarras, b.codigoBarras));
       const agora = new Date();
       const inicio = (pagina - 1) * POR_PAGINA;
-      return {
-        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoPainel(o, agora)),
-        total: ofertas.length,
-      };
+      const daPagina = ofertas.slice(inicio, inicio + POR_PAGINA);
+      const fotos: OrigensDeFoto = new Map((await repo.listarResumoDeFotos(daPagina.map((o) => o.codigoBarras))).map((f) => [f.codigoBarras, f.origem]));
+      return { itens: daPagina.map((o) => aProdutoPainel(o, agora, fotos)), total: ofertas.length };
     });
 
     // Produto novo cadastrado à mão (além da planilha). Vale para o mercado do usuário logado.
@@ -243,6 +248,7 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
         return aProdutoPainel(oferta, agora);
       });
       if (!resultado) return reply.code(409).send({ erro: 'Já existe um produto com esse código de barras neste mercado' });
+      aoMudarProdutos?.(); // produto novo: procura a foto dele
       return reply.code(201).send(resultado);
     });
 
@@ -275,6 +281,43 @@ export function rotasPainel({ repo }: { repo: Repositorio }): FastifyPluginAsync
     app.delete<{ Params: { codigo: string } }>('/painel/produtos/:codigo', opcoes, async (req, reply) => {
       const removida = await repo.removerOferta(req.mercadoDoPainel.id, req.params.codigo);
       if (!removida) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+      return reply.code(204).send();
+    });
+
+    // Foto do produto enviada pelo mercado (o painel reduz a imagem antes). A foto é do código de barras: vale para todos os
+    // mercados que vendem o produto e passa na frente da achada sozinha. Só quem vende o produto pode enviá-la.
+    app.put<{ Params: { codigo: string } }>('/painel/produtos/:codigo/foto', opcoes, async (req, reply) => {
+      const corpo = ehObjeto(req.body) ? req.body : {};
+      const lida = lerImagem(corpo.imagem);
+      if (!lida.ok) return reply.code(400).send({ erro: lida.erro });
+      const oferta = await repo.acharOferta(req.mercadoDoPainel.id, req.params.codigo);
+      if (!oferta) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+      await repo.salvarFoto({
+        codigoBarras: oferta.codigoBarras,
+        origem: 'mercado',
+        url: null,
+        imagem: corpo.imagem as string,
+        mercadoId: req.mercadoDoPainel.id,
+        atualizadaEm: new Date(),
+      });
+      return { foto: caminhoDaFoto(oferta.codigoBarras), fotoOrigem: 'mercado' as const };
+    });
+
+    // Remove a foto enviada por um mercado (a do próprio mercado; o administrador remove qualquer uma). A foto achada
+    // sozinha não se remove: para trocá-la, é só enviar uma foto nova.
+    app.delete<{ Params: { codigo: string } }>('/painel/produtos/:codigo/foto', opcoes, async (req, reply) => {
+      const oferta = await repo.acharOferta(req.mercadoDoPainel.id, req.params.codigo);
+      if (!oferta) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+      const foto = await repo.acharFoto(oferta.codigoBarras);
+      if (!foto || (foto.url === null && foto.imagem === null)) return reply.code(404).send({ erro: 'Este produto não tem foto' });
+      if (foto.origem !== 'mercado') {
+        return reply.code(409).send({ erro: 'Esta foto veio do banco aberto de produtos. Para trocá-la, envie uma foto sua.' });
+      }
+      if (req.usuario.papel !== 'admin' && foto.mercadoId !== req.mercadoDoPainel.id) {
+        return reply.code(403).send({ erro: 'Esta foto foi enviada por outro mercado' });
+      }
+      await repo.removerFoto(oferta.codigoBarras);
+      aoMudarProdutos?.(); // sem foto de novo: a busca automática volta a procurar
       return reply.code(204).send();
     });
 

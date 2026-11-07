@@ -468,3 +468,26 @@ input:disabled {
 .formulario-mercado {
   max-width: 480px;
 }
+
+/* Foto do produto na lista (veja Produtos.tsx). */
+.coluna-foto {
+  min-width: 130px;
+}
+
+.foto-produto {
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+}
+
+.sem-foto {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+  color: #52606d;
+}

@@ -502,10 +502,9 @@ describe('roteiro fim a fim', () => {
     const excluir = await app.inject({ method: 'DELETE', url: '/conta', headers: comToken(tokenCliente) });
     expect(excluir.statusCode).toBe(204);
 
-    // O token não vale mais.
-    const depois = await pegar('/busca', tokenCliente, { q: 'papel higienico' });
-    expect(depois.statusCode).toBe(401);
-    expect((await pegar('/mercados', tokenCliente)).statusCode).toBe(401);
+    // O token não vale mais para a conta; as rotas públicas (mercados, busca) o ignoram e respondem como para quem não entrou.
+    expect((await pegar('/conta', tokenCliente)).statusCode).toBe(401);
+    expect((await pegar('/mercados', tokenCliente)).statusCode).toBe(200);
     const loginAntigo = await app.inject({ method: 'POST', url: '/auth/login', payload: CLIENTE });
     expect(loginAntigo.statusCode).toBe(401);
 

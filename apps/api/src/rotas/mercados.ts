@@ -1,6 +1,5 @@
-import type { ProdutoMercado } from '@mercado/shared';
+import { caminhoDaFoto, type ProdutoMercado } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
-import { exigirPapel } from '../auth/guardas';
 import { precoPorUnidadeDaOferta } from '../busca/buscar';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 import { diasDesde, precoDesatualizado } from '../tempo';
@@ -10,7 +9,7 @@ const MSG_NAO_ACHOU = 'Mercado não encontrado';
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-const aProdutoMercado = (o: OfertaArmazenada, agora: Date): ProdutoMercado => ({
+const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>): ProdutoMercado => ({
   codigoBarras: o.codigoBarras,
   nome: o.nome,
   preco: o.preco,
@@ -19,13 +18,13 @@ const aProdutoMercado = (o: OfertaArmazenada, agora: Date): ProdutoMercado => ({
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
+  foto: comFoto.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
 });
 
 export function rotasMercados({ repo }: { repo: Repositorio }): FastifyPluginAsync {
   return async (app) => {
-    const opcoes = { preHandler: exigirPapel('cliente') };
-
-    app.get('/mercados', opcoes, async () => {
+    // Rotas públicas (o app funciona sem login).
+    app.get('/mercados', async () => {
       const ativos = (await repo.listarMercados()).filter((m) => m.status === 'ativo');
       ativos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.id - b.id);
       return Promise.all(
@@ -38,7 +37,7 @@ export function rotasMercados({ repo }: { repo: Repositorio }): FastifyPluginAsy
       );
     });
 
-    app.get('/mercados/:id/produtos', opcoes, async (req, reply) => {
+    app.get('/mercados/:id/produtos', async (req, reply) => {
       const { id } = req.params as { id: string };
       const mercado = /^\d+$/.test(id) ? await repo.acharMercado(Number(id)) : null;
       if (!mercado || mercado.status !== 'ativo') return reply.code(404).send({ erro: MSG_NAO_ACHOU });
@@ -51,9 +50,10 @@ export function rotasMercados({ repo }: { repo: Repositorio }): FastifyPluginAsy
         .filter((o) => o.disponivel)
         .sort((a, b) => comparar(a.nomeNorm, b.nomeNorm) || comparar(a.codigoBarras, b.codigoBarras));
       const agora = new Date();
+      const comFoto = new Set(await repo.listarCodigosComFoto());
       const inicio = (pagina - 1) * POR_PAGINA;
       return {
-        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora)),
+        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora, comFoto)),
         total: ofertas.length,
       };
     });

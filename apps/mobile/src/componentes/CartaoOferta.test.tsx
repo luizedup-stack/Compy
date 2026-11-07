@@ -1,5 +1,7 @@
 import type { Oferta } from '@mercado/shared';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, userEvent } from '@testing-library/react-native';
+import * as Linking from 'expo-linking';
+import { Alert } from 'react-native';
 
 import { CartaoOferta } from './CartaoOferta';
 
@@ -61,5 +63,23 @@ describe('CartaoOferta', () => {
     await render(<CartaoOferta oferta={OFERTA} maisBarato />);
     expect(screen.getByText('mais barato')).toBeOnTheScreen();
     expect(screen.getByLabelText(/mais barato/)).toBeOnTheScreen();
+  });
+
+  it('tocar na oferta pergunta se quer ir até o mercado e abre o Google Maps ou o Waze', async () => {
+    const alerta = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    await render(<CartaoOferta oferta={OFERTA} />);
+    expect(screen.getByText('Como chegar')).toBeOnTheScreen();
+
+    await user.press(screen.getByTestId('oferta'));
+    expect(alerta).toHaveBeenCalledTimes(1);
+    const [titulo, mensagem, botoes] = alerta.mock.calls[0]!;
+    expect(titulo).toBe('Ir até o mercado?');
+    expect(mensagem).toContain('Atacarejo Econômico');
+    expect(mensagem).toContain('Rua Jacarandá, 410');
+    botoes![0]!.onPress!();
+    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('google.com/maps/dir'));
+    botoes![1]!.onPress!();
+    expect(Linking.openURL).toHaveBeenLastCalledWith(expect.stringContaining('waze.com/ul'));
   });
 });

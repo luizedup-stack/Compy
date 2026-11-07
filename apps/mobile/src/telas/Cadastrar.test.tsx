@@ -84,7 +84,7 @@ describe('Cadastrar', () => {
     expect(lerCofre().has(CHAVE_SESSAO)).toBe(false);
   });
 
-  it('cadastra, entra automaticamente e chega à busca', async () => {
+  it('cadastra, entra automaticamente e abre a aba Conta já com a conta', async () => {
     const api = simularApi({
       'POST /auth/cadastro': { status: 201, corpo: { id: 1, email: 'ana@exemplo.com', papel: 'cliente' } },
       'POST /auth/login': { status: 200, corpo: { token: 'tok-1', papel: 'cliente', emailVerificado: false } },
@@ -95,8 +95,8 @@ describe('Cadastrar', () => {
     await aceitarPolitica();
     await user.press(screen.getByRole('button', { name: 'Criar conta' }));
 
-    expect(await screen.findByLabelText('Buscar produto')).toBeOnTheScreen();
-    expect(api.chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toEqual(['POST /auth/cadastro', 'POST /auth/login']);
+    expect(await screen.findByTestId('tela-conta')).toBeOnTheScreen();
+    expect(api.chamadas.slice(0, 2).map((c) => `${c.metodo} ${c.caminho}`)).toEqual(['POST /auth/cadastro', 'POST /auth/login']);
     expect(api.chamadas[0].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });
     expect(api.chamadas[1].corpo).toEqual({ email: 'ana@exemplo.com', senha: '12345678' });
     expect(JSON.parse(lerCofre().get(CHAVE_SESSAO) as string)).toEqual({ token: 'tok-1', emailVerificado: false });

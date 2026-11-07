@@ -34,6 +34,11 @@ export interface GrupoProduto {
   codigoBarras: string;
   nome: string;
   ofertas: Oferta[];
+  /**
+   * Caminho da foto do produto na API (ex.: "/fotos/7891000100103"; o app junta com o endereço do servidor), ou `null`
+   * se ainda não há foto. Ausente quando a fonte dos dados não informa fotos.
+   */
+  foto?: string | null;
 }
 
 /** Produto de um mercado como o cliente o vê (resposta de /mercados/:id/produtos). */
@@ -48,6 +53,8 @@ export interface ProdutoMercado {
   atualizadoEm: string;
   diasDesdeAtualizacao: number;
   desatualizado: boolean;
+  /** Caminho da foto na API (veja GrupoProduto.foto). */
+  foto?: string | null;
 }
 
 export interface RelatorioImportacao {
@@ -68,4 +75,11 @@ export interface ProdutoPainel {
   /** Data (ISO 8601) em que o preço foi atualizado pela última vez. */
   atualizadoEm: string;
   desatualizado: boolean;
+  /** Caminho da foto na API (veja GrupoProduto.foto), ou null se o produto ainda não tem foto. */
+  foto?: string | null;
+  /** De onde veio a foto: achada sozinha num banco aberto de produtos ou enviada por um mercado. */
+  fotoOrigem?: 'automatica' | 'mercado' | null;
 }
+
+/** Caminho, na API, da foto de um produto (a foto é do código de barras, igual para todos os mercados). */
+export const caminhoDaFoto = (codigoBarras: string): string => `/fotos/${codigoBarras}`;

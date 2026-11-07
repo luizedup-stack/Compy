@@ -31,27 +31,38 @@ beforeEach(async () => {
 const get = (url: string, tk: string | null = token) =>
   amb.app.inject({ method: 'GET', url, headers: tk ? comToken(tk) : {} });
 
-describe('acesso', () => {
-  const rotas = ['/busca?q=arroz', '/mercados', '/mercados/1/produtos', '/catalogo'];
+describe('acesso público (o app funciona sem login)', () => {
+  const rotas = ['/busca?q=arroz', '/mercados', '/mercados/1/produtos', '/catalogo', '/produtos'];
 
-  it.each(rotas)('%s sem token: 401', async (url) => {
-    const res = await get(url, null);
-    expect(res.statusCode).toBe(401);
-    expect(res.json()).toEqual({ erro: 'Não autenticado' });
+  it.each(rotas)('%s sem token: 200', async (url) => {
+    expect((await get(url, null)).statusCode).toBe(200);
   });
 
-  it.each(rotas)('%s com token inválido: 401', async (url) => {
-    expect((await get(url, 'lixo')).statusCode).toBe(401);
+  it.each(rotas)('%s com token inválido: 200 (o token é ignorado, não dá 401)', async (url) => {
+    expect((await get(url, 'lixo')).statusCode).toBe(200);
   });
 
   for (const papel of ['mercado', 'admin'] as const) {
-    it.each(rotas)(`%s para o papel ${papel}: 403`, async (url) => {
+    it.each(rotas)(`%s para o papel ${papel}: 200`, async (url) => {
       const { token: outro } = await amb.criarComPapel(papel);
-      const res = await get(url, outro);
-      expect(res.statusCode).toBe(403);
-      expect(res.json()).toEqual({ erro: 'Sem permissão para esta ação' });
+      expect((await get(url, outro)).statusCode).toBe(200);
     });
   }
+
+  it('a busca sem login é registrada de forma anônima; com cliente logado fica ligada à conta dele', async () => {
+    const cliente = await amb.criarComPapel('cliente', 'maria@exemplo.com');
+    await get('/busca?q=arroz', null);
+    await get('/busca?q=feijao', cliente.token);
+    const buscas = await amb.repo.listarBuscas();
+    expect(buscas.find((x) => x.termo === 'arroz')?.usuarioId).toBeNull();
+    expect(buscas.find((x) => x.termo === 'feijao')?.usuarioId).toBe(cliente.id);
+  });
+
+  it('a busca de um mercado ou administrador logado também fica anônima (a conta de busca é só do cliente)', async () => {
+    const dono = await amb.criarComPapel('mercado', 'dono@exemplo.com');
+    await get('/busca?q=leite', dono.token);
+    expect((await amb.repo.listarBuscas()).find((x) => x.termo === 'leite')?.usuarioId).toBeNull();
+  });
 });
 
 describe('GET /busca', () => {
@@ -199,6 +210,7 @@ describe('GET /mercados/:id/produtos', () => {
       atualizadoEm: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
       diasDesdeAtualizacao: 0,
       desatualizado: false,
+      foto: null,
     });
     const fox4 = itens.find((i) => i.codigoBarras === '7890070036992')!;
     expect(fox4).toMatchObject({ quantidadeTexto: null, precoPorUnidade: null, unidade: null });

@@ -1,4 +1,4 @@
-import type { preHandlerAsyncHookHandler } from 'fastify';
+import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import type { Papel, Repositorio } from '../repositorio';
 
 export interface UsuarioAutenticado {
@@ -51,4 +51,21 @@ export function exigirPapel(...papeis: Papel[]): preHandlerAsyncHookHandler {
     }
     req.usuario = { id: usuario.id, papel: usuario.papel };
   };
+}
+
+/**
+ * Para rotas públicas (busca, mercados, catálogo) que, havendo um login válido, o aproveitam: devolve o usuário se a
+ * requisição traz um token válido deste servidor de uma conta que ainda existe, e `null` em qualquer outro caso
+ * (sem token, token vencido, de outro servidor, conta apagada). Nunca responde 401: quem não entrou também usa o app.
+ */
+export async function usuarioOpcional(req: FastifyRequest): Promise<UsuarioAutenticado | null> {
+  if (!req.headers.authorization) return null;
+  try {
+    await req.jwtVerify();
+  } catch {
+    return null;
+  }
+  if (req.user.inst !== req.server.instancia) return null;
+  const usuario = await req.server.repo.acharUsuario(req.user.id);
+  return usuario ? { id: usuario.id, papel: usuario.papel } : null;
 }

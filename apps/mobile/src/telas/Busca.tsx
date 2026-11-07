@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { buscar, listarProdutos, mensagemDoErro } from '../api';
 import { Botao } from '../componentes/Botao';
 import { CartaoOferta } from '../componentes/CartaoOferta';
+import { FotoDoProduto } from '../componentes/FotoDoProduto';
 import { cores } from '../tema';
 
 type Ordem = 'unidade' | 'embalagem';
@@ -265,9 +266,12 @@ export function Busca() {
 function GrupoCartao({ grupo }: { grupo: GrupoProduto }) {
   return (
     <View style={estilos.grupo}>
-      <Text accessibilityRole="header" style={estilos.nomeGrupo}>
-        {grupo.nome}
-      </Text>
+      <View style={estilos.topoGrupo}>
+        <FotoDoProduto foto={grupo.foto} nome={grupo.nome} />
+        <Text accessibilityRole="header" style={estilos.nomeGrupo}>
+          {grupo.nome}
+        </Text>
+      </View>
       {grupo.ofertas.map((oferta, indice) => (
         <CartaoOferta key={oferta.mercadoId} oferta={oferta} maisBarato={indice === 0 && grupo.ofertas.length > 1} />
       ))}
@@ -319,5 +323,6 @@ const estilos = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  nomeGrupo: { fontSize: 18, fontWeight: '700', color: cores.texto, marginBottom: 6 },
+  topoGrupo: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
+  nomeGrupo: { flex: 1, fontSize: 18, fontWeight: '700', color: cores.texto },
 });
