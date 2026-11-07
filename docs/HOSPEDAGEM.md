@@ -159,6 +159,8 @@ Na primeira tela do app, toque em **Configurar servidor** e digite o endereço (
 Não precisa gerar o APK de novo. Para entregar a outras pessoas um **APK que já nasce apontando para o servidor** (ninguém precisa configurar nada),
 use o gerador do GitHub (abaixo).
 
+> Uma **cópia salva do APK atual** (já apontando para `https://bolso-certo.onrender.com`) fica no repositório, em `releases/bolso-certo.apk`, com os detalhes em `releases/LEIA-ME.md`.
+
 #### APK pronto para as pessoas testarem (gerado pelo GitHub, sem instalar nada no seu PC)
 
 1. No GitHub, abra o repositório → aba **Actions** → à esquerda, **Gerar APK** → botão **Run workflow** (campo "servidor" já vem com

@@ -11,6 +11,8 @@ dados-reais/*.json
 apps/mobile/android/
 apps/mobile/ios/
 *.apk
+# Exceção: a cópia salva do APK de teste (veja releases/LEIA-ME.md)
+!releases/*.apk
 
 # Programa de computador gerado (Windows) e arquivos temporarios da montagem
 programa/
