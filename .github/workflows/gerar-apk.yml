@@ -1,0 +1,64 @@
+# Gera o APK do app (Android) nos servidores do GitHub, já apontando para o servidor na nuvem.
+# Como usar: no GitHub, aba "Actions" > "Gerar APK" > "Run workflow". Quando terminar (uns 15 a 25 minutos),
+# abra a execução e baixe "bolso-certo-apk" na parte de baixo ("Artifacts"). Dentro do .zip está o bolso-certo.apk.
+name: Gerar APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      servidor:
+        description: Endereço do servidor que o app vai usar (https://...)
+        required: true
+        default: https://bolso-certo.onrender.com
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Conferir o endereço do servidor
+        run: |
+          case "${{ inputs.servidor }}" in
+            https://*) ;;
+            *) echo "O endereço precisa começar com https://"; exit 1 ;;
+          esac
+
+      # Só o que o app precisa (não baixa o Electron, o painel etc.).
+      - name: Instalar dependências do app
+        run: npm ci --workspace=@mercado/mobile --workspace=@mercado/shared
+
+      # Cria a pasta android/ a partir do app.json (ela não fica no git).
+      - name: Gerar o projeto Android
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --no-install
+
+      # O endereço do servidor é gravado dentro do app na hora de empacotar (EXPO_PUBLIC_API_URL).
+      # Assinado com a chave de teste do Android: serve para instalar direto, não para publicar na Play Store.
+      - name: Compilar o APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_API_URL: ${{ inputs.servidor }}
+          NODE_ENV: production
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
+
+      - name: Nomear o arquivo
+        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk bolso-certo.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bolso-certo-apk
+          path: bolso-certo.apk
+          if-no-files-found: error
+          retention-days: 30
