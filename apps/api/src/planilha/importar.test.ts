@@ -560,6 +560,7 @@ describe('gerarModelo', () => {
       'Quantidade',
       'Categoria',
       'Disponível',
+      'Foto', // opcional: link da imagem do produto
     ]);
     expect(produtos.actualRowCount).toBe(1);
 

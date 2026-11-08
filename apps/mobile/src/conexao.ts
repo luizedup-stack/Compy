@@ -38,3 +38,30 @@ export function useSemConexaoDesde(): number | null {
     () => semConexaoDesde,
   );
 }
+
+// ---- Servidor acordando ----------------------------------------------------------------------------------------
+// O servidor gratuito dorme sem uso e leva até ~1 minuto para ligar (e o banco, mais um pouco). Nesse tempo ele responde
+// 502/503/504: o app espera e tenta de novo sozinho, e esta faixa avisa a pessoa em vez de mostrar um erro.
+let acordando = 0; // quantas consultas estão esperando o servidor acordar
+const ouvintesAcordando = new Set<() => void>();
+
+export function comecouEsperarServidor(): void {
+  acordando += 1;
+  for (const o of ouvintesAcordando) o();
+}
+
+export function terminouEsperarServidor(): void {
+  acordando = Math.max(0, acordando - 1);
+  for (const o of ouvintesAcordando) o();
+}
+
+export function useServidorAcordando(): boolean {
+  return useSyncExternalStore(
+    (ouvinte) => {
+      ouvintesAcordando.add(ouvinte);
+      return () => ouvintesAcordando.delete(ouvinte);
+    },
+    () => acordando > 0,
+    () => acordando > 0,
+  );
+}

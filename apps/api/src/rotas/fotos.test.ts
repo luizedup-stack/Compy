@@ -74,6 +74,20 @@ describe('GET /fotos/:codigo (pública)', () => {
     expect(res.headers.location).toBe(IMG_OFF);
   });
 
+  it('link vindo de uma planilha NUNCA vira redirecionamento (o servidor não redireciona para qualquer endereço); sem imagem baixada, 404', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'planilha', url: 'https://site-qualquer.exemplo.com/x.jpg' }));
+    const res = await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` });
+    expect(res.statusCode).toBe(404);
+    expect(res.headers.location).toBeUndefined();
+  });
+
+  it('foto de planilha já baixada é entregue do banco, sem redirecionar', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'planilha', url: 'https://site-qualquer.exemplo.com/x.jpg', imagem: FOTO_JPEG }));
+    const res = await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.rawPayload.equals(JPEG)).toBe(true);
+  });
+
   it('"procurou e não achou": 404', async () => {
     await amb.repo.salvarFoto(foto({ url: null }));
     expect((await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` })).statusCode).toBe(404);

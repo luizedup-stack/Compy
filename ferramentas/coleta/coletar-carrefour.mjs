@@ -2,6 +2,7 @@
 // Só usa URLs do sitemap oficial; 1 requisição por vez, ~0,7 s entre elas. Não contorna bloqueios.
 // Uso: node ferramentas/coleta/coletar-carrefour.mjs [limite]
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { urlDaFoto } from './foto.mjs';
 
 const LIMITE = Number(process.argv[2] ?? 350);
 const UA = { 'User-Agent': 'Mozilla/5.0 (BolsoCerto coleta de teste)' };
@@ -59,7 +60,7 @@ for (const { u } of urls) {
       const cat = j.category ?? '';
       if (!/^\d{8}$|^\d{13}$/.test(ean) || !(preco > 0) || !disponivel || achados.has(ean)) continue;
       if (!GRUPOS.test(cat)) { continue; }
-      achados.set(ean, { ean, nome: j.name, marca: j.brand?.name ?? '', preco, categoria: cat.split('/').filter(Boolean)[0] ?? '', url: u });
+      achados.set(ean, { ean, nome: j.name, marca: j.brand?.name ?? '', preco, categoria: cat.split('/').filter(Boolean)[0] ?? '', url: u, foto: urlDaFoto(j.image) });
     }
   } catch (e) { console.error(u, e.message); }
   if (vistas % 50 === 0) writeFileSync(caminhoSaida, JSON.stringify([...achados.values()], null, 1));

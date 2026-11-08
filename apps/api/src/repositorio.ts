@@ -46,7 +46,7 @@ export interface OfertaArmazenada {
   promocaoFim: Date | null;
 }
 
-export type OrigemFoto = 'openfoodfacts' | 'mercado';
+export type OrigemFoto = 'openfoodfacts' | 'mercado' | 'planilha';
 
 /**
  * Foto de um produto. É do CÓDIGO DE BARRAS (igual para todos os mercados que vendem o produto): uma foto achada sozinha
@@ -56,9 +56,9 @@ export type OrigemFoto = 'openfoodfacts' | 'mercado';
 export interface FotoProduto {
   codigoBarras: string;
   origem: OrigemFoto;
-  /** Endereço da imagem no banco aberto de produtos (origem "openfoodfacts"). */
+  /** Link da imagem de origem (banco aberto de produtos ou coluna "Foto" da planilha). Sem `imagem`, o servidor ainda vai baixá-la. */
   url: string | null;
-  /** Imagem enviada por um mercado, como texto "data:image/jpeg;base64,..." (pequena). */
+  /** A imagem já baixada e reduzida (ou enviada por um mercado), como texto "data:image/jpeg;base64,..." (pequena). */
   imagem: string | null;
   /** Mercado que enviou a foto (origem "mercado"). */
   mercadoId: number | null;
@@ -135,9 +135,11 @@ export interface Repositorio {
   acharFoto(codigoBarras: string): Promise<FotoProduto | null>;
   /** Apaga a foto do produto (também o registro de "não achou"). Devolve false se não havia. */
   removerFoto(codigoBarras: string): Promise<boolean>;
-  /** De quais dos `codigos` há foto de verdade e de onde veio, sem trazer a imagem (para listas). Códigos sem foto não aparecem. */
+  /** De quais dos `codigos` há foto PRONTA e de onde veio, sem trazer a imagem (para listas). Foto pronta = imagem guardada, ou link do banco aberto (que o servidor entrega por redirecionamento). Não conta a que ainda está na fila para baixar. */
   listarResumoDeFotos(codigos: string[]): Promise<{ codigoBarras: string; origem: OrigemFoto }[]>;
-  /** Códigos de barras que têm foto de verdade (com `url` ou `imagem`), em ordem. */
+  /** Fotos que têm o link mas ainda não a imagem (indicadas na planilha, ou achadas antes de guardarmos a imagem): é o que falta baixar. */
+  listarFotosParaBaixar(limite: number): Promise<{ codigoBarras: string; url: string }[]>;
+  /** Códigos de barras que têm foto PRONTA (veja listarResumoDeFotos), em ordem. */
   listarCodigosComFoto(): Promise<string[]>;
   /**
    * Até `limite` códigos de barras que têm oferta em algum mercado e ainda não foram procurados, ou foram procurados e não

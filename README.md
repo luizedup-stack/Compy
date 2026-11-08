@@ -31,11 +31,10 @@ de qualquer lugar.
 ## Como o app funciona para o cliente
 
 - **Sem login:** buscar produtos, comparar preços e ver os mercados é público; criar conta ou entrar é opcional, pela aba **Conta**.
-- **Fotos dos produtos:** cada produto tem uma foto, ligada ao **código de barras** (a mesma para todos os mercados que o vendem). O servidor procura
-  sozinho no [Open Food Facts](https://world.openfoodfacts.org) (banco aberto de produtos, fotos com licença CC BY-SA; o app mostra o crédito) e guarda o resultado
-  no banco. Quando não acha, o dono do mercado envia a foto à mão no painel (**Produtos → Enviar foto**; o painel reduz a imagem sozinho). Vale a foto enviada pelo mercado.
-  Nem todo produto brasileiro está no Open Food Facts (em um teste com marcas populares, metade tinha foto), então o envio manual existe de verdade.
-  `npm run fotos -w @mercado/api` procura de uma vez as fotos que faltam.
+- **Fotos dos produtos:** cada produto tem uma foto, ligada ao **código de barras** (a mesma para todos os mercados que o vendem), **guardada no banco**. Ela vem, em ordem, do dono do mercado
+  (painel: **Produtos → Enviar foto**), do link da coluna **Foto** da planilha (o servidor baixa e guarda) ou do [Open Food Facts](https://world.openfoodfacts.org), procurado sozinho
+  (banco aberto com fotos CC BY-SA; o app mostra o crédito; em um teste com marcas populares, metade tinha foto). As ferramentas de coleta (`ferramentas/coleta/`) já trazem o link da foto dos sites das redes.
+  `npm run fotos -w @mercado/api` procura de uma vez as fotos que faltam. Passo a passo em `docs/HOSPEDAGEM.md`.
 - **Como chegar:** ao tocar numa oferta, o app pergunta se você quer ir até o mercado e abre o **Google Maps** ou o **Waze** com o endereço dele.
 
 ## Como instalar

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useSemConexaoDesde } from '../conexao';
+import { useSemConexaoDesde, useServidorAcordando } from '../conexao';
 import { cores } from '../tema';
 
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
@@ -12,8 +12,18 @@ export function textoDataHora(milissegundos: number): string {
 }
 
 /** Faixa que aparece quando o servidor não responde e o app mostra os dados salvos no celular. */
+export const AVISO_ACORDANDO = 'Acordando o servidor… Na primeira vez do dia isso pode levar até 1 minuto. Aguarde, o app tenta sozinho.';
+
 export function AvisoSemConexao() {
   const desde = useSemConexaoDesde();
+  const acordando = useServidorAcordando();
+  if (acordando) {
+    return (
+      <View testID="aviso-acordando" style={estilos.faixa} accessibilityRole="alert">
+        <Text style={estilos.texto}>{AVISO_ACORDANDO}</Text>
+      </View>
+    );
+  }
   if (desde === null) return null;
   return (
     <View style={estilos.faixa} accessibilityRole="alert">

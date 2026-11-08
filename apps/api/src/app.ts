@@ -5,6 +5,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import { LIMITE_BYTES } from '@mercado/shared';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
+import { erroTransitorio } from './banco/erros';
 import { rotasAuth } from './auth/rotas';
 import type { EmailSender } from './email';
 import type { Repositorio } from './repositorio';
@@ -131,6 +132,12 @@ export async function construirApp({
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ erro: 'Rota não encontrada' }));
   app.setErrorHandler((err: FastifyError, _req, reply) => {
+    // Banco do Azure acordando (ou conexão que caiu por um instante): não é defeito do servidor. Responde 503 com um aviso claro e
+    // pede para tentar de novo; o app espera e repete sozinho.
+    if (erroTransitorio(err)) {
+      app.log.warn(`Banco indisponível por instantes: ${err.message}`);
+      return reply.code(503).header('retry-after', '10').send({ erro: 'O servidor está acordando. Tente de novo em alguns instantes.' });
+    }
     const status = err.statusCode ?? 500;
     if (status >= 500) {
       app.log.error(err);

@@ -22,7 +22,9 @@ export function rotasFotos({ repo }: { repo: Repositorio }): FastifyPluginAsync 
         if (!lida.ok) return reply.code(404).send({ erro: 'Sem foto' });
         return reply.header('X-Content-Type-Options', 'nosniff').type(lida.tipo).send(lida.bytes);
       }
-      if (foto.url) return reply.redirect(foto.url, 302);
+      // Só o link do banco aberto (que o buscador já validou) vira redirecionamento. Link de planilha, que vem de fora, nunca: o servidor
+      // não vira um "redirecionador" para qualquer endereço; enquanto a imagem não foi baixada, não há foto.
+      if (foto.url && foto.origem === 'openfoodfacts') return reply.redirect(foto.url, 302);
       return reply.code(404).send({ erro: 'Sem foto' }); // procurou e não achou
     });
   };

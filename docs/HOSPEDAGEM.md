@@ -195,13 +195,46 @@ Seu IP precisa estar liberado no firewall (passo 1.5). Para tirar os 4 mercados 
 
 ---
 
+## Servidor dormindo: o que o app faz e como evitar a espera
+
+O plano gratuito dorme sem uso (o Render depois de ~15 minutos; o banco do Azure também). Na primeira consulta depois disso, o servidor leva de 30 a 60 segundos para ligar.
+Nesse tempo ele responde "ainda ligando" (502/503/504), e o **app espera e tenta de novo sozinho**, mostrando a faixa "Acordando o servidor…" em vez de um erro
+(a partir da versão 1.1.1 do app). Quando o banco é o que está acordando, o servidor responde 503 com o aviso "O servidor está acordando".
+
+Para o teste de hoje não ter espera nenhuma, **acorde tudo antes**: abra no navegador `https://bolso-certo.onrender.com/saude/banco` e espere aparecer `{"status":"ok"}`.
+
+Para o servidor do Render **não dormir** enquanto os testers usam, um serviço gratuito de monitoramento (por exemplo o UptimeRobot, com conta própria) pode abrir
+`https://bolso-certo.onrender.com/saude` a cada 5 minutos. Essa rota **não toca no banco**, então o banco do Azure continua dormindo quando ninguém usa (e não gasta a cota gratuita).
+O banco acorda sozinho na primeira busca de verdade. Não use `/saude/banco` no monitoramento: ela acordaria o banco o tempo todo e gastaria a cota do mês.
+
 ## Fotos dos produtos
 
-No Render, o servidor procura sozinho a foto de cada produto no Open Food Facts (variável `FOTOS_AUTOMATICAS`, ligada por padrão em produção). Ele faz isso devagar, em segundo
-plano, assim que sobe e sempre que entram produtos novos; o resultado fica no banco (tabela `FotosProduto`), então cada produto só é consultado uma vez. Produtos que o Open
-Food Facts não tem ficam "sem foto" e o dono do mercado envia a foto no painel (Produtos → Enviar foto). Para ver quantos já têm foto, use as consultas de `docs/BANCO.md`.
-Para procurar tudo de uma vez a partir do seu PC: `npm run fotos -w @mercado/api` com `BANCO_URL` definida (leva alguns minutos para muitos produtos).
-O servidor gratuito dorme sem uso, então a busca de fotos só avança enquanto ele estiver acordado.
+A foto é do **código de barras** e fica **guardada no banco** (um JPEG pequeno, uns 13 KB), então o app não depende de nenhum outro site na hora de mostrar. De onde ela vem, em ordem:
+
+1. **Foto enviada pelo dono do mercado no painel** (Produtos → Enviar foto): vale sempre.
+2. **Coluna "Foto" da planilha** (link `https://...` da imagem do produto): o servidor baixa, reduz e guarda. É a melhor fonte, porque é a foto do produto **exato** que a loja vende.
+3. **Open Food Facts**, procurado sozinho pelo código de barras (banco aberto; cobre só parte dos produtos brasileiros).
+
+Tudo isso roda em segundo plano, devagar (uma consulta por vez), assim que o servidor sobe e sempre que entram produtos novos. Produtos que nenhuma fonte tem ficam "Sem foto" até alguém
+enviar a foto à mão. Para ver quantos já têm foto, use as consultas de `docs/BANCO.md`. O servidor gratuito dorme sem uso, então esse trabalho só avança enquanto ele estiver acordado.
+
+### Para ter fotos nos produtos reais (Atacadão e Carrefour)
+
+As ferramentas de coleta (`ferramentas/coleta/`) agora também trazem o **link da foto** de cada produto (do catálogo do Atacadão e dos dados da página do Carrefour) e o gravam na coluna **Foto**
+da planilha. No computador onde você coleta (o que tem o Node instalado), na pasta do projeto:
+
+```
+node ferramentas/coleta/coletar-atacadao.mjs
+node ferramentas/coleta/coletar-carrefour.mjs 900
+node ferramentas/coleta/gerar-planilhas.mjs
+```
+
+Depois envie as duas planilhas pelo painel (administrador → **Enviar planilha**). Em poucos minutos o servidor baixa as fotos. O relatório do envio avisa se algum link de foto foi ignorado.
+(Se as planilhas já estavam no painel, enviar de novo só atualiza os preços e acrescenta as fotos.)
+
+> Essas fotos e dados vêm dos sites das redes **sem autorização delas**: servem para testar. Para publicar de verdade, use fotos que você tem direito de usar (as dos próprios mercados parceiros, ou enviadas por eles).
+
+Para procurar de uma vez, a partir do seu PC, as fotos que faltam: `npm run fotos -w @mercado/api` com `BANCO_URL` definida (leva alguns minutos para muitos produtos).
 
 ## Dia a dia
 

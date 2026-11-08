@@ -22,6 +22,8 @@ node ferramentas/coleta/coletar-carrefour.mjs 900
 node ferramentas/coleta/gerar-planilhas.mjs
 ```
 
+As planilhas têm uma coluna **Foto** com o link da foto de cada produto (do próprio catálogo do site), que o servidor baixa e guarda. Para ter as fotos, refaça a coleta com os comandos acima (os `.json` antigos não têm o link).
+
 Para subir no app, envie cada `.xlsx` pelo painel (como administrador) ou aponte `PASTA_DADOS_DE_TESTE` da API para esta pasta.
 
 ## Git

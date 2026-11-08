@@ -1,4 +1,5 @@
 import {
+  MSG_ACORDANDO,
   ErroApi,
   URL_API,
   buscar,
@@ -65,12 +66,25 @@ describe('api', () => {
   it('resposta de erro sem JSON usa uma mensagem genérica', async () => {
     globalThis.fetch = jest.fn(async () => ({
       ok: false,
-      status: 502,
+      status: 500,
       json: async () => {
         throw new SyntaxError('Unexpected token <');
       },
     })) as unknown as typeof fetch;
-    await expect(entrar('a@b.com', 'x')).rejects.toMatchObject({ status: 502, message: 'Algo deu errado. Tente novamente.' });
+    await expect(entrar('a@b.com', 'x')).rejects.toMatchObject({ status: 500, message: 'Algo deu errado. Tente novamente.' });
+  });
+
+  it('502, 503 e 504 sem JSON (servidor ainda ligando) usam a mensagem de "acordando"', async () => {
+    for (const status of [502, 503, 504]) {
+      globalThis.fetch = jest.fn(async () => ({
+        ok: false,
+        status,
+        json: async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      })) as unknown as typeof fetch;
+      await expect(entrar('a@b.com', 'x')).rejects.toMatchObject({ status, message: MSG_ACORDANDO });
+    }
   });
 
   it('pedirAutenticado manda o Bearer, o JSON e aceita 204 sem corpo', async () => {
