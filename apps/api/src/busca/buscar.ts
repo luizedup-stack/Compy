@@ -6,6 +6,7 @@ import {
   type GrupoProduto,
   type Unidade,
 } from '@mercado/shared';
+import type { FotosEmbutidas } from '../fotos/embutidas';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 
 export { LIMITE_GRUPOS_BUSCA, type OrdemBusca } from '@mercado/shared';
@@ -22,7 +23,7 @@ export function precoPorUnidadeDaOferta(o: OfertaArmazenada): {
 }
 
 /** Cópia dos mercados ativos e das ofertas disponíveis deles, no formato que o app do celular guarda (GET /catalogo). */
-export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
+export async function montarCatalogo(repo: Repositorio, embutidas?: FotosEmbutidas): Promise<Catalogo> {
   const mercados = new Map<number, { id: number; nome: string; endereco: string }>();
   const ofertas: Catalogo['ofertas'] = [];
   for (const { oferta: o, mercado: m } of await repo.listarOfertasParaBusca()) {
@@ -43,7 +44,17 @@ export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
   for (const m of await repo.listarMercados()) {
     if (m.status === 'ativo' && !mercados.has(m.id)) mercados.set(m.id, { id: m.id, nome: m.nome, endereco: m.endereco });
   }
-  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: await repo.listarCodigosComFoto(), fotosIlustrativas: await repo.listarCodigosComFotoIlustrativa() };
+  const comFoto = new Set(await repo.listarCodigosComFoto());
+  const fotosIlustrativas = new Set(await repo.listarCodigosComFotoIlustrativa());
+  // Produto sem nenhuma foto guardada: usa a do tipo, direto do banco de fotos do sistema (veja fotos/embutidas.ts).
+  if (embutidas) {
+    for (const o of ofertas) {
+      if (comFoto.has(o.codigoBarras) || !embutidas.imagemDoNome(o.nome)) continue;
+      comFoto.add(o.codigoBarras);
+      fotosIlustrativas.add(o.codigoBarras);
+    }
+  }
+  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: [...comFoto], fotosIlustrativas: [...fotosIlustrativas] };
 }
 
 /**
@@ -54,10 +65,10 @@ export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
  */
 export async function buscar(
   repo: Repositorio,
-  { q, ordem, usuarioId }: { q: string; ordem: OrdemBusca; usuarioId?: number },
+  { q, ordem, usuarioId, embutidas }: { q: string; ordem: OrdemBusca; usuarioId?: number; embutidas?: FotosEmbutidas },
 ): Promise<GrupoProduto[]> {
   if (!consultaValida(q)) return [];
-  const grupos = buscarNoCatalogo(await montarCatalogo(repo), { q, ordem });
+  const grupos = buscarNoCatalogo(await montarCatalogo(repo, embutidas), { q, ordem });
 
   const mercados = new Set<number>();
   for (const g of grupos) for (const o of g.ofertas) mercados.add(o.mercadoId);

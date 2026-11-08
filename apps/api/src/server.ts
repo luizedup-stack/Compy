@@ -4,6 +4,7 @@ import { abrirConexao, aplicarMigracoes, lerInstanciaDoBanco } from './banco/con
 import { lerConfig } from './config';
 import type { Repositorio } from './repositorio';
 import { criarGerenciadorDeFotos } from './fotos/gerenciador';
+import { criarFotosEmbutidas } from './fotos/embutidas';
 import { carregarBancoIlustrativo, carregarCategorias } from './fotos/ilustrativas';
 import { criarBuscadorOpenFoodFacts, criarBuscadorPorNomeOpenFoodFacts } from './fotos/openFoodFacts';
 import { criarRepositorioMemoria } from './repositorioMemoria';
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
       })
     : undefined;
 
-  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}) });
+  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}), ...(config.fotosIlustrativas ? { fotosEmbutidas: criarFotosEmbutidas() } : {}) });
   if (senhaGerada) {
     console.log(`Administrador de desenvolvimento: ${ADMIN_DEV_EMAIL} / senha: ${config.adminSenha} (nova a cada início)`);
   }

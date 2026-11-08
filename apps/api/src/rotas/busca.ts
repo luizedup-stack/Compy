@@ -2,9 +2,10 @@ import { listarProdutosNoCatalogo } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { usuarioOpcional } from '../auth/guardas';
 import { buscar, montarCatalogo } from '../busca/buscar';
+import type { FotosEmbutidas } from '../fotos/embutidas';
 import type { Repositorio } from '../repositorio';
 
-export function rotasBusca({ repo }: { repo: Repositorio }): FastifyPluginAsync {
+export function rotasBusca({ repo, embutidas }: { repo: Repositorio; embutidas?: FotosEmbutidas }): FastifyPluginAsync {
   return async (app) => {
     // Rotas PÚBLICAS: o app funciona sem login. Se a pessoa entrou (cliente), a busca fica ligada à conta dela;
     // senão, é registrada de forma anônima.
@@ -13,7 +14,7 @@ export function rotasBusca({ repo }: { repo: Repositorio }): FastifyPluginAsync 
       if (typeof q !== 'string') return reply.code(400).send({ erro: 'Informe o que deseja buscar' });
       if (ordem !== 'unidade' && ordem !== 'embalagem') return reply.code(400).send({ erro: 'Ordem inválida' });
       const usuario = await usuarioOpcional(req);
-      return buscar(repo, { q, ordem, ...(usuario?.papel === 'cliente' ? { usuarioId: usuario.id } : {}) });
+      return buscar(repo, { q, ordem, ...(embutidas ? { embutidas } : {}), ...(usuario?.papel === 'cliente' ? { usuarioId: usuario.id } : {}) });
     });
 
     // Lista da tela inicial do app (sem busca): produtos já agrupados e comparados entre os mercados, os vendidos em
@@ -23,10 +24,10 @@ export function rotasBusca({ repo }: { repo: Repositorio }): FastifyPluginAsync 
       if (ordem !== 'unidade' && ordem !== 'embalagem') return reply.code(400).send({ erro: 'Ordem inválida' });
       const pagina = typeof textoPagina === 'string' && /^[1-9]\d*$/.test(textoPagina) ? Number(textoPagina) : NaN;
       if (!Number.isSafeInteger(pagina)) return reply.code(400).send({ erro: 'Página inválida' });
-      return listarProdutosNoCatalogo(await montarCatalogo(repo), { ordem, pagina });
+      return listarProdutosNoCatalogo(await montarCatalogo(repo, embutidas), { ordem, pagina });
     });
 
     // Cópia de todos os mercados e produtos: o app do celular guarda e passa a buscar sozinho, até sem internet.
-    app.get('/catalogo', async () => montarCatalogo(repo));
+    app.get('/catalogo', async () => montarCatalogo(repo, embutidas));
   };
 }

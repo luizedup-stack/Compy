@@ -12,6 +12,7 @@ import type { Repositorio } from './repositorio';
 import { rotasAdmin } from './rotas/admin';
 import { rotasBusca } from './rotas/busca';
 import { rotasConta } from './rotas/conta';
+import type { FotosEmbutidas } from './fotos/embutidas';
 import { rotasFotos } from './rotas/fotos';
 import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
@@ -35,6 +36,8 @@ export interface OpcoesApp {
   confiarNoProxy?: boolean;
   /** Procura sozinho a foto dos produtos novos (veja fotos/gerenciador.ts). Sem ele, só entram fotos enviadas pelos mercados. */
   fotos?: { agendarPendentes(): void };
+  /** A foto ilustrativa do tipo, tirada do banco de fotos do sistema na hora de responder (veja fotos/embutidas.ts). */
+  fotosEmbutidas?: FotosEmbutidas;
 }
 
 /**
@@ -99,6 +102,7 @@ export async function construirApp({
   instancia,
   confiarNoProxy = false,
   fotos,
+  fotosEmbutidas,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
     // O túnel (cloudflared) roda no mesmo computador e entrega a requisição pelo endereço local, trazendo o IP real de
@@ -154,11 +158,11 @@ export async function construirApp({
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
-  await app.register(rotasBusca({ repo }));
+  await app.register(rotasBusca({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));
-  await app.register(rotasMercados({ repo }));
+  await app.register(rotasMercados({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasMeusMercados({ repo }));
-  await app.register(rotasFotos({ repo }));
+  await app.register(rotasFotos({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasPrivacidade());
   return app;
 }

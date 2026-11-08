@@ -406,5 +406,33 @@
   "busca": "mostarda amarela hemmer",
   "origemUrl": "https://images.openfoodfacts.org/images/products/789/103/140/5055/front_pt.5.200.jpg",
   "codigo": "7891031405055"
+ },
+ {
+  "id": "papel-higienico",
+  "palavras": [
+   "papel",
+   "higienico"
+  ],
+  "busca": "papel higiênico folha dupla",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/602/680/0709/front_pt.3.200.jpg",
+  "codigo": "7896026800709"
+ },
+ {
+  "id": "sal",
+  "palavras": [
+   "sal"
+  ],
+  "busca": "sal refinado iodado",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/611/019/4264/front_pt.4.200.jpg",
+  "codigo": "7896110194264"
+ },
+ {
+  "id": "cafe",
+  "palavras": [
+   "cafe"
+  ],
+  "busca": "café torrado e moído pilão",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/608/901/2019/front_pt.7.200.jpg",
+  "codigo": "7896089012019"
  }
 ]

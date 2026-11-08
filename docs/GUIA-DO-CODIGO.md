@@ -93,7 +93,7 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 - envio pelo mercado: `apps/api/src/rotas/painel.ts` (`PUT/DELETE /painel/produtos/:codigo/foto`), conferência da imagem em `apps/api/src/fotos/imagem.ts`, tela em `apps/painel/src/Produtos.tsx` e redução da imagem em `apps/painel/src/foto.ts`;
 - entrega da foto: `apps/api/src/rotas/fotos.ts` (`GET /fotos/:codigo`); no app, `apps/mobile/src/componentes/FotoDoProduto.tsx`;
 - coluna "Foto" da planilha: `apps/api/src/planilha/importar.ts` (guarda o link); o servidor baixa e reduz a imagem em `apps/api/src/fotos/baixar.ts` (com proteção contra links para a rede interna) e o `gerenciador.ts` guarda no banco;
-- foto ilustrativa do tipo de produto: banco de imagens em `apps/api/dados/fotos-ilustrativas/` (montado por `src/scripts/montarBancoDeFotos.ts`, créditos em `CREDITOS.md`), escolha pelo nome em `apps/api/src/fotos/ilustrativas.ts`; busca pelo nome em `openFoodFacts.ts`;
+- foto ilustrativa do tipo de produto: banco de imagens em `apps/api/dados/fotos-ilustrativas/` (montado por `src/scripts/montarBancoDeFotos.ts`, créditos em `CREDITOS.md`), escolha pelo nome em `apps/api/src/fotos/ilustrativas.ts`; `apps/api/src/fotos/embutidas.ts` entrega essa foto na hora (catálogo, busca, `/fotos/:codigo`, produtos do mercado) sem depender do gerenciador nem do banco de dados; busca pelo nome em `openFoodFacts.ts`;
 - armazenamento: tabela `FotosProduto` (`003-fotos.sql`, `004-fotos-da-planilha.sql`) e os métodos `*Foto*` do repositório; ferramenta em lote `apps/api/src/scripts/fotos.ts`;
 - coleta das fotos dos sites: `ferramentas/coleta/foto.mjs` (usado pelos coletores) e a coluna "Foto" em `gerar-planilhas.mjs`.
 
