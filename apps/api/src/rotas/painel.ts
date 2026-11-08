@@ -40,7 +40,7 @@ const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: OrigensDeFoto =
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
   foto: fotos.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
-  fotoOrigem: fotos.has(o.codigoBarras) ? (fotos.get(o.codigoBarras) === 'mercado' ? 'mercado' : 'automatica') : null,
+  fotoOrigem: fotos.has(o.codigoBarras) ? (fotos.get(o.codigoBarras) === 'mercado' ? 'mercado' : fotos.get(o.codigoBarras) === 'ilustrativa' ? 'ilustrativa' : 'automatica') : null,
 });
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);

@@ -30,6 +30,17 @@ describe('fotos dos produtos no app', () => {
     expect(screen.getAllByTestId('sem-foto', { includeHiddenElements: true })).toHaveLength(1);
   });
 
+  it('foto ilustrativa mostra a etiqueta "ilustrativa" e avisa também para leitores de tela; a específica não tem etiqueta', async () => {
+    simularApi({ 'GET /busca': { status: 200, corpo: [{ ...COM_FOTO, fotoIlustrativa: true }, { ...SEM_FOTO, foto: '/fotos/7891000200200' }] } });
+    const user = userEvent.setup();
+    await abrirApp();
+    await buscarLeite(user);
+
+    expect(screen.getByLabelText('Foto ilustrativa de Leite Integral Piracanjuba 1L')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Foto de Leite Outra Marca 1L')).toBeOnTheScreen();
+    expect(screen.getAllByTestId('etiqueta-ilustrativa', { includeHiddenElements: true })).toHaveLength(1);
+  });
+
   it('a lista inicial (sem digitar nada) já mostra as fotos', async () => {
     simularApi({ 'GET /produtos': { status: 200, corpo: { grupos: [COM_FOTO], total: 1 } } });
     await abrirApp();

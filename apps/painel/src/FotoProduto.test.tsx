@@ -11,6 +11,7 @@ const FOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
 
 const semFoto = produto({ foto: null, fotoOrigem: null });
 const comFotoAutomatica = produto({ codigoBarras: '7891000200202', nome: 'Feijão Carioca 1kg', foto: '/fotos/7891000200202', fotoOrigem: 'automatica' });
+const comFotoIlustrativa = produto({ codigoBarras: '7891000400404', nome: 'Leite Vale Branco 1L', foto: '/fotos/7891000400404', fotoOrigem: 'ilustrativa' });
 const comFotoDoMercado = produto({ codigoBarras: '7891000300303', nome: 'Macarrão 500g', foto: '/fotos/7891000300303', fotoOrigem: 'mercado' });
 
 beforeEach(() => {
@@ -102,5 +103,16 @@ describe('foto na lista de produtos', () => {
     await waitFor(() => expect(linhaDe('Macarrão 500g').getByText('Sem foto')).toBeInTheDocument());
     expect(chamadas.find((c) => c.metodo === 'DELETE')?.caminho).toBe('/painel/produtos/7891000300303/foto');
     expect(linhaDe('Macarrão 500g').queryByRole('button', { name: 'Remover foto' })).not.toBeInTheDocument();
+  });
+
+  it('foto ilustrativa (do tipo de produto) avisa na linha e oferece "Enviar foto" para trocar pela certa', async () => {
+    simularApi(() => resposta({ itens: [comFotoIlustrativa], total: 1 }));
+    abrir('/produtos');
+    await screen.findByText('Leite Vale Branco 1L');
+    const linha = linhaDe('Leite Vale Branco 1L');
+    expect(linha.getByText('Foto ilustrativa (do tipo de produto)')).toBeInTheDocument();
+    expect(linha.getByRole('img', { name: 'Foto de Leite Vale Branco 1L' })).toBeInTheDocument();
+    expect(linha.getByRole('button', { name: 'Enviar foto' })).toBeInTheDocument();
+    expect(linha.queryByRole('button', { name: 'Remover foto' })).not.toBeInTheDocument();
   });
 });

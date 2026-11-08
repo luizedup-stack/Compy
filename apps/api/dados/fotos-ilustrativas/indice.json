@@ -1,0 +1,410 @@
+[
+ {
+  "id": "leite-condensado",
+  "palavras": [
+   "leite",
+   "condensado"
+  ],
+  "busca": "leite condensado moça nestle",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/100/010/0103/front_pt.34.200.jpg",
+  "codigo": "7891000100103"
+ },
+ {
+  "id": "leite-em-po",
+  "palavras": [
+   "leite",
+   "po"
+  ],
+  "busca": "leite em pó integral ninho nestle",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/100/032/5858/front_pt.34.200.jpg",
+  "codigo": "7891000325858"
+ },
+ {
+  "id": "creme-de-leite",
+  "palavras": [
+   "creme",
+   "leite"
+  ],
+  "busca": "creme de leite nestle",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/100/012/0101/front_pt.25.200.jpg",
+  "codigo": "7891000120101"
+ },
+ {
+  "id": "leite",
+  "palavras": [
+   "leite"
+  ],
+  "busca": "leite integral parmalat",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/603/461/0017/front_en.3.200.jpg",
+  "codigo": "7896034610017"
+ },
+ {
+  "id": "arroz",
+  "palavras": [
+   "arroz"
+  ],
+  "busca": "arroz branco tipo 1 tio joao",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/350/009/0403/front_en.3.200.jpg",
+  "codigo": "7893500090403"
+ },
+ {
+  "id": "feijao",
+  "palavras": [
+   "feijao"
+  ],
+  "busca": "feijão carioca camil",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/600/674/4115/front_en.3.200.jpg",
+  "codigo": "7896006744115"
+ },
+ {
+  "id": "macarrao",
+  "palavras": [
+   "macarrao"
+  ],
+  "busca": "macarrão espaguete renata",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/602/220/0046/front_pt.3.200.jpg",
+  "codigo": "7896022200046"
+ },
+ {
+  "id": "oleo-de-soja",
+  "palavras": [
+   "oleo",
+   "soja"
+  ],
+  "busca": "óleo de soja liza",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/603/609/0244/front_pt.11.200.jpg",
+  "codigo": "7896036090244"
+ },
+ {
+  "id": "biscoito",
+  "palavras": [
+   "biscoito"
+  ],
+  "busca": "biscoito recheado trakinas",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/762/230/074/1297/front_pt.4.200.jpg",
+  "codigo": "7622300741297"
+ },
+ {
+  "id": "molho-de-tomate",
+  "palavras": [
+   "molho",
+   "tomate"
+  ],
+  "busca": "molho de tomate pomarola",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/603/609/9988/front_pt.13.200.jpg",
+  "codigo": "7896036099988"
+ },
+ {
+  "id": "queijo",
+  "palavras": [
+   "queijo"
+  ],
+  "busca": "queijo mussarela fatiado",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/109/710/3841/front_en.3.200.jpg",
+  "codigo": "7891097103841"
+ },
+ {
+  "id": "iogurte",
+  "palavras": [
+   "iogurte"
+  ],
+  "busca": "iogurte natural danone",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/102/512/0230/front_pt.36.200.jpg",
+  "codigo": "7891025120230"
+ },
+ {
+  "id": "suco",
+  "palavras": [
+   "suco"
+  ],
+  "busca": "suco de laranja del valle",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/490/061/0017/front_en.4.200.jpg",
+  "codigo": "7894900610017"
+ },
+ {
+  "id": "refrigerante",
+  "palavras": [
+   "refrigerante"
+  ],
+  "busca": "refrigerante coca-cola",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/490/002/7013/front_pt.60.200.jpg",
+  "codigo": "7894900027013"
+ },
+ {
+  "id": "detergente",
+  "palavras": [
+   "detergente"
+  ],
+  "busca": "detergente líquido ypê",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/609/890/2042/front_pt.3.200.jpg",
+  "codigo": "7896098902042"
+ },
+ {
+  "id": "agua-sanitaria",
+  "palavras": [
+   "agua",
+   "sanitaria"
+  ],
+  "busca": "água sanitária qboa",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/608/380/0025/front_en.10.200.jpg",
+  "codigo": "7896083800025"
+ },
+ {
+  "id": "esponja",
+  "palavras": [
+   "esponja"
+  ],
+  "busca": "esponja de limpeza scotch-brite",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/104/022/2476/front_pt.3.200.jpg",
+  "codigo": "7891040222476"
+ },
+ {
+  "id": "creme-dental",
+  "palavras": [
+   "creme",
+   "dental"
+  ],
+  "busca": "creme dental colgate",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/102/413/4429/front_pt.3.200.jpg",
+  "codigo": "7891024134429"
+ },
+ {
+  "id": "ovos",
+  "palavras": [
+   "ovos"
+  ],
+  "busca": "ovos brancos",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/698/210/0035/front_pt.10.200.jpg",
+  "codigo": "7896982100035"
+ },
+ {
+  "id": "farinha-de-trigo",
+  "palavras": [
+   "farinha",
+   "trigo"
+  ],
+  "busca": "farinha de trigo dona benta",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/600/521/2905/front_pt.9.200.jpg",
+  "codigo": "7896005212905"
+ },
+ {
+  "id": "acucar",
+  "palavras": [
+   "acucar"
+  ],
+  "busca": "açúcar refinado união",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/191/000/7110/front_pt.3.200.jpg",
+  "codigo": "7891910007110"
+ },
+ {
+  "id": "manteiga",
+  "palavras": [
+   "manteiga"
+  ],
+  "busca": "manteiga com sal aviação",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/633/110/0051/front_pt.12.200.jpg",
+  "codigo": "7896331100051"
+ },
+ {
+  "id": "agua-mineral",
+  "palavras": [
+   "agua",
+   "mineral"
+  ],
+  "busca": "água mineral sem gás crystal",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/490/053/0056/front_pt.5.200.jpg",
+  "codigo": "7894900530056"
+ },
+ {
+  "id": "farinha-de-mandioca",
+  "palavras": [
+   "farinha",
+   "mandioca"
+  ],
+  "busca": "farinha de mandioca yoki",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/109/500/1101/front_fr.15.200.jpg",
+  "codigo": "7891095001101"
+ },
+ {
+  "id": "azeite",
+  "palavras": [
+   "azeite"
+  ],
+  "busca": "azeite de oliva extra virgem gallo",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/560/125/210/2433/front_pt.8.200.jpg",
+  "codigo": "5601252102433"
+ },
+ {
+  "id": "achocolatado",
+  "palavras": [
+   "achocolatado"
+  ],
+  "busca": "achocolatado em pó nescau",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/100/041/2855/front_en.41.200.jpg",
+  "codigo": "7891000412855"
+ },
+ {
+  "id": "extrato-de-tomate",
+  "palavras": [
+   "extrato",
+   "tomate"
+  ],
+  "busca": "extrato de tomate elefante",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/603/600/0724/front_pt.3.200.jpg",
+  "codigo": "7896036000724"
+ },
+ {
+  "id": "milho-verde",
+  "palavras": [
+   "milho",
+   "verde"
+  ],
+  "busca": "milho verde quero",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/610/250/0608/front_pt.11.200.jpg",
+  "codigo": "7896102500608"
+ },
+ {
+  "id": "ervilha",
+  "palavras": [
+   "ervilha"
+  ],
+  "busca": "ervilha quero",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/610/250/0493/front_pt.10.200.jpg",
+  "codigo": "7896102500493"
+ },
+ {
+  "id": "sardinha",
+  "palavras": [
+   "sardinha"
+  ],
+  "busca": "sardinha em óleo gomes da costa",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/116/702/2027/front_pt.3.200.jpg",
+  "codigo": "7891167022027"
+ },
+ {
+  "id": "atum",
+  "palavras": [
+   "atum"
+  ],
+  "busca": "atum sólido em óleo gomes da costa",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/116/701/1731/front_pt.21.200.jpg",
+  "codigo": "7891167011731"
+ },
+ {
+  "id": "aveia",
+  "palavras": [
+   "aveia"
+  ],
+  "busca": "aveia em flocos quaker",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/284/081/5769/front_en.3.200.jpg",
+  "codigo": "7892840815769"
+ },
+ {
+  "id": "granola",
+  "palavras": [
+   "granola"
+  ],
+  "busca": "granola tradicional nestlé",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/100/011/8788/front_pt.3.200.jpg",
+  "codigo": "7891000118788"
+ },
+ {
+  "id": "cereal",
+  "palavras": [
+   "cereal"
+  ],
+  "busca": "cereal matinal sucrilhos kellogg's",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/600/400/2538/front_pt.7.200.jpg",
+  "codigo": "7896004002538"
+ },
+ {
+  "id": "margarina",
+  "palavras": [
+   "margarina"
+  ],
+  "busca": "margarina qualy",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/300/007/9298/front_pt.25.200.jpg",
+  "codigo": "7893000079298"
+ },
+ {
+  "id": "requeijao",
+  "palavras": [
+   "requeijao"
+  ],
+  "busca": "requeijão cremoso catupiry",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/635/330/1184/front_pt.15.200.jpg",
+  "codigo": "7896353301184"
+ },
+ {
+  "id": "presunto",
+  "palavras": [
+   "presunto"
+  ],
+  "busca": "presunto cozido sadia",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/151/543/2652/front_en.10.200.jpg",
+  "codigo": "7891515432652"
+ },
+ {
+  "id": "salsicha",
+  "palavras": [
+   "salsicha"
+  ],
+  "busca": "salsicha hot dog sadia",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/300/013/5529/front_pt.21.200.jpg",
+  "codigo": "7893000135529"
+ },
+ {
+  "id": "linguica",
+  "palavras": [
+   "linguica"
+  ],
+  "busca": "linguiça toscana sadia",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/300/004/0144/front_pt.6.200.jpg",
+  "codigo": "7893000040144"
+ },
+ {
+  "id": "hamburguer",
+  "palavras": [
+   "hamburguer"
+  ],
+  "busca": "hambúrguer bovino sadia",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/151/562/8215/front_pt.3.200.jpg",
+  "codigo": "7891515628215"
+ },
+ {
+  "id": "vinagre",
+  "palavras": [
+   "vinagre"
+  ],
+  "busca": "vinagre de álcool castelo",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/604/828/4778/front_en.3.200.jpg",
+  "codigo": "7896048284778"
+ },
+ {
+  "id": "maionese",
+  "palavras": [
+   "maionese"
+  ],
+  "busca": "maionese hellmann's",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/400/005/0034/front_en.28.200.jpg",
+  "codigo": "7894000050034"
+ },
+ {
+  "id": "ketchup",
+  "palavras": [
+   "ketchup"
+  ],
+  "busca": "ketchup heinz",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/610/250/3708/front_en.35.200.jpg",
+  "codigo": "7896102503708"
+ },
+ {
+  "id": "mostarda",
+  "palavras": [
+   "mostarda"
+  ],
+  "busca": "mostarda amarela hemmer",
+  "origemUrl": "https://images.openfoodfacts.org/images/products/789/103/140/5055/front_pt.5.200.jpg",
+  "codigo": "7891031405055"
+ }
+]

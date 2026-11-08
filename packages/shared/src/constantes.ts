@@ -39,6 +39,8 @@ export interface GrupoProduto {
    * se ainda não há foto. Ausente quando a fonte dos dados não informa fotos.
    */
   foto?: string | null;
+  /** true quando a foto é só ILUSTRATIVA (a do tipo de produto, não a do produto exato). */
+  fotoIlustrativa?: boolean;
 }
 
 /** Produto de um mercado como o cliente o vê (resposta de /mercados/:id/produtos). */
@@ -55,6 +57,8 @@ export interface ProdutoMercado {
   desatualizado: boolean;
   /** Caminho da foto na API (veja GrupoProduto.foto). */
   foto?: string | null;
+  /** true quando a foto é só ILUSTRATIVA (a do tipo de produto, não a do produto exato). */
+  fotoIlustrativa?: boolean;
 }
 
 export interface RelatorioImportacao {
@@ -78,7 +82,7 @@ export interface ProdutoPainel {
   /** Caminho da foto na API (veja GrupoProduto.foto), ou null se o produto ainda não tem foto. */
   foto?: string | null;
   /** De onde veio a foto: achada sozinha num banco aberto de produtos ou enviada por um mercado. */
-  fotoOrigem?: 'automatica' | 'mercado' | null;
+  fotoOrigem?: 'automatica' | 'mercado' | 'ilustrativa' | null;
 }
 
 /** Caminho, na API, da foto de um produto (a foto é do código de barras, igual para todos os mercados). */

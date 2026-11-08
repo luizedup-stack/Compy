@@ -190,3 +190,18 @@ describe('lerConfig: fotos automáticas', () => {
     expect(lerConfig(producao({ FOTOS_AUTOMATICAS: '0' })).fotosAutomaticas).toBe(false);
   });
 });
+
+describe('lerConfig: fotos pelo nome do produto', () => {
+  it('desligadas por padrão; FOTOS_POR_NOME=1 liga', () => {
+    expect(lerConfig({}).fotosPorNome).toBe(false);
+    expect(lerConfig(producao()).fotosPorNome).toBe(false);
+    expect(lerConfig(producao({ FOTOS_POR_NOME: '1' })).fotosPorNome).toBe(true);
+  });
+});
+
+describe('lerConfig: fotos ilustrativas', () => {
+  it('ligadas por padrão (enquanto o sistema está em teste); FOTOS_ILUSTRATIVAS=0 desliga', () => {
+    expect(lerConfig({}).fotosIlustrativas).toBe(true);
+    expect(lerConfig(producao({ FOTOS_ILUSTRATIVAS: '0' })).fotosIlustrativas).toBe(false);
+  });
+});

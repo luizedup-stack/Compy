@@ -24,7 +24,7 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
   return (
     <View testID="produto" accessible accessibilityLabel={partes.join(', ')} style={estilos.linha}>
       <View style={estilos.topo}>
-        <FotoDoProduto foto={produto.foto} nome={produto.nome} tamanho={56} />
+        <FotoDoProduto foto={produto.foto} nome={produto.nome} tamanho={56} ilustrativa={produto.fotoIlustrativa === true} />
         <Text style={estilos.nome}>{produto.nome}</Text>
       </View>
 

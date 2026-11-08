@@ -24,6 +24,8 @@ const base: Config = {
   pastaPainel: '/nao/existe',
   confiarNoProxy: false,
   fotosAutomaticas: false,
+  fotosPorNome: false,
+  fotosIlustrativas: true,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;

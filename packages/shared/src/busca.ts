@@ -55,6 +55,8 @@ export interface Catalogo {
   ofertas: OfertaCatalogo[];
   /** Códigos de barras que têm foto na API. Ausente = a fonte não informa fotos (os produtos saem sem o campo `foto`). */
   comFoto?: string[];
+  /** Dos códigos com foto, os cuja foto é só ilustrativa (a do tipo de produto). */
+  fotosIlustrativas?: string[];
 }
 
 export interface MercadoComTotal extends MercadoCatalogo {
@@ -211,11 +213,16 @@ function agrupar(catalogo: Catalogo, codigos: Set<string> | null, ordem: OrdemBu
 
 /** O campo `foto` só existe quando o catálogo informa quais produtos têm foto (`comFoto`). */
 const conjuntosDeFoto = new WeakMap<string[], Set<string>>();
-function campoFoto(catalogo: Catalogo, codigoBarras: string): { foto?: string | null } {
+const conjuntoDe = (lista: string[]): Set<string> => {
+  let conjunto = conjuntosDeFoto.get(lista);
+  if (!conjunto) conjuntosDeFoto.set(lista, (conjunto = new Set(lista)));
+  return conjunto;
+};
+function campoFoto(catalogo: Catalogo, codigoBarras: string): { foto?: string | null; fotoIlustrativa?: boolean } {
   if (!catalogo.comFoto) return {};
-  let conjunto = conjuntosDeFoto.get(catalogo.comFoto);
-  if (!conjunto) conjuntosDeFoto.set(catalogo.comFoto, (conjunto = new Set(catalogo.comFoto)));
-  return { foto: conjunto.has(codigoBarras) ? caminhoDaFoto(codigoBarras) : null };
+  if (!conjuntoDe(catalogo.comFoto).has(codigoBarras)) return { foto: null };
+  const ilustrativa = catalogo.fotosIlustrativas ? conjuntoDe(catalogo.fotosIlustrativas).has(codigoBarras) : false;
+  return { foto: caminhoDaFoto(codigoBarras), ...(ilustrativa ? { fotoIlustrativa: true } : {}) };
 }
 
 const aGrupoProduto = (g: GrupoOrdenado, catalogo: Catalogo): GrupoProduto => ({

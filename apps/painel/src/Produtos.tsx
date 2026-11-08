@@ -247,6 +247,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
         ) : (
           <span className="sem-foto">Sem foto</span>
         )}
+        {produto.fotoOrigem === 'ilustrativa' && <span className="sem-foto">Foto ilustrativa (do tipo de produto)</span>}
         <div className="acoes-botoes">
           <input
             ref={entradaFoto}
@@ -263,7 +264,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
             disabled={fotoOcupada || ocupado}
             onClick={() => entradaFoto.current?.click()}
           >
-            {fotoOcupada ? 'Enviando…' : produto.foto ? 'Trocar foto' : 'Enviar foto'}
+            {fotoOcupada ? 'Enviando…' : produto.foto && produto.fotoOrigem !== 'ilustrativa' ? 'Trocar foto' : 'Enviar foto'}
           </button>
           {produto.fotoOrigem === 'mercado' && (
             <button
