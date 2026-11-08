@@ -425,6 +425,16 @@ describe('gerenciador: foto ilustrativa como último recurso', () => {
   const base = { baixador: async () => 'data:image/jpeg;base64,REAL', esperar: async () => undefined, intervaloMs: 0, intervaloPorNomeMs: 0 };
   const nada: BuscadorDeFotos = { buscar: async () => null };
 
+  it('serviço pedindo calma na busca por código: o produto recebe a ilustrativa mesmo assim, sem insistir no serviço', async () => {
+    const repo = await cenario('7890000000001', 'Leite UHT Integral Vale Branco 1L');
+    const buscar = vi.fn(async (): Promise<null> => {
+      throw new ErroTemporario('muitas consultas');
+    });
+    const resumo = await criarGerenciadorDeFotos({ repo, buscador: { buscar }, ilustrativas, ...base }).processarPendentes();
+    expect(resumo).toEqual({ achadas: 0, naoAchadas: 0, ilustrativas: 1, adiadas: true });
+    expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'ilustrativa', imagem: IMAGEM_ILU });
+  });
+
   it('sem foto específica, o produto recebe a foto do tipo, marcada como ilustrativa', async () => {
     const repo = await cenario('7890000000001', 'Leite UHT Integral Vale Branco 1L');
     const resumo = await criarGerenciadorDeFotos({ repo, buscador: nada, ilustrativas, ...base }).processarPendentes();

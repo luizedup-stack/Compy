@@ -158,16 +158,30 @@ export function criarGerenciadorDeFotos({
       }
     }
 
+    // Quando o serviço pede calma (ErroTemporario), não insistimos nele nesta rodada, mas os produtos ainda recebem a foto
+    // ilustrativa do tipo com o que já temos em mãos (sem rede): assim a foto não depende de o serviço estar de bom humor.
+    let calmo = false;
+    /** Só as imagens que já temos (sem procurar na internet). */
+    function ilustrativaProntaDo(nome: string | null): string | null {
+      if (!nome) return null;
+      if (categorias.length === 0) return escolherIlustrativa(nome, ilustrativas)?.imagem ?? null;
+      const tipo = escolherIlustrativa(nome, categorias);
+      return tipo ? (imagensPorTipo.get(tipo.id) ?? null) : null;
+    }
+    const vistosNestaRodada = new Set<string>();
+
     // 2) Produtos sem nenhuma foto: procura pelo código de barras no banco aberto, baixa a imagem e guarda.
     for (;;) {
       const corte = new Date(agora().getTime() - tentarDeNovoAposDias * DIA_MS);
-      const codigos = await repo.listarCodigosSemFoto(lote, corte);
+      const codigos = (await repo.listarCodigosSemFoto(lote, corte)).filter((c) => !vistosNestaRodada.has(c));
       if (codigos.length === 0) return resumo;
       for (const codigo of codigos) {
+        vistosNestaRodada.add(codigo);
         let url: string | null = null;
         let imagem: string | null = null;
         const nome = await repo.acharNomeDoProduto(codigo);
         try {
+          if (calmo) throw new ErroTemporario('serviço ocupado');
           let resultado = await buscador.buscar(codigo);
           if (!resultado && buscadorPorNome && procurarProdutoPorNome) {
             if (nome) {
@@ -185,12 +199,18 @@ export function criarGerenciadorDeFotos({
             }
           }
         } catch (e) {
-          if (e instanceof ErroTemporario) {
-            log(`Fotos: ${e.message}; o que falta fica para depois.`);
-            resumo.adiadas = true;
-            return resumo;
+          if (!(e instanceof ErroTemporario)) throw e;
+          if (!calmo) log(`Fotos: ${e.message}; a foto específica fica para depois (por ora, só a ilustrativa do tipo).`);
+          calmo = true;
+          resumo.adiadas = true;
+          // Sem a específica agora: dá a ilustrativa que já temos, se não houver foto nenhuma. A específica a substitui depois.
+          const atualCalmo = await repo.acharFoto(codigo);
+          const doTipo = atualCalmo ? null : ilustrativaProntaDo(nome);
+          if (doTipo) {
+            await repo.salvarFoto({ codigoBarras: codigo, origem: 'ilustrativa', url: null, imagem: doTipo, mercadoId: null, atualizadaEm: agora() });
+            resumo.ilustrativas += 1;
           }
-          throw e;
+          continue;
         }
         // Se, enquanto procurávamos, um mercado enviou uma foto, a dele vale: não escrevemos por cima.
         const atual = await repo.acharFoto(codigo);
