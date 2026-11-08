@@ -28,6 +28,17 @@ export type Config = {
    * outros ambientes (para não consultar a internet em desenvolvimento e nos testes); `1` liga e `0` desliga em qualquer um.
    */
   fotosAutomaticas: boolean;
+  /**
+   * Quando o código de barras não está no banco aberto, procura cada produto também pelo NOME (FOTOS_POR_NOME=1; só vale com as fotos
+   * automáticas ligadas). Desligado por padrão: gasta uma busca por produto (o serviço limita) e pode achar um produto parecido mas diferente.
+   * (A busca por TIPO de produto, do banco ilustrativo, é outra coisa e não depende disto.)
+   */
+  fotosPorNome: boolean;
+  /**
+   * Dá a produtos sem foto específica a foto ilustrativa do TIPO de produto (FOTOS_ILUSTRATIVAS; veja fotos/ilustrativas.ts). Ligado por padrão
+   * enquanto o sistema está em teste; desligue (0) quando os produtos reais tiverem as próprias fotos.
+   */
+  fotosIlustrativas: boolean;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
@@ -113,5 +124,7 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     pastaPainel: ler(env, 'PAINEL_DIST') ?? PAINEL_PADRAO,
     confiarNoProxy: ler(env, 'CONFIAR_PROXY') === '1',
     fotosAutomaticas: (ler(env, 'FOTOS_AUTOMATICAS') ?? (producao ? '1' : '0')) === '1',
+    fotosPorNome: ler(env, 'FOTOS_POR_NOME') === '1',
+    fotosIlustrativas: ler(env, 'FOTOS_ILUSTRATIVAS') !== '0',
   };
 }

@@ -267,7 +267,7 @@ function GrupoCartao({ grupo }: { grupo: GrupoProduto }) {
   return (
     <View style={estilos.grupo}>
       <View style={estilos.topoGrupo}>
-        <FotoDoProduto foto={grupo.foto} nome={grupo.nome} />
+        <FotoDoProduto foto={grupo.foto} nome={grupo.nome} ilustrativa={grupo.fotoIlustrativa === true} />
         <Text accessibilityRole="header" style={estilos.nomeGrupo}>
           {grupo.nome}
         </Text>

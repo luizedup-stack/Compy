@@ -43,7 +43,7 @@ export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
   for (const m of await repo.listarMercados()) {
     if (m.status === 'ativo' && !mercados.has(m.id)) mercados.set(m.id, { id: m.id, nome: m.nome, endereco: m.endereco });
   }
-  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: await repo.listarCodigosComFoto() };
+  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: await repo.listarCodigosComFoto(), fotosIlustrativas: await repo.listarCodigosComFotoIlustrativa() };
 }
 
 /**

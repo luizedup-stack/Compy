@@ -487,6 +487,30 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
       });
     });
 
+    describe('configurações (chave/valor)', () => {
+      it('guarda e acha; chave que não existe é null; salvar de novo troca o valor', async () => {
+        const repo = await criar();
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBeNull();
+        await repo.salvarConfiguracao('ilustrativa:leite', 'data:image/jpeg;base64,AAAA');
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBe('data:image/jpeg;base64,AAAA');
+        await repo.salvarConfiguracao('ilustrativa:leite', 'novo');
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBe('novo');
+      });
+
+      it('lista só as de um prefixo, em ordem de chave (e o "%" do prefixo não vira curinga)', async () => {
+        const repo = await criar();
+        await repo.salvarConfiguracao('ilustrativa:arroz', 'A');
+        await repo.salvarConfiguracao('ilustrativa:leite', 'L');
+        await repo.salvarConfiguracao('outra:coisa', 'X');
+        expect(await repo.listarConfiguracoes('ilustrativa:')).toEqual([
+          { chave: 'ilustrativa:arroz', valor: 'A' },
+          { chave: 'ilustrativa:leite', valor: 'L' },
+        ]);
+        expect(await repo.listarConfiguracoes('%')).toEqual([]);
+        expect(await repo.listarConfiguracoes('nada:')).toEqual([]);
+      });
+    });
+
     describe('fotos dos produtos', () => {
       it('grava e acha a foto pelo código de barras; sem foto, null', async () => {
         const repo = await criar();
@@ -542,6 +566,21 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarResumoDeFotos([])).toEqual([]);
       });
 
+      it('foto ilustrativa conta como pronta, aparece na lista das ilustrativas e é procurada de novo depois do prazo', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        await repo.salvarOferta(novaOferta(m.id, '7890000000001'));
+        await repo.salvarOferta(novaOferta(m.id, '7890000000002'));
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'ilustrativa', url: null, imagem: 'data:image/jpeg;base64,AAAA', atualizadaEm: new Date('2026-11-01T00:00:00Z') }));
+        await repo.salvarFoto(novaFoto('7890000000002')); // foto específica
+        expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001', '7890000000002']);
+        expect(await repo.listarCodigosComFotoIlustrativa()).toEqual(['7890000000001']);
+        expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([{ codigoBarras: '7890000000001', origem: 'ilustrativa' }]);
+        // antes do prazo não procura de novo; depois do prazo, sim (a foto específica pode ter aparecido) — e só a ilustrativa volta
+        expect(await repo.listarCodigosSemFoto(10, new Date('2026-10-20T00:00:00Z'))).toEqual([]);
+        expect(await repo.listarCodigosSemFoto(10, new Date('2026-11-05T00:00:00Z'))).toEqual(['7890000000001']);
+      });
+
       it('foto "na fila" (link da planilha sem imagem ainda) não conta como pronta; depois de baixada, conta', async () => {
         const repo = await criar();
         await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg' }));
@@ -550,6 +589,16 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg', imagem: 'data:image/jpeg;base64,AAAA' }));
         expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001']);
         expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([{ codigoBarras: '7890000000001', origem: 'planilha' }]);
+      });
+
+      it('acharNomeDoProduto: o nome mais comprido entre os mercados; null se ninguém vende', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('Mercado A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('Mercado B', 'Rua 2'));
+        await repo.salvarOferta({ ...novaOferta(a.id, '7890000000001'), nome: 'Leite 1L' });
+        await repo.salvarOferta({ ...novaOferta(b.id, '7890000000001'), nome: 'Leite Integral Piracanjuba 1L' });
+        expect(await repo.acharNomeDoProduto('7890000000001')).toBe('Leite Integral Piracanjuba 1L');
+        expect(await repo.acharNomeDoProduto('7899999999999')).toBeNull();
       });
 
       it('listarFotosParaBaixar: só as que têm o link e ainda não a imagem, em ordem, até o limite', async () => {

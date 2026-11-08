@@ -4,12 +4,14 @@ import { abrirConexao, aplicarMigracoes, lerInstanciaDoBanco } from './banco/con
 import { lerConfig } from './config';
 import type { Repositorio } from './repositorio';
 import { criarGerenciadorDeFotos } from './fotos/gerenciador';
-import { criarBuscadorOpenFoodFacts } from './fotos/openFoodFacts';
+import { carregarBancoIlustrativo, carregarCategorias } from './fotos/ilustrativas';
+import { criarBuscadorOpenFoodFacts, criarBuscadorPorNomeOpenFoodFacts } from './fotos/openFoodFacts';
 import { criarRepositorioMemoria } from './repositorioMemoria';
 import { criarRepositorioSqlServer } from './repositorioSqlServer';
 import { ADMIN_DEV_EMAIL, completarAdminDeDesenvolvimento, montarServidor } from './servidor';
 
 const aviso = (mensagem: string) => console.log(`[banco] ${mensagem}`);
+const AGENTE_FOTOS = 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)';
 
 async function main(): Promise<void> {
   const { config, senhaGerada } = completarAdminDeDesenvolvimento(lerConfig(process.env));
@@ -31,7 +33,10 @@ async function main(): Promise<void> {
   const fotos = config.fotosAutomaticas
     ? criarGerenciadorDeFotos({
         repo,
-        buscador: criarBuscadorOpenFoodFacts({ userAgent: 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }),
+        buscador: criarBuscadorOpenFoodFacts({ userAgent: AGENTE_FOTOS }),
+        ...(config.fotosIlustrativas ? { ilustrativas: carregarBancoIlustrativo(), categorias: carregarCategorias() } : {}),
+        // O buscador por nome serve a duas coisas: achar a foto dos TIPOS de produto (banco ilustrativo) e, só com FOTOS_POR_NOME=1, cada produto pelo próprio nome.
+        ...(config.fotosIlustrativas || config.fotosPorNome ? { buscadorPorNome: criarBuscadorPorNomeOpenFoodFacts({ userAgent: AGENTE_FOTOS }), procurarProdutoPorNome: config.fotosPorNome } : {}),
         log: (m) => console.log(m),
       })
     : undefined;

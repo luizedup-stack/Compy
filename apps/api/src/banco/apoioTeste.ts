@@ -7,7 +7,7 @@ export const URL_BANCO_TESTE = process.env.BANCO_TESTE_URL;
 
 export interface BancoDeTeste {
   pool: sql.ConnectionPool;
-  /** Esvazia todas as tabelas, zera os contadores de id e devolve um repositório novo (sem cópia da busca guardada). */
+  /** Esvazia todas as tabelas (a Configuracao só perde o que não é a identidade do banco), zera os contadores de id e devolve um repositório novo (sem cópia da busca guardada). */
   esvaziar(): Promise<RepositorioSqlServer>;
   fechar(): Promise<void>;
 }
@@ -21,7 +21,7 @@ export async function abrirBancoDeTeste(): Promise<BancoDeTeste> {
     pool,
     async esvaziar() {
       await new sql.Request(pool).batch(`
-        DELETE FROM dbo.Buscas; DELETE FROM dbo.FotosProduto; DELETE FROM dbo.Tokens; DELETE FROM dbo.Ofertas; DELETE FROM dbo.Mercados; DELETE FROM dbo.Usuarios;
+        DELETE FROM dbo.Buscas; DELETE FROM dbo.FotosProduto; DELETE FROM dbo.Configuracao WHERE chave <> N'instancia'; DELETE FROM dbo.Tokens; DELETE FROM dbo.Ofertas; DELETE FROM dbo.Mercados; DELETE FROM dbo.Usuarios;
         DBCC CHECKIDENT ('dbo.Usuarios', RESEED, 0) WITH NO_INFOMSGS;
         DBCC CHECKIDENT ('dbo.Mercados', RESEED, 0) WITH NO_INFOMSGS;
         DBCC CHECKIDENT ('dbo.Tokens', RESEED, 0) WITH NO_INFOMSGS;

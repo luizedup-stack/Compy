@@ -46,7 +46,7 @@ export interface OfertaArmazenada {
   promocaoFim: Date | null;
 }
 
-export type OrigemFoto = 'openfoodfacts' | 'mercado' | 'planilha';
+export type OrigemFoto = 'openfoodfacts' | 'mercado' | 'planilha' | 'ilustrativa';
 
 /**
  * Foto de um produto. É do CÓDIGO DE BARRAS (igual para todos os mercados que vendem o produto): uma foto achada sozinha
@@ -137,15 +137,24 @@ export interface Repositorio {
   removerFoto(codigoBarras: string): Promise<boolean>;
   /** De quais dos `codigos` há foto PRONTA e de onde veio, sem trazer a imagem (para listas). Foto pronta = imagem guardada, ou link do banco aberto (que o servidor entrega por redirecionamento). Não conta a que ainda está na fila para baixar. */
   listarResumoDeFotos(codigos: string[]): Promise<{ codigoBarras: string; origem: OrigemFoto }[]>;
+  /** O nome do produto (o mais comprido entre os mercados que o vendem), ou null se nenhum mercado o vende. Usado para procurar a foto pelo nome. */
+  acharNomeDoProduto(codigoBarras: string): Promise<string | null>;
   /** Fotos que têm o link mas ainda não a imagem (indicadas na planilha, ou achadas antes de guardarmos a imagem): é o que falta baixar. */
   listarFotosParaBaixar(limite: number): Promise<{ codigoBarras: string; url: string }[]>;
+  /** Códigos de barras cuja foto pronta é só ILUSTRATIVA (a do tipo de produto), em ordem. Para o app avisar que não é a foto exata. */
+  listarCodigosComFotoIlustrativa(): Promise<string[]>;
   /** Códigos de barras que têm foto PRONTA (veja listarResumoDeFotos), em ordem. */
   listarCodigosComFoto(): Promise<string[]>;
   /**
    * Até `limite` códigos de barras que têm oferta em algum mercado e ainda não foram procurados, ou foram procurados e não
-   * achados antes de `tentarDeNovoAntesDe`. Em ordem de código de barras.
+   * achados (ou só têm foto ilustrativa) antes de `tentarDeNovoAntesDe`. Em ordem de código de barras.
    */
   listarCodigosSemFoto(limite: number, tentarDeNovoAntesDe: Date): Promise<string[]>;
+  /** Configurações guardadas no banco (chave/valor em texto). Usadas, por exemplo, para o banco de fotos ilustrativas completado pelo servidor. */
+  acharConfiguracao(chave: string): Promise<string | null>;
+  salvarConfiguracao(chave: string, valor: string): Promise<void>;
+  /** Todas as configurações cuja chave começa com `prefixo`, em ordem de chave. */
+  listarConfiguracoes(prefixo: string): Promise<{ chave: string; valor: string }[]>;
   registrarBusca(b: BuscaRegistrada): Promise<void>;
   listarBuscas(): Promise<BuscaRegistrada[]>;
 }

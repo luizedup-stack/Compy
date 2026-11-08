@@ -454,6 +454,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           },
         );
         cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
       },
       async acharFoto(codigoBarras) {
         const l = await q('SELECT * FROM dbo.FotosProduto WHERE codigoBarras = @codigoBarras', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
@@ -465,6 +466,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras),
         );
         cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
         return l.length > 0;
       },
       async listarResumoDeFotos(codigos) {
@@ -479,12 +481,21 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
         );
         return l.map((x) => ({ codigoBarras: x.codigoBarras as string, origem: x.origem as FotoProduto['origem'] }));
       },
+      async acharNomeDoProduto(codigoBarras) {
+        const l = await q('SELECT TOP (1) nome FROM dbo.Ofertas WHERE codigoBarras = @codigoBarras ORDER BY LEN(nome) DESC, mercadoId', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
+        return l[0] ? (l[0].nome as string) : null;
+      },
       async listarFotosParaBaixar(limite) {
         const l = await q(
           'SELECT TOP (@limite) codigoBarras, url FROM dbo.FotosProduto WHERE url IS NOT NULL AND imagem IS NULL ORDER BY codigoBarras',
           (r) => r.input('limite', sql.Int, Math.max(0, limite)),
         );
         return l.map((x) => ({ codigoBarras: x.codigoBarras as string, url: x.url as string }));
+      },
+      listarCodigosComFotoIlustrativa() {
+        return comCache('codigosIlustrativos', async () =>
+          (await q("SELECT codigoBarras FROM dbo.FotosProduto WHERE origem = 'ilustrativa' AND imagem IS NOT NULL ORDER BY codigoBarras")).map((x) => x.codigoBarras as string),
+        );
       },
       listarCodigosComFoto() {
         return comCache('codigosComFoto', async () =>
@@ -496,7 +507,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           `SELECT TOP (@limite) o.codigoBarras
            FROM (SELECT DISTINCT codigoBarras FROM dbo.Ofertas) o
            LEFT JOIN dbo.FotosProduto f ON f.codigoBarras = o.codigoBarras
-           WHERE f.codigoBarras IS NULL OR (f.url IS NULL AND f.imagem IS NULL AND f.atualizadaEm < @antes)
+           WHERE f.codigoBarras IS NULL OR (((f.url IS NULL AND f.imagem IS NULL) OR f.origem = 'ilustrativa') AND f.atualizadaEm < @antes)
            ORDER BY o.codigoBarras`,
           (r) => {
             r.input('limite', sql.Int, Math.max(0, limite));
@@ -504,6 +515,29 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           },
         );
         return l.map((x) => x.codigoBarras as string);
+      },
+
+      async acharConfiguracao(chave) {
+        const l = await q('SELECT valor FROM dbo.Configuracao WHERE chave = @chave', (r) => r.input('chave', sql.NVarChar(100), chave));
+        return l[0] ? (l[0].valor as string) : null;
+      },
+      async salvarConfiguracao(chave, valor) {
+        await q(
+          `BEGIN TRAN;
+           UPDATE dbo.Configuracao WITH (UPDLOCK, SERIALIZABLE) SET valor = @valor WHERE chave = @chave;
+           IF @@ROWCOUNT = 0 INSERT INTO dbo.Configuracao (chave, valor) VALUES (@chave, @valor);
+           COMMIT;`,
+          (r) => {
+            r.input('chave', sql.NVarChar(100), chave);
+            r.input('valor', sql.NVarChar(sql.MAX), valor);
+          },
+        );
+      },
+      async listarConfiguracoes(prefixo) {
+        const l = await q('SELECT chave, valor FROM dbo.Configuracao WHERE LEFT(chave, LEN(@prefixo)) = @prefixo ORDER BY chave', (r) =>
+          r.input('prefixo', sql.NVarChar(100), prefixo),
+        );
+        return l.map((x) => ({ chave: x.chave as string, valor: x.valor as string }));
       },
 
       async registrarBusca(b) {

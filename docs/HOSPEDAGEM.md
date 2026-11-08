@@ -213,8 +213,14 @@ A foto é do **código de barras** e fica **guardada no banco** (um JPEG pequeno
 
 1. **Foto enviada pelo dono do mercado no painel** (Produtos → Enviar foto): vale sempre.
 2. **Coluna "Foto" da planilha** (link `https://...` da imagem do produto): o servidor baixa, reduz e guarda. É a melhor fonte, porque é a foto do produto **exato** que a loja vende.
-3. **Open Food Facts**, procurado sozinho pelo código de barras (banco aberto; cobre só parte dos produtos brasileiros).
+3. **Open Food Facts**, procurado sozinho pelo código de barras (banco aberto; cobre só parte dos produtos). Opcionalmente (`FOTOS_POR_NOME=1`) também pelo **nome** do produto, só entre produtos do Brasil e só se o nome for parecido o bastante.
+4. **Foto ilustrativa do TIPO de produto** (último recurso): o sistema traz um banco de fotos reais, uma por tipo (leite, arroz, papel higiênico...), em `apps/api/dados/fotos-ilustrativas/`.
+   Os tipos que ainda não têm imagem lá, **o próprio servidor completa sozinho**: procura uma foto representativa do tipo no Open Food Facts (uma busca por tipo, não por produto), guarda no banco de dados e reaproveita.
+   Um "Leite UHT Integral Vale Branco" sem foto própria recebe a foto de um leite de verdade, **marcada como "ilustrativa"** no app e no painel, para ninguém achar que é o produto exato.
+   Quando a foto específica aparece, ela troca a ilustrativa sozinha.
 
+`FOTOS_ILUSTRATIVAS` (ligada por padrão **durante os testes**; `0` desliga) controla o item 4 e `FOTOS_POR_NOME` (desligada; `1` liga) a busca por nome do item 3. Quando os produtos forem todos reais, com foto
+pela planilha, desligue `FOTOS_ILUSTRATIVAS`, para nenhum produto receber foto aproximada.
 Tudo isso roda em segundo plano, devagar (uma consulta por vez), assim que o servidor sobe e sempre que entram produtos novos. Produtos que nenhuma fonte tem ficam "Sem foto" até alguém
 enviar a foto à mão. Para ver quantos já têm foto, use as consultas de `docs/BANCO.md`. O servidor gratuito dorme sem uso, então esse trabalho só avança enquanto ele estiver acordado.
 
