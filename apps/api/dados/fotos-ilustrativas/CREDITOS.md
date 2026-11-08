@@ -18,6 +18,7 @@ como "ilustrativa" no app e no painel e as troca sozinho pela foto específica q
 | aveia | `aveia.jpg` | [7892840815769](https://world.openfoodfacts.org/product/7892840815769) |
 | azeite | `azeite.jpg` | [5601252102433](https://world.openfoodfacts.org/product/5601252102433) |
 | biscoito | `biscoito.jpg` | [7622300741297](https://world.openfoodfacts.org/product/7622300741297) |
+| cafe | `cafe.jpg` | [7896089012019](https://world.openfoodfacts.org/product/7896089012019) |
 | cereal | `cereal.jpg` | [7896004002538](https://world.openfoodfacts.org/product/7896004002538) |
 | creme-de-leite | `creme-de-leite.jpg` | [7891000120101](https://world.openfoodfacts.org/product/7891000120101) |
 | creme-dental | `creme-dental.jpg` | [7891024134429](https://world.openfoodfacts.org/product/7891024134429) |
@@ -45,10 +46,12 @@ como "ilustrativa" no app e no painel e as troca sozinho pela foto específica q
 | mostarda | `mostarda.jpg` | [7891031405055](https://world.openfoodfacts.org/product/7891031405055) |
 | oleo-de-soja | `oleo-de-soja.jpg` | [7896036090244](https://world.openfoodfacts.org/product/7896036090244) |
 | ovos | `ovos.jpg` | [7896982100035](https://world.openfoodfacts.org/product/7896982100035) |
+| papel-higienico | `papel-higienico.jpg` | [7896026800709](https://world.openfoodfacts.org/product/7896026800709) |
 | presunto | `presunto.jpg` | [7891515432652](https://world.openfoodfacts.org/product/7891515432652) |
 | queijo | `queijo.jpg` | [7891097103841](https://world.openfoodfacts.org/product/7891097103841) |
 | refrigerante | `refrigerante.jpg` | [7894900027013](https://world.openfoodfacts.org/product/7894900027013) |
 | requeijao | `requeijao.jpg` | [7896353301184](https://world.openfoodfacts.org/product/7896353301184) |
+| sal | `sal.jpg` | [7896110194264](https://world.openfoodfacts.org/product/7896110194264) |
 | salsicha | `salsicha.jpg` | [7893000135529](https://world.openfoodfacts.org/product/7893000135529) |
 | sardinha | `sardinha.jpg` | [7891167022027](https://world.openfoodfacts.org/product/7891167022027) |
 | suco | `suco.jpg` | [7894900610017](https://world.openfoodfacts.org/product/7894900610017) |
