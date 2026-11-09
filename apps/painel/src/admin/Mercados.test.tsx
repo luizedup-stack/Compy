@@ -60,7 +60,7 @@ function simularClipboard(writeText: ((t: string) => Promise<void>) | undefined)
 }
 
 async function criarAcessoNaLinha(u: ReturnType<typeof userEvent.setup>, linha: HTMLElement, email = 'x@y.com') {
-  await u.click(within(linha).getByRole('button', { name: 'Criar acesso' }));
+  await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
   await u.type(within(linha).getByLabelText('E-mail do mercado'), email);
   await u.click(within(linha).getByRole('button', { name: 'Criar' }));
 }
@@ -122,40 +122,43 @@ describe('lista de mercados', () => {
     ).toBeInTheDocument();
     expect(within(secao).getAllByRole('link', { name: 'Enviar planilha' })[0]).toHaveAttribute('href', '/planilha');
 
-    for (const titulo of ['Mercado', 'Situação', 'Produtos', 'Acesso', 'Ações']) {
+    for (const titulo of ['Mercado', 'Situação', 'Produtos', 'Login', 'Ações']) {
       expect(screen.getByRole('columnheader', { name: titulo })).toBeInTheDocument();
     }
     const l1 = within(linhaDe('Mercado Central'));
     expect(l1.getByText('Rua A, 10')).toBeInTheDocument();
     expect(l1.getByText('Ativo')).toBeInTheDocument();
     expect(l1.getByText('12')).toBeInTheDocument();
-    expect(l1.getByRole('button', { name: 'Criar acesso' })).toBeInTheDocument();
-    expect(l1.getByRole('button', { name: 'Remover' })).toBeInTheDocument();
+    expect(l1.getByRole('button', { name: 'Criar login' })).toBeInTheDocument();
+    expect(l1.getByRole('button', { name: 'Tirar acesso' })).toBeInTheDocument();
 
     const l3 = within(linhaDe('Mercadinho Antigo'));
-    expect(l3.getByText('Removido')).toBeInTheDocument();
+    expect(l3.getByText('Sem acesso')).toBeInTheDocument();
+    expect(l3.getByText(/permanente/)).toBeInTheDocument();
+    expect(l3.getByRole('button', { name: 'Dar acesso novamente' })).toBeInTheDocument();
+    expect(l3.getByRole('button', { name: 'Apagar' })).toBeInTheDocument();
     expect(l3.getByText('0')).toBeInTheDocument();
 
     expect(screen.getByRole('table').closest('.tabela-rolagem')).not.toBeNull();
   });
 
-  it('mercado com login mostra "Já tem acesso" e nenhum botão Criar acesso', async () => {
+  it('mercado com login mostra "Já tem login" e nenhum botão Criar login', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Super Bairro');
 
     const l2 = within(linhaDe('Super Bairro'));
-    expect(l2.getByText('Já tem acesso')).toBeInTheDocument();
-    expect(l2.queryByRole('button', { name: 'Criar acesso' })).not.toBeInTheDocument();
-    expect(l2.getByRole('button', { name: 'Remover' })).toBeInTheDocument();
+    expect(l2.getByText('Já tem login')).toBeInTheDocument();
+    expect(l2.queryByRole('button', { name: 'Criar login' })).not.toBeInTheDocument();
+    expect(l2.getByRole('button', { name: 'Tirar acesso' })).toBeInTheDocument();
   });
 
-  it('mercado removido não tem nenhuma ação', async () => {
+  it('mercado sem acesso só tem Dar acesso novamente e Apagar (nada de Tirar acesso nem Criar login)', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Mercadinho Antigo');
 
-    expect(within(linhaDe('Mercadinho Antigo')).queryAllByRole('button')).toHaveLength(0);
+    expect(within(linhaDe('Mercadinho Antigo')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Dar acesso novamente', 'Apagar']);
   });
 
   it('botões repetidos apontam para o nome do mercado da linha', async () => {
@@ -163,10 +166,10 @@ describe('lista de mercados', () => {
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
 
-    expect(within(linhaDe('Mercado Central')).getByRole('button', { name: 'Criar acesso' })).toHaveAccessibleDescription(
+    expect(within(linhaDe('Mercado Central')).getByRole('button', { name: 'Criar login' })).toHaveAccessibleDescription(
       'Mercado Central',
     );
-    expect(within(linhaDe('Empório Sul')).getByRole('button', { name: 'Remover' })).toHaveAccessibleDescription(
+    expect(within(linhaDe('Empório Sul')).getByRole('button', { name: 'Tirar acesso' })).toHaveAccessibleDescription(
       'Empório Sul',
     );
   });
@@ -217,7 +220,7 @@ describe('criar acesso', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Criar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
     expect(within(linha).getByLabelText('E-mail do mercado')).toHaveFocus();
     await u.type(within(linha).getByLabelText('E-mail do mercado'), 'x@y.com');
     await u.click(within(linha).getByRole('button', { name: 'Criar' }));
@@ -240,8 +243,8 @@ describe('criar acesso', () => {
     expect(screen.queryByText(SENHA)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain(SENHA);
     expect(within(linha).queryByRole('status')).not.toBeInTheDocument();
-    expect(within(linha).getByText('Já tem acesso')).toBeInTheDocument();
-    expect(within(linha).queryByRole('button', { name: 'Criar acesso' })).not.toBeInTheDocument();
+    expect(within(linha).getByText('Já tem login')).toBeInTheDocument();
+    expect(within(linha).queryByRole('button', { name: 'Criar login' })).not.toBeInTheDocument();
   });
 
   it.each([
@@ -283,11 +286,11 @@ describe('criar acesso', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Criar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
     await u.click(within(linha).getByRole('button', { name: 'Cancelar' }));
 
     expect(within(linha).queryByLabelText('E-mail do mercado')).not.toBeInTheDocument();
-    expect(within(linha).getByRole('button', { name: 'Criar acesso' })).toHaveFocus();
+    expect(within(linha).getByRole('button', { name: 'Criar login' })).toHaveFocus();
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
   });
 
@@ -305,8 +308,8 @@ describe('criar acesso', () => {
 
     await waitFor(() => expect(within(linha).getByRole('button', { name: /^Criando/ })).toBeDisabled());
     expect(within(linha).getByRole('button', { name: 'Cancelar' })).toBeDisabled();
-    expect(within(linha).getByRole('button', { name: 'Remover' })).toBeDisabled();
-    expect(within(linhaDe('Empório Sul')).getByRole('button', { name: 'Remover' })).toBeEnabled();
+    expect(within(linha).getByRole('button', { name: 'Tirar acesso' })).toBeDisabled();
+    expect(within(linhaDe('Empório Sul')).getByRole('button', { name: 'Tirar acesso' })).toBeEnabled();
 
     liberar(resposta({ senhaTemporaria: SENHA }, 201));
     expect(await within(linha).findByText(SENHA)).toBeInTheDocument();
@@ -347,7 +350,7 @@ describe('criar acesso', () => {
     await u.click(within(screen.getByRole('navigation', { name: 'Principal' })).getByRole('link', { name: 'Administração' }));
     await screen.findByText('Mercado Central');
     expect(document.body.textContent).not.toContain(SENHA);
-    expect(within(linhaDe('Mercado Central')).getByText('Já tem acesso')).toBeInTheDocument();
+    expect(within(linhaDe('Mercado Central')).getByText('Já tem login')).toBeInTheDocument();
   });
 });
 
@@ -408,39 +411,84 @@ describe('copiar senha', () => {
   });
 });
 
-describe('remover mercado', () => {
-  it('só chama a API depois de Confirmar remoção; a linha passa a mostrar Removido e perde as ações', async () => {
-    const chamadas = simular((c) =>
-      c.metodo === 'POST' && c.caminho === '/admin/mercados/1/remover' ? new Response(null, { status: 204 }) : undefined,
-    );
+describe('tirar acesso (permanente ou por um prazo)', () => {
+  const aoTirar = (c: Chamada) => (c.metodo === 'POST' && c.caminho === '/admin/mercados/1/remover' ? new Response(null, { status: 204 }) : undefined);
+
+  it('só chama a API depois de confirmar; permanente é o padrão; a linha passa a mostrar Sem acesso e os botões Dar acesso novamente e Apagar', async () => {
+    const chamadas = simular(aoTirar);
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
-    expect(
-      within(linha).getByText(
-        'Remover este mercado? Os dados são mantidos, mas ele deixa de aparecer no aplicativo.',
-      ),
-    ).toBeInTheDocument();
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    expect(within(linha).getByRole('radio', { name: /Permanente/ })).toBeChecked();
+    expect(within(linha).queryByLabelText('Quanto tempo')).not.toBeInTheDocument();
     expect(within(linha).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
 
-    await u.click(within(linha).getByRole('button', { name: 'Confirmar remoção' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
-    await waitFor(() => expect(within(linha).getByText('Removido')).toBeInTheDocument());
+    await waitFor(() => expect(within(linha).getByText('Sem acesso')).toBeInTheDocument());
+    expect(within(linha).getByText(/permanente/)).toBeInTheDocument();
     expect(within(linha).queryByText('Ativo')).not.toBeInTheDocument();
-    expect(within(linha).queryAllByRole('button')).toHaveLength(0);
+    expect(within(linha).queryByRole('button', { name: 'Tirar acesso' })).not.toBeInTheDocument();
+    expect(within(linha).getByRole('button', { name: 'Dar acesso novamente' })).toBeInTheDocument();
+    expect(within(linha).getByRole('button', { name: 'Apagar' })).toBeInTheDocument();
     expect(linhaDe('Mercado Central')).toBe(linha); // a linha continua na tabela
     const posts = chamadas.filter((c) => c.metodo === 'POST');
     expect(posts).toHaveLength(1);
     expect(posts[0].caminho).toBe('/admin/mercados/1/remover');
     expect(posts[0].autorizacao).toBe('Bearer tok-123');
-    expect(posts[0].corpo).toBeUndefined();
-    // as demais linhas ficam como estavam
-    expect(within(linhaDe('Empório Sul')).getByText('Ativo')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Mercados' })).toBeInTheDocument();
+    expect(posts[0].corpo).toEqual({ tipo: 'permanente' });
+    expect(within(linhaDe('Empório Sul')).getByText('Ativo')).toBeInTheDocument(); // as outras linhas ficam como estavam
+  });
+
+  it('temporário: escolhe quantidade e unidade (dias, meses ou anos) e mostra até quando', async () => {
+    const chamadas = simular(aoTirar);
+    abrir('/admin/mercados');
+    await screen.findByText('Mercado Central');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercado Central');
+
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('radio', { name: /Temporário/ }));
+    const quantidade = within(linha).getByLabelText('Quanto tempo');
+    const unidade = within(linha).getByLabelText('Unidade');
+    expect(within(linha).getAllByRole('option').map((o) => o.textContent)).toEqual(['dias', 'meses', 'anos']);
+    await u.clear(quantidade);
+    await u.type(quantidade, '2');
+    await u.selectOptions(unidade, 'meses');
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
+
+    await waitFor(() => expect(within(linha).getByText('Sem acesso')).toBeInTheDocument());
+    expect(within(linha).getByText(/^até \d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
+    expect(within(linha).queryByText(/permanente/)).not.toBeInTheDocument();
+    expect(chamadas.find((c) => c.metodo === 'POST')?.corpo).toEqual({ tipo: 'temporario', quantidade: 2, unidade: 'meses' });
+  });
+
+  it('prazo inválido (vazio, 0, decimal, grande demais) não chama a API e explica', async () => {
+    const chamadas = simular(aoTirar);
+    abrir('/admin/mercados');
+    await screen.findByText('Mercado Central');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercado Central');
+
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('radio', { name: /Temporário/ }));
+    const quantidade = within(linha).getByLabelText('Quanto tempo');
+    for (const ruim of ['', '0', '1.5', '-3']) {
+      await u.clear(quantidade);
+      if (ruim) await u.type(quantidade, ruim);
+      await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
+      expect(await within(linha).findByRole('alert')).toHaveTextContent(/número inteiro/);
+    }
+    await u.clear(quantidade);
+    await u.type(quantidade, '11');
+    await u.selectOptions(within(linha).getByLabelText('Unidade'), 'anos');
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
+    expect(await within(linha).findByRole('alert')).toHaveTextContent('O prazo máximo é 10 anos.');
+    expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
   });
 
   it('Cancelar desiste sem chamar a API', async () => {
@@ -450,11 +498,11 @@ describe('remover mercado', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
     await u.click(within(linha).getByRole('button', { name: 'Cancelar' }));
 
-    expect(within(linha).queryByRole('button', { name: 'Confirmar remoção' })).not.toBeInTheDocument();
-    expect(within(linha).getByRole('button', { name: 'Remover' })).toHaveFocus();
+    expect(within(linha).queryByRole('button', { name: 'Tirar acesso agora' })).not.toBeInTheDocument();
+    expect(within(linha).getByRole('button', { name: 'Tirar acesso' })).toHaveFocus();
     expect(within(linha).getByText('Ativo')).toBeInTheDocument();
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
   });
@@ -466,29 +514,29 @@ describe('remover mercado', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
-    await u.click(within(linha).getByRole('button', { name: 'Confirmar remoção' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
     expect(await within(linha).findByRole('alert')).toHaveTextContent('Mercado não encontrado');
     expect(within(linha).getByText('Ativo')).toBeInTheDocument();
-    expect(within(linha).getByRole('button', { name: 'Confirmar remoção' })).toBeEnabled();
+    expect(within(linha).getByRole('button', { name: 'Tirar acesso agora' })).toBeEnabled();
   });
 
-  it('401 ao remover limpa a sessão e volta para o login', async () => {
+  it('401 limpa a sessão e volta para o login', async () => {
     simular((c) => (c.metodo === 'POST' ? resposta({ erro: 'Sessão expirada' }, 401) : undefined));
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
-    await u.click(within(linha).getByRole('button', { name: 'Confirmar remoção' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
     expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
     expect(localStorage.getItem('bolso-certo:sessao')).toBeNull();
   });
 
-  it('com a remoção em andamento os botões da linha ficam desligados', async () => {
+  it('com a chamada em andamento os botões da linha ficam desligados', async () => {
     let liberar: (r: Response) => void = () => {};
     simular((c) => (c.metodo === 'POST' ? new Promise<Response>((ok) => (liberar = ok)) : undefined));
     abrir('/admin/mercados');
@@ -496,15 +544,100 @@ describe('remover mercado', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
-    await u.click(within(linha).getByRole('button', { name: 'Confirmar remoção' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
-    await waitFor(() => expect(within(linha).getByRole('button', { name: 'Confirmar remoção' })).toBeDisabled());
+    await waitFor(() => expect(within(linha).getByRole('button', { name: 'Tirando…' })).toBeDisabled());
     expect(within(linha).getByRole('button', { name: 'Cancelar' })).toBeDisabled();
-    expect(within(linha).getByRole('button', { name: 'Criar acesso' })).toBeDisabled();
+    expect(within(linha).getByRole('button', { name: 'Criar login' })).toBeDisabled();
 
     liberar(new Response(null, { status: 204 }));
-    await waitFor(() => expect(within(linha).getByText('Removido')).toBeInTheDocument());
+    await waitFor(() => expect(within(linha).getByText('Sem acesso')).toBeInTheDocument());
+  });
+});
+
+describe('dar acesso novamente', () => {
+  it('chama a API, volta a Ativo e os botões voltam a ser Tirar acesso e Apagar', async () => {
+    const chamadas = simular((c) => (c.metodo === 'POST' && c.caminho === '/admin/mercados/3/reativar' ? new Response(null, { status: 204 }) : undefined));
+    abrir('/admin/mercados');
+    await screen.findByText('Mercadinho Antigo');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercadinho Antigo');
+
+    await u.click(within(linha).getByRole('button', { name: 'Dar acesso novamente' }));
+
+    await waitFor(() => expect(within(linha).getByText('Ativo')).toBeInTheDocument());
+    expect(within(linha).queryByText('Sem acesso')).not.toBeInTheDocument();
+    expect(within(linha).getByRole('button', { name: 'Tirar acesso' })).toBeInTheDocument();
+    expect(within(linha).queryByRole('button', { name: 'Dar acesso novamente' })).not.toBeInTheDocument();
+    expect(chamadas.filter((c) => c.metodo === 'POST').map((c) => c.caminho)).toEqual(['/admin/mercados/3/reativar']);
+  });
+
+  it('mercado com prazo mostra até quando; falha mostra a mensagem e continua sem acesso', async () => {
+    const temporario = mercado({ id: 5, nome: 'Mercado Prazo', endereco: 'Rua E, 5', status: 'removido', removidoAte: new Date(Date.now() + 10 * 86_400_000).toISOString() });
+    simularApi((c) => {
+      if (c.metodo === 'GET' && c.caminho === '/admin/mercados') return resposta([temporario]);
+      if (c.metodo === 'POST') return resposta({ erro: 'Mercado não encontrado' }, 404);
+      return resposta({ erro: 'x' }, 500);
+    });
+    abrir('/admin/mercados');
+    await screen.findByText('Mercado Prazo');
+    const linha = linhaDe('Mercado Prazo');
+    expect(within(linha).getByText(/^até \d{2}\/\d{2}\/\d{4} \(faltam (9|10) dias\)/)).toBeInTheDocument();
+
+    await userEvent.setup().click(within(linha).getByRole('button', { name: 'Dar acesso novamente' }));
+    expect(await within(linha).findByRole('alert')).toHaveTextContent('Mercado não encontrado');
+    expect(within(linha).getByText('Sem acesso')).toBeInTheDocument();
+  });
+});
+
+describe('apagar mercado', () => {
+  it('pede confirmação (avisando que não dá para desfazer) e só então chama a API; a linha some', async () => {
+    const chamadas = simular((c) => (c.metodo === 'DELETE' && c.caminho === '/admin/mercados/1' ? new Response(null, { status: 204 }) : undefined));
+    abrir('/admin/mercados');
+    await screen.findByText('Mercado Central');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercado Central');
+
+    await u.click(within(linha).getByRole('button', { name: 'Apagar' }));
+    expect(within(linha).getByText(/não dá para desfazer/)).toBeInTheDocument();
+    expect(within(linha).getByText(/12 produtos/)).toBeInTheDocument();
+    expect(chamadas.filter((c) => c.metodo === 'DELETE')).toHaveLength(0);
+
+    await u.click(within(linha).getByRole('button', { name: 'Sim, apagar' }));
+
+    await waitFor(() => expect(screen.queryByText('Mercado Central')).not.toBeInTheDocument());
+    expect(chamadas.filter((c) => c.metodo === 'DELETE').map((c) => c.caminho)).toEqual(['/admin/mercados/1']);
+    expect(screen.getByText('Super Bairro')).toBeInTheDocument();
+  });
+
+  it('Cancelar não apaga; erro mostra a mensagem e o mercado continua', async () => {
+    const chamadas = simular((c) => (c.metodo === 'DELETE' ? resposta({ erro: 'Mercado não encontrado' }, 404) : undefined));
+    abrir('/admin/mercados');
+    await screen.findByText('Mercado Central');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercado Central');
+
+    await u.click(within(linha).getByRole('button', { name: 'Apagar' }));
+    await u.click(within(linha).getByRole('button', { name: 'Cancelar' }));
+    expect(within(linha).getByRole('button', { name: 'Apagar' })).toHaveFocus();
+    expect(chamadas.filter((c) => c.metodo === 'DELETE')).toHaveLength(0);
+
+    await u.click(within(linha).getByRole('button', { name: 'Apagar' }));
+    await u.click(within(linha).getByRole('button', { name: 'Sim, apagar' }));
+    expect(await within(linha).findByRole('alert')).toHaveTextContent('Mercado não encontrado');
+    expect(screen.getByText('Mercado Central')).toBeInTheDocument();
+  });
+
+  it('também apaga um mercado que já está sem acesso', async () => {
+    simular((c) => (c.metodo === 'DELETE' ? new Response(null, { status: 204 }) : undefined));
+    abrir('/admin/mercados');
+    await screen.findByText('Mercadinho Antigo');
+    const u = userEvent.setup();
+    const linha = linhaDe('Mercadinho Antigo');
+    await u.click(within(linha).getByRole('button', { name: 'Apagar' }));
+    await u.click(within(linha).getByRole('button', { name: 'Sim, apagar' }));
+    await waitFor(() => expect(screen.queryByText('Mercadinho Antigo')).not.toBeInTheDocument());
   });
 });
 
@@ -521,13 +654,13 @@ describe('linhas independentes', () => {
     const central1 = linhaDe('Mercado Central');
     const emporio4 = linhaDe('Empório Sul');
 
-    await u.click(within(emporio4).getByRole('button', { name: 'Remover' })); // confirmação aberta em 4
+    await u.click(within(emporio4).getByRole('button', { name: 'Tirar acesso' })); // confirmação aberta em 4
     await criarAcessoNaLinha(u, central1); // acesso criado em 1
     expect(await within(central1).findByText(SENHA)).toBeInTheDocument();
-    expect(within(emporio4).getByRole('button', { name: 'Confirmar remoção' })).toBeInTheDocument();
+    expect(within(emporio4).getByRole('button', { name: 'Tirar acesso agora' })).toBeInTheDocument();
 
-    await u.click(within(emporio4).getByRole('button', { name: 'Confirmar remoção' }));
-    await waitFor(() => expect(within(emporio4).getByText('Removido')).toBeInTheDocument());
+    await u.click(within(emporio4).getByRole('button', { name: 'Tirar acesso agora' }));
+    await waitFor(() => expect(within(emporio4).getByText('Sem acesso')).toBeInTheDocument());
 
     // a senha da linha 1 continua à mostra e a linha 1 continua ativa
     expect(within(central1).getByText(SENHA)).toBeInTheDocument();
@@ -536,9 +669,10 @@ describe('linhas independentes', () => {
 
     await u.click(within(central1).getByRole('button', { name: 'Fechar' }));
     expect(document.body.textContent).not.toContain(SENHA);
-    expect(within(central1).getByText('Já tem acesso')).toBeInTheDocument();
-    expect(within(emporio4).getByText('Removido')).toBeInTheDocument();
-    expect(within(emporio4).queryAllByRole('button')).toHaveLength(0);
+    expect(within(central1).getByText('Já tem login')).toBeInTheDocument();
+    expect(within(emporio4).getByText('Sem acesso')).toBeInTheDocument();
+    expect(within(emporio4).queryByRole('button', { name: 'Tirar acesso' })).not.toBeInTheDocument();
+    expect(within(emporio4).getByRole('button', { name: 'Dar acesso novamente' })).toBeInTheDocument();
   });
 
   it('remover um mercado com o formulário de acesso aberto esconde o formulário', async () => {
@@ -548,12 +682,12 @@ describe('linhas independentes', () => {
     const u = userEvent.setup();
     const linha = linhaDe('Mercado Central');
 
-    await u.click(within(linha).getByRole('button', { name: 'Criar acesso' }));
-    await u.click(within(linha).getByRole('button', { name: 'Remover' }));
-    await u.click(within(linha).getByRole('button', { name: 'Confirmar remoção' }));
+    await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso' }));
+    await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
-    await waitFor(() => expect(within(linha).getByText('Removido')).toBeInTheDocument());
+    await waitFor(() => expect(within(linha).getByText('Sem acesso')).toBeInTheDocument());
     expect(within(linha).queryByLabelText('E-mail do mercado')).not.toBeInTheDocument();
-    expect(within(linha).queryAllByRole('button')).toHaveLength(0);
+    expect(within(linha).queryByRole('button', { name: 'Criar login' })).not.toBeInTheDocument();
   });
 });

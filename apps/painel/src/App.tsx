@@ -20,6 +20,27 @@ import EsqueciSenha from './EsqueciSenha';
 import Login from './Login';
 import MeuMercado from './MeuMercado';
 import Produtos from './Produtos';
+import { escolherTema, temaEmUso, type Tema } from './tema';
+
+/** Botão do cabeçalho que alterna entre o tema claro e o escuro (fica guardado neste navegador). */
+function AlternarTema() {
+  const [tema, setTema] = useState<Tema>(temaEmUso);
+  const escuro = tema === 'escuro';
+  return (
+    <button
+      type="button"
+      className="botao-tema"
+      aria-pressed={escuro}
+      onClick={() => {
+        const novo: Tema = escuro ? 'claro' : 'escuro';
+        escolherTema(novo);
+        setTema(novo);
+      }}
+    >
+      {escuro ? '☀️ Modo claro' : '🌙 Modo escuro'}
+    </button>
+  );
+}
 
 /** Sem sessão volta para o login; com `papel`, quem tem outro papel cai em /produtos. */
 function RotaProtegida({ children, papel }: { children: ReactNode; papel?: Papel }) {
@@ -113,6 +134,7 @@ function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
         <img src={`${import.meta.env.BASE_URL}icone-bolso-certo.svg`} alt="" width="32" height="32" />
         <span>Bolso Certo - Mercado</span>
       </div>
+      <AlternarTema />
       {sessao && (
         <>
           <nav aria-label="Principal" className="navegacao">

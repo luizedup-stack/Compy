@@ -1,17 +1,107 @@
 :root {
-  --verde: #0f7d99;
-  --verde-escuro: #0b5f76;
-  --texto: #1f2933;
-  --fundo: #f2f7f9;
-  --borda: #c8d6dc;
-  --erro: #a32d2d;
-  --erro-fundo: #fdecec;
-  --ok-fundo: #e2f3f8;
+  /* Tema CLARO (padrão): azul bem clarinho com branco. As cores moram aqui; o resto do arquivo só usa estas variáveis. */
+  color-scheme: light;
+  --fundo: #eaf3fc;
+  --superficie: #ffffff;
+  --superficie-2: #f2f8fe;
+  --texto: #1b2a3a;
+  --texto-suave: #4a5d70;
+  --borda: #cfe0f1;
+  --campo-borda: #8aa4bf;
+  --primaria: #2f80d6;
+  --primaria-escura: #1559a3;
+  --link: #1559a3;
+  --botao-fundo: #1a62b3;
+  --botao-texto: #ffffff;
+  --botao-sec-texto: #1559a3;
+  --botao-sec-hover: #e6f1fc;
+  --erro: #b42318;
+  --erro-fundo: #fdeceb;
+  --erro-botao-texto: #ffffff;
+  --ok-fundo: #e3f1fd;
   --aviso-fundo: #fff4cc;
   --aviso-borda: #b58100;
+  --aviso-texto: #3d2f00;
+  --etiqueta-ok-texto: #0b6b43;
+  --etiqueta-ok-fundo: #e1f5ea;
+  --etiqueta-ok-borda: #7cc9a1;
+  --etiqueta-sem-texto: #8a2c0d;
+  --etiqueta-sem-fundo: #fdece4;
+  --etiqueta-sem-borda: #e9a98f;
+  --sombra: 0 1px 3px rgba(20, 70, 120, 0.1), 0 4px 14px rgba(20, 70, 120, 0.06);
+  --linha-hover: #f5faff;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--texto);
   line-height: 1.5;
+}
+
+/* Tema ESCURO: pelo sistema do aparelho (a menos que a pessoa tenha escolhido "claro") ou pelo botão do cabeçalho. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) {
+    color-scheme: dark;
+    --fundo: #0e1a27;
+    --superficie: #162334;
+    --superficie-2: #1c2d41;
+    --texto: #e7eef6;
+    --texto-suave: #a9b9ca;
+    --borda: #2d435c;
+    --campo-borda: #5d7894;
+    --primaria: #5aa7ee;
+    --primaria-escura: #8cc3f7;
+    --link: #8cc3f7;
+    --botao-fundo: #5aa7ee;
+    --botao-texto: #04182c;
+    --botao-sec-texto: #8cc3f7;
+    --botao-sec-hover: #1f3550;
+    --erro: #ff8d85;
+    --erro-fundo: #3a1c1c;
+    --erro-botao-texto: #2a0a08;
+    --ok-fundo: #16324d;
+    --aviso-fundo: #3b3210;
+    --aviso-borda: #c99a1a;
+    --aviso-texto: #ffe9a6;
+    --etiqueta-ok-texto: #7ee6b4;
+    --etiqueta-ok-fundo: #123826;
+    --etiqueta-ok-borda: #2f7d5a;
+    --etiqueta-sem-texto: #ffb199;
+    --etiqueta-sem-fundo: #3d1b12;
+    --etiqueta-sem-borda: #8a4a35;
+    --sombra: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --linha-hover: #1a2b3f;
+  }
+}
+
+:root[data-tema='escuro'] {
+  color-scheme: dark;
+  --fundo: #0e1a27;
+  --superficie: #162334;
+  --superficie-2: #1c2d41;
+  --texto: #e7eef6;
+  --texto-suave: #a9b9ca;
+  --borda: #2d435c;
+  --campo-borda: #5d7894;
+  --primaria: #5aa7ee;
+  --primaria-escura: #8cc3f7;
+  --link: #8cc3f7;
+  --botao-fundo: #5aa7ee;
+  --botao-texto: #04182c;
+  --botao-sec-texto: #8cc3f7;
+  --botao-sec-hover: #1f3550;
+  --erro: #ff8d85;
+  --erro-fundo: #3a1c1c;
+  --erro-botao-texto: #2a0a08;
+  --ok-fundo: #16324d;
+  --aviso-fundo: #3b3210;
+  --aviso-borda: #c99a1a;
+  --aviso-texto: #ffe9a6;
+  --etiqueta-ok-texto: #7ee6b4;
+  --etiqueta-ok-fundo: #123826;
+  --etiqueta-ok-borda: #2f7d5a;
+  --etiqueta-sem-texto: #ffb199;
+  --etiqueta-sem-fundo: #3d1b12;
+  --etiqueta-sem-borda: #8a4a35;
+  --sombra: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --linha-hover: #1a2b3f;
 }
 
 * {
@@ -20,7 +110,12 @@
 
 body {
   margin: 0;
+  color: var(--texto);
   background: var(--fundo);
+}
+
+a {
+  color: var(--link);
 }
 
 .cabecalho {
@@ -30,8 +125,9 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 16px;
-  background: #fff;
+  background: var(--superficie);
   border-bottom: 1px solid var(--borda);
+  box-shadow: var(--sombra);
 }
 
 .marca {
@@ -46,7 +142,7 @@ body {
   display: block;
   font-weight: 400;
   font-size: 0.8125rem;
-  color: #52606d;
+  color: var(--texto-suave);
 }
 
 .conteudo {
@@ -58,9 +154,10 @@ body {
 .cartao {
   max-width: 640px;
   margin: 0 auto;
-  background: #fff;
+  background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: 12px;
+  border-radius: 16px;
+  box-shadow: var(--sombra);
   padding: 20px 16px;
 }
 
@@ -82,14 +179,17 @@ label {
 input[type='email'],
 input[type='password'],
 input[type='text'],
-input[type='file'] {
+input[type='number'],
+input[type='file'],
+select {
   display: block;
   width: 100%;
   padding: 10px 12px;
   font: inherit;
-  border: 1px solid #7b8794;
-  border-radius: 8px;
-  background: #fff;
+  color: var(--texto);
+  border: 1px solid var(--campo-borda);
+  border-radius: 10px;
+  background: var(--superficie);
 }
 
 .botao {
@@ -98,17 +198,28 @@ input[type='file'] {
   padding: 10px 20px;
   font: inherit;
   font-weight: 600;
-  color: #fff;
-  background: var(--verde-escuro);
-  border: 2px solid var(--verde-escuro);
-  border-radius: 8px;
+  color: var(--botao-texto);
+  background: var(--botao-fundo);
+  border: 2px solid var(--botao-fundo);
+  border-radius: 10px;
   cursor: pointer;
+  transition: filter 0.15s, background 0.15s;
+}
+
+.botao:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 .botao-secundario {
   margin-top: 0;
-  color: var(--verde-escuro);
-  background: #fff;
+  color: var(--botao-sec-texto);
+  background: var(--superficie);
+  border-color: var(--botao-sec-texto);
+}
+
+.botao-secundario:hover:not(:disabled) {
+  background: var(--botao-sec-hover);
+  filter: none;
 }
 
 .botao:disabled {
@@ -135,7 +246,7 @@ input[type='file'] {
 
 .aviso-ok {
   background: var(--ok-fundo);
-  border: 1px solid var(--verde);
+  border: 1px solid var(--primaria);
 }
 
 .aviso p {
@@ -148,8 +259,8 @@ input[type='file'] {
 }
 
 input:disabled {
-  color: #52606d;
-  background: #edf2f4;
+  color: var(--texto-suave);
+  background: var(--superficie-2);
 }
 
 .cartao-largo {
@@ -182,7 +293,7 @@ input:disabled {
 .navegacao a {
   display: inline-block;
   padding: 10px 12px;
-  color: var(--verde-escuro);
+  color: var(--link);
   font-weight: 600;
   text-decoration: none;
   border-bottom: 3px solid transparent;
@@ -193,7 +304,7 @@ input:disabled {
 }
 
 .navegacao a[aria-current='page'] {
-  border-bottom-color: var(--verde-escuro);
+  border-bottom-color: var(--primaria);
 }
 
 .botao-pequeno {
@@ -203,8 +314,21 @@ input:disabled {
 }
 
 .botao-perigo {
+  color: var(--erro-botao-texto);
   background: var(--erro);
   border-color: var(--erro);
+}
+
+/* "Apagar" antes de confirmar: contorno vermelho, para não competir com os botões comuns. */
+.botao-perigo-suave {
+  color: var(--erro);
+  background: var(--superficie);
+  border-color: var(--erro);
+}
+
+.botao-perigo-suave:hover:not(:disabled) {
+  background: var(--erro-fundo);
+  filter: none;
 }
 
 .botao-link {
@@ -218,17 +342,17 @@ input:disabled {
 
 .mensagem-viva {
   min-height: 1.5em;
-  color: var(--verde-escuro);
+  color: var(--primaria-escura);
   font-weight: 600;
 }
 
 .faixa-amarela {
   margin: 0 0 8px;
   padding: 12px 14px;
-  color: #3d2f00;
+  color: var(--aviso-texto);
   background: var(--aviso-fundo);
   border: 1px solid var(--aviso-borda);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .faixa-amarela p {
@@ -237,14 +361,14 @@ input:disabled {
 }
 
 .faixa-amarela a {
-  color: #3d2f00;
+  color: var(--aviso-texto);
 }
 
 .cobranca-mensagem {
   margin: 8px 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--verde-escuro);
+  color: var(--primaria-escura);
 }
 
 .etiqueta,
@@ -257,14 +381,26 @@ input:disabled {
 }
 
 .etiqueta {
-  color: var(--verde-escuro);
+  color: var(--primaria-escura);
   background: var(--ok-fundo);
-  border: 1px solid var(--verde);
+  border: 1px solid var(--primaria);
+}
+
+.etiqueta-ok {
+  color: var(--etiqueta-ok-texto);
+  background: var(--etiqueta-ok-fundo);
+  border-color: var(--etiqueta-ok-borda);
+}
+
+.etiqueta-sem {
+  color: var(--etiqueta-sem-texto);
+  background: var(--etiqueta-sem-fundo);
+  border-color: var(--etiqueta-sem-borda);
 }
 
 .selo {
   margin-left: 8px;
-  color: #3d2f00;
+  color: var(--aviso-texto);
   background: var(--aviso-fundo);
   border: 1px solid var(--aviso-borda);
 }
@@ -293,7 +429,11 @@ input:disabled {
 
 .tabela-produtos th {
   font-size: 0.875rem;
-  background: var(--fundo);
+  background: var(--superficie-2);
+}
+
+.tabela-produtos tbody tr:hover {
+  background: var(--linha-hover);
 }
 
 .tabela-produtos td input[type='text'] {
@@ -337,7 +477,7 @@ input:disabled {
 .tabela-mercados .endereco {
   display: block;
   font-size: 0.875rem;
-  color: #52606d;
+  color: var(--texto-suave);
 }
 
 .tabela-mercados label {
@@ -367,7 +507,7 @@ input:disabled {
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
   font-size: 1.125rem;
   letter-spacing: 0.04em;
-  background: #fff;
+  background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: 6px;
   overflow-wrap: anywhere;
@@ -414,7 +554,7 @@ input:disabled {
     content: attr(data-label);
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #52606d;
+    color: var(--texto-suave);
   }
 
   .tabela-produtos td.acoes > * {
@@ -489,5 +629,65 @@ input:disabled {
   display: block;
   margin-bottom: 6px;
   font-size: 0.8125rem;
-  color: #52606d;
+  color: var(--texto-suave);
+}
+
+/* Formulário "Tirar acesso" (Administração > Mercados) */
+.tirar-acesso fieldset {
+  margin: 0 0 8px;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+
+.tirar-acesso legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.tirar-acesso .opcao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-weight: 400;
+}
+
+.tirar-acesso .opcao input {
+  width: 20px;
+  height: 20px;
+}
+
+.tirar-acesso .prazo {
+  display: grid;
+  grid-template-columns: auto 6rem auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tirar-acesso .prazo label {
+  margin: 0;
+}
+
+.tirar-acesso .prazo input,
+.tirar-acesso .prazo select {
+  padding: 6px 8px;
+}
+
+/* Botão de alternar claro/escuro (cabeçalho) */
+.botao-tema {
+  min-height: 40px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--botao-sec-texto);
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.botao-tema:hover {
+  background: var(--botao-sec-hover);
 }

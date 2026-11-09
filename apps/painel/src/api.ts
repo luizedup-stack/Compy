@@ -362,7 +362,12 @@ export interface MercadoAdmin {
   status: 'ativo' | 'removido';
   totalProdutos: number;
   temLogin: boolean;
+  /** Só para quem está sem acesso: até quando (data ISO). null = sem acesso até alguém dar o acesso de novo. */
+  removidoAte?: string | null;
 }
+
+/** Por quanto tempo o mercado fica sem acesso. */
+export type PrazoSemAcesso = { tipo: 'permanente' } | { tipo: 'temporario'; quantidade: number; unidade: 'dias' | 'meses' | 'anos' };
 
 export async function listarMercadosAdmin(): Promise<MercadoAdmin[]> {
   const resposta = await pedir('/admin/mercados');
@@ -379,7 +384,17 @@ export async function criarAcesso(id: number, email: string): Promise<{ senhaTem
   return (await resposta.json()) as { senhaTemporaria: string };
 }
 
-/** O servidor responde 204, sem corpo: não há o que ler. */
-export async function removerMercado(id: number): Promise<void> {
-  await pedir(`/admin/mercados/${id}/remover`, { method: 'POST' });
+/** "Tirar acesso": o servidor responde 204, sem corpo: não há o que ler. Devolve a data de volta (ou null se é permanente), como o servidor calcula. */
+export async function removerMercado(id: number, prazo: PrazoSemAcesso = { tipo: 'permanente' }): Promise<void> {
+  await pedir(`/admin/mercados/${id}/remover`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(prazo) });
+}
+
+/** "Dar acesso novamente". */
+export async function reativarMercado(id: number): Promise<void> {
+  await pedir(`/admin/mercados/${id}/reativar`, { method: 'POST' });
+}
+
+/** "Apagar": remove o mercado e os produtos dele de vez. */
+export async function apagarMercado(id: number): Promise<void> {
+  await pedir(`/admin/mercados/${id}`, { method: 'DELETE' });
 }
