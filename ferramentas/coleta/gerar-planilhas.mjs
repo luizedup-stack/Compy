@@ -12,7 +12,7 @@ const REDES = [
   { arquivo: 'assai', saida: 'mercado-assai.xlsx', nome: 'Assaí Atacadista (preços do site)', endereco: 'Preços do Assaí Atacadista, sem loja definida – São Paulo – SP', modelo: true },
 ];
 // O envio aceita até 5.000 produtos por planilha (LIMITE_LINHAS): redes maiores saem em partes, todas com a mesma aba Mercado.
-const POR_PLANILHA = 4900;
+const POR_PLANILHA = Number(process.env.POR_PLANILHA ?? 4900);
 
 // Procura "500g", "1,5 L", "12 x 350 ml", "12 un" no nome do produto. Devolve texto ou ''.
 const UNID = '(?:kg|g|mg|ml|l|lt|litros?|un|und|unid|unidades?|rolos?|dz)';

@@ -233,17 +233,10 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
   return repo.transacao(async (r) => {
     const { mercado, criado } = await resolverMercado(r, ator, dadosMercado);
     const agora = new Date();
-    for (const oferta of ofertas) {
-      await r.salvarOferta({ ...oferta, mercadoId: mercado.id, precoAtualizadoEm: agora });
-    }
+    await r.salvarOfertas(ofertas.map((oferta) => ({ ...oferta, mercadoId: mercado.id, precoAtualizadoEm: agora })));
     // Fotos indicadas na planilha: o servidor baixa e guarda depois (veja fotos/gerenciador.ts). A foto que um mercado enviou à
     // mão pelo painel vale mais e não é trocada; um link já indicado antes (igual) também não é refeito.
-    for (const [codigo, url] of fotos) {
-      const atual = await r.acharFoto(codigo);
-      if (atual?.origem === 'mercado' && atual.imagem !== null) continue;
-      if (atual?.origem === 'planilha' && atual.url === url) continue;
-      await r.salvarFoto({ codigoBarras: codigo, origem: 'planilha', url, imagem: null, mercadoId: mercado.id, atualizadaEm: agora });
-    }
+    await r.salvarFotosDaPlanilha([...fotos], mercado.id, agora);
     return { mercadoId: mercado.id, mercadoCriado: criado, importadas: ofertas.length, erros };
   });
 }
