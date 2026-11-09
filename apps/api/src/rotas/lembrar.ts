@@ -27,10 +27,12 @@ export function lembrar<T>(fabrica: () => Promise<T>, ms: number): () => Promise
     const antigo = guardado.valor;
     if (!atualizando) {
       atualizando = true;
-      const fresco = montar();
-      void fresco.then(() => undefined, () => undefined).finally(() => {
-        atualizando = false;
-      });
+      // Um instante depois, para a resposta atual sair antes: a montagem trava o servidor (conta pesada) enquanto roda.
+      setTimeout(() => {
+        void montar().then(() => undefined, () => undefined).finally(() => {
+          atualizando = false;
+        });
+      }, 30).unref();
     }
     return antigo;
   };

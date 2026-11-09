@@ -35,7 +35,8 @@ describe('cache curto: depois do prazo entrega o antigo na hora e renova por tr�
       expect(espia).toHaveBeenCalledTimes(1);
       vi.setSystemTime(Date.now() + 5000); // venceu o prazo (1 s), mas não é velho demais
       await amb.app.inject({ method: 'GET', url: '/catalogo' }); // entrega o antigo e dispara a renovação
-      await new Promise((r) => setImmediate(r));
+      expect(espia).toHaveBeenCalledTimes(1); // a renovação sai depois da resposta
+      await new Promise((r) => setTimeout(r, 120));
       expect(espia).toHaveBeenCalledTimes(2);
       await amb.app.inject({ method: 'GET', url: '/catalogo' }); // já usa o renovado
       expect(espia).toHaveBeenCalledTimes(2);
