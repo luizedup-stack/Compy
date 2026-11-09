@@ -1,7 +1,7 @@
 import { listarProdutosNoCatalogo } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { usuarioOpcional } from '../auth/guardas';
-import { buscar, montarCatalogo } from '../busca/buscar';
+import { buscar, limitarCatalogo, montarCatalogo } from '../busca/buscar';
 import type { FotosEmbutidas } from '../fotos/embutidas';
 import type { Repositorio } from '../repositorio';
 
@@ -28,6 +28,6 @@ export function rotasBusca({ repo, embutidas }: { repo: Repositorio; embutidas?:
     });
 
     // Cópia de todos os mercados e produtos: o app do celular guarda e passa a buscar sozinho, até sem internet.
-    app.get('/catalogo', async () => montarCatalogo(repo, embutidas));
+    app.get('/catalogo', async () => limitarCatalogo(await montarCatalogo(repo, embutidas)));
   };
 }
