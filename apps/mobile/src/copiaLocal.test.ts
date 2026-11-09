@@ -14,7 +14,7 @@ import {
   renovarCopiaDosProdutos,
 } from './api';
 import { apagarCatalogoLocal, esquecerCatalogoEmMemoria, guardarCatalogoLocal, lerCatalogoLocal } from './catalogo';
-import { estaSemConexao } from './conexao';
+import { estaSemConexao, servidorEstaLento } from './conexao';
 import { simularApi } from './teste/ajudas';
 import { catalogoDeTeste, ofertaCatalogo } from './teste/catalogo';
 
@@ -188,7 +188,7 @@ describe('renovar a cópia', () => {
 
 describe('servidor lento (acordando): com cópia no celular, a lista aparece sem esperar', () => {
   afterEach(() => {
-    definirPrazoResposta(4000);
+    definirPrazoResposta(6000);
   });
 
   it('passado o prazo, responde da cópia (marcando que são dados salvos) e o servidor continua sendo esperado', async () => {
@@ -206,7 +206,10 @@ describe('servidor lento (acordando): com cópia no celular, a lista aparece sem
       expect(total).toBeGreaterThan(0); // veio da cópia
       expect(grupos.length).toBeGreaterThan(0);
       expect(estaSemConexao()).toBe(true);
+      expect(servidorEstaLento()).toBe(true); // o aviso diz "servidor lento", não "sem conexão"
       soltar?.();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(estaSemConexao()).toBe(false); // o servidor respondeu: o aviso some
     } finally {
       globalThis.fetch = original;
     }

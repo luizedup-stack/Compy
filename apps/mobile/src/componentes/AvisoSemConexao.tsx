@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useSemConexaoDesde, useServidorAcordando } from '../conexao';
+import { useSemConexaoDesde, useServidorAcordando, useServidorLento } from '../conexao';
 import { cores } from '../tema';
 
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
@@ -17,6 +17,7 @@ export const AVISO_ACORDANDO = 'Acordando o servidor… Na primeira vez do dia i
 export function AvisoSemConexao() {
   const desde = useSemConexaoDesde();
   const acordando = useServidorAcordando();
+  const lento = useServidorLento();
   if (acordando) {
     return (
       <View testID="aviso-acordando" style={estilos.faixa} accessibilityRole="alert">
@@ -25,6 +26,15 @@ export function AvisoSemConexao() {
     );
   }
   if (desde === null) return null;
+  if (lento) {
+    return (
+      <View testID="aviso-lento" style={estilos.faixa} accessibilityRole="alert">
+        <Text style={estilos.texto}>
+          O servidor está demorando para responder (ele dorme quando ninguém usa e leva até 1 minuto para acordar). Mostrando os dados salvos no celular ({textoDataHora(desde)}); o app continua tentando.
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={estilos.faixa} accessibilityRole="alert">
       <Text style={estilos.texto}>
