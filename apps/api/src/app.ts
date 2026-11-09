@@ -38,6 +38,8 @@ export interface OpcoesApp {
   fotos?: { agendarPendentes(): void };
   /** A foto ilustrativa do tipo, tirada do banco de fotos do sistema na hora de responder (veja fotos/embutidas.ts). */
   fotosEmbutidas?: FotosEmbutidas;
+  /** Por quanto tempo (ms) a lista de produtos montada pode ser reaproveitada (veja rotas/busca.ts). Padrão 0: sempre fresca. */
+  cacheRespostasMs?: number;
 }
 
 /**
@@ -103,6 +105,7 @@ export async function construirApp({
   confiarNoProxy = false,
   fotos,
   fotosEmbutidas,
+  cacheRespostasMs = 0,
 }: OpcoesApp): Promise<FastifyInstance> {
   const app = Fastify({
     // O túnel (cloudflared) roda no mesmo computador e entrega a requisição pelo endereço local, trazendo o IP real de
@@ -158,7 +161,7 @@ export async function construirApp({
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
-  await app.register(rotasBusca({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
+  await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));
   await app.register(rotasMercados({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasMeusMercados({ repo }));

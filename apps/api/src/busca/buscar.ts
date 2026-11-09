@@ -99,10 +99,10 @@ export function limitarCatalogo(catalogo: Catalogo, maximo = LIMITE_OFERTAS_COPI
  */
 export async function buscar(
   repo: Repositorio,
-  { q, ordem, usuarioId, embutidas }: { q: string; ordem: OrdemBusca; usuarioId?: number; embutidas?: FotosEmbutidas },
+  { q, ordem, usuarioId, embutidas, catalogo }: { q: string; ordem: OrdemBusca; usuarioId?: number; embutidas?: FotosEmbutidas; catalogo?: Catalogo },
 ): Promise<GrupoProduto[]> {
   if (!consultaValida(q)) return [];
-  const grupos = buscarNoCatalogo(await montarCatalogo(repo, embutidas), { q, ordem });
+  const grupos = buscarNoCatalogo(catalogo ?? (await montarCatalogo(repo, embutidas)), { q, ordem });
 
   const mercados = new Set<number>();
   for (const g of grupos) for (const o of g.ofertas) mercados.add(o.mercadoId);

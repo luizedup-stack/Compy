@@ -42,7 +42,7 @@ async function main(): Promise<void> {
       })
     : undefined;
 
-  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}), ...(config.fotosIlustrativas ? { fotosEmbutidas: criarFotosEmbutidas() } : {}) });
+  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}), ...(config.fotosIlustrativas ? { fotosEmbutidas: criarFotosEmbutidas() } : {}), ...(config.producao ? { cacheRespostasMs: 20_000 } : {}) });
   if (senhaGerada) {
     console.log(`Administrador de desenvolvimento: ${ADMIN_DEV_EMAIL} / senha: ${config.adminSenha} (nova a cada início)`);
   }
