@@ -38,6 +38,7 @@ async function main(): Promise<void> {
         ...(config.fotosIlustrativas ? { ilustrativas: carregarBancoIlustrativo(), categorias: carregarCategorias() } : {}),
         // O buscador por nome serve a duas coisas: achar a foto dos TIPOS de produto (banco ilustrativo) e, só com FOTOS_POR_NOME=1, cada produto pelo próprio nome.
         ...(config.fotosIlustrativas || config.fotosPorNome ? { buscadorPorNome: criarBuscadorPorNomeOpenFoodFacts({ userAgent: AGENTE_FOTOS }), procurarProdutoPorNome: config.fotosPorNome } : {}),
+        intervaloMs: config.fotosIntervaloMs,
         log: (m) => console.log(m),
       })
     : undefined;
