@@ -392,6 +392,35 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           (r) => parametrosDaOferta(r, o),
         );
       },
+      async salvarOfertas(ofertas) {
+        // Em lotes: cada lote vai ao banco como UM texto JSON (uma ida só), que o SQL Server abre com OPENJSON. Primeiro atualiza o que já
+        // existe, depois insere o que falta NA ORDEM de entrada (a coluna seq, que dá a ordem da lista do painel).
+        const COLUNAS_JSON =
+          "ord int '$.ord', mercadoId int '$.mercadoId', codigoBarras varchar(32) '$.codigoBarras', nome nvarchar(max) '$.nome', nomeNorm nvarchar(max) '$.nomeNorm', preco decimal(12,2) '$.preco', quantidadeTexto nvarchar(max) '$.quantidadeTexto', quantidadeValor float '$.quantidadeValor', quantidadeUnidade varchar(10) '$.quantidadeUnidade', categoria nvarchar(max) '$.categoria', disponivel bit '$.disponivel', precoAtualizadoEm datetime2(3) '$.precoAtualizadoEm', promocaoPreco decimal(12,2) '$.promocaoPreco', promocaoInicio datetime2(3) '$.promocaoInicio', promocaoFim datetime2(3) '$.promocaoFim'";
+        for (let i = 0; i < ofertas.length; i += 500) {
+          const json = JSON.stringify(
+            ofertas.slice(i, i + 500).map((o, ord) => ({
+              ord, mercadoId: o.mercadoId, codigoBarras: o.codigoBarras, nome: o.nome, nomeNorm: o.nomeNorm, preco: o.preco,
+              quantidadeTexto: o.quantidadeTexto, quantidadeValor: o.quantidadeValor, quantidadeUnidade: o.quantidadeUnidade, categoria: o.categoria,
+              disponivel: o.disponivel, precoAtualizadoEm: o.precoAtualizadoEm.toISOString(), promocaoPreco: o.promocaoPreco,
+              promocaoInicio: o.promocaoInicio?.toISOString() ?? null, promocaoFim: o.promocaoFim?.toISOString() ?? null,
+            })),
+          );
+          await escrever(
+            `DECLARE @o TABLE (ord int, mercadoId int, codigoBarras varchar(32), nome nvarchar(max), nomeNorm nvarchar(max), preco decimal(12,2), quantidadeTexto nvarchar(max), quantidadeValor float, quantidadeUnidade varchar(10), categoria nvarchar(max), disponivel bit, precoAtualizadoEm datetime2(3), promocaoPreco decimal(12,2), promocaoInicio datetime2(3), promocaoFim datetime2(3));
+             INSERT INTO @o SELECT ord, mercadoId, codigoBarras, nome, nomeNorm, preco, quantidadeTexto, quantidadeValor, quantidadeUnidade, categoria, disponivel, precoAtualizadoEm, promocaoPreco, promocaoInicio, promocaoFim FROM OPENJSON(@json) WITH (${COLUNAS_JSON});
+             BEGIN TRAN;
+             UPDATE t SET t.nome = s.nome, t.nomeNorm = s.nomeNorm, t.preco = s.preco, t.quantidadeTexto = s.quantidadeTexto, t.quantidadeValor = s.quantidadeValor, t.quantidadeUnidade = s.quantidadeUnidade, t.categoria = s.categoria, t.disponivel = s.disponivel, t.precoAtualizadoEm = s.precoAtualizadoEm, t.promocaoPreco = s.promocaoPreco, t.promocaoInicio = s.promocaoInicio, t.promocaoFim = s.promocaoFim
+               FROM dbo.Ofertas t WITH (UPDLOCK, SERIALIZABLE) JOIN @o s ON s.mercadoId = t.mercadoId AND s.codigoBarras = t.codigoBarras;
+             INSERT INTO dbo.Ofertas (${COLUNAS_OFERTA})
+               SELECT s.mercadoId, s.codigoBarras, s.nome, s.nomeNorm, s.preco, s.quantidadeTexto, s.quantidadeValor, s.quantidadeUnidade, s.categoria, s.disponivel, s.precoAtualizadoEm, s.promocaoPreco, s.promocaoInicio, s.promocaoFim
+               FROM @o s WHERE NOT EXISTS (SELECT 1 FROM dbo.Ofertas t WITH (UPDLOCK, SERIALIZABLE) WHERE t.mercadoId = s.mercadoId AND t.codigoBarras = s.codigoBarras)
+               ORDER BY s.ord;
+             COMMIT;`,
+            (r) => r.input('json', sql.NVarChar(sql.MAX), json),
+          );
+        }
+      },
       async acharOferta(mercadoId, codigoBarras) {
         const l = await q(`SELECT ${COLUNAS_OFERTA} FROM dbo.Ofertas WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras`, (r) => {
           r.input('mercadoId', sql.Int, mercadoId);
@@ -453,6 +482,30 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
             r.input('atualizadaEm', sql.DateTime2(3), f.atualizadaEm);
           },
         );
+        cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
+      },
+      async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
+        for (let i = 0; i < fotos.length; i += 500) {
+          const json = JSON.stringify(fotos.slice(i, i + 500).map(([codigoBarras, url]) => ({ codigoBarras, url })));
+          await q(
+            `DECLARE @f TABLE (codigoBarras varchar(32), url nvarchar(1000));
+             INSERT INTO @f SELECT codigoBarras, url FROM OPENJSON(@json) WITH (codigoBarras varchar(32) '$.codigoBarras', url nvarchar(1000) '$.url');
+             BEGIN TRAN;
+             UPDATE t SET t.origem = 'planilha', t.url = s.url, t.imagem = NULL, t.mercadoId = @mercadoId, t.atualizadaEm = @atualizadaEm
+               FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) JOIN @f s ON s.codigoBarras = t.codigoBarras
+               WHERE NOT (t.origem = 'mercado' AND t.imagem IS NOT NULL) AND NOT (t.origem = 'planilha' AND t.url = s.url);
+             INSERT INTO dbo.FotosProduto (codigoBarras, origem, url, imagem, mercadoId, atualizadaEm)
+               SELECT s.codigoBarras, 'planilha', s.url, NULL, @mercadoId, @atualizadaEm FROM @f s
+               WHERE NOT EXISTS (SELECT 1 FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) WHERE t.codigoBarras = s.codigoBarras);
+             COMMIT;`,
+            (r) => {
+              r.input('json', sql.NVarChar(sql.MAX), json);
+              r.input('mercadoId', sql.Int, mercadoId);
+              r.input('atualizadaEm', sql.DateTime2(3), atualizadaEm);
+            },
+          );
+        }
         cache.delete('codigosComFoto');
         cache.delete('codigosIlustrativos');
       },

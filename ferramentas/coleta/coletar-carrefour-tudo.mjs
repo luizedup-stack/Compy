@@ -3,7 +3,7 @@
 // (403/429), para e avisa.
 // Uso: node ferramentas/coleta/coletar-carrefour-tudo.mjs [limite de produtos]     (USAR_CURL=1 se o Node não enxerga o proxy)
 // São ~43 mil páginas, então leva horas: pode ser interrompido (Ctrl+C) e rodado de novo, que continua de onde parou
-// (páginas já vistas ficam em dados-reais/carrefour.progresso.json). Gentil: 2 requisições por vez, ~0,6 s de pausa em cada.
+// (páginas já vistas ficam em dados-reais/carrefour.progresso.json). Gentil: 2 requisições por vez (CONCORRENCIA=4 para mais rápido), ~0,6 s de pausa em cada.
 // As páginas cujo endereço parece de supermercado (arroz, leite, detergente...) vêm primeiro.
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { urlDaFoto } from './foto.mjs';
 
 const LIMITE = Number(process.argv[2] ?? 1_000_000);
 const UA = 'Mozilla/5.0 (BolsoCerto coleta de teste)';
-const PARALELO = 2;
+const PARALELO = Number(process.env.CONCORRENCIA ?? 2);
 const PAUSA_MS = 600;
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const PALAVRAS = /(^|-)(arroz|feijao|macarrao|farinha|acucar|sal|oleo|azeite|cafe|leite|achocolatado|biscoito|bolacha|molho|extrato|milho|ervilha|sardinha|atum|fuba|aveia|granola|cereal|margarina|manteiga|requeijao|queijo|presunto|mortadela|salsicha|linguica|hamburguer|iogurte|suco|refrigerante|agua|cerveja|vinagre|maionese|ketchup|mostarda|tempero|caldo|gelatina|sabao|detergente|amaciante|desinfetante|esponja|papel|guardanapo|shampoo|condicionador|sabonete|creme|desodorante|absorvente|fralda|racao|cha|chocolate|bala|amendoim|pipoca|lentilha|palmito|azeitona)(-|$)/;

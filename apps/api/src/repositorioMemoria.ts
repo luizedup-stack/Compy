@@ -216,6 +216,9 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async salvarOferta(o) {
       dados.ofertas.set(chaveOferta(o.mercadoId, o.codigoBarras), copia(o));
     },
+    async salvarOfertas(ofertas) {
+      for (const o of ofertas) dados.ofertas.set(chaveOferta(o.mercadoId, o.codigoBarras), copia(o));
+    },
     async acharOferta(mercadoId, codigoBarras) {
       const o = dados.ofertas.get(chaveOferta(mercadoId, codigoBarras));
       return o ? copia(o) : null;
@@ -239,6 +242,14 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
 
     async salvarFoto(f) {
       dados.fotos.set(f.codigoBarras, copia(f));
+    },
+    async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
+      for (const [codigoBarras, url] of fotos) {
+        const atual = dados.fotos.get(codigoBarras);
+        if (atual?.origem === 'mercado' && atual.imagem !== null) continue;
+        if (atual?.origem === 'planilha' && atual.url === url) continue;
+        dados.fotos.set(codigoBarras, copia({ codigoBarras, origem: 'planilha', url, imagem: null, mercadoId, atualizadaEm }));
+      }
     },
     async acharFoto(codigoBarras) {
       const f = dados.fotos.get(codigoBarras);

@@ -126,12 +126,19 @@ export interface Repositorio {
   atualizarMercado(id: number, parcial: Partial<Omit<Mercado, 'id'>>): Promise<void>;
   listarMercados(): Promise<Mercado[]>;
   salvarOferta(o: OfertaArmazenada): Promise<void>;
+  /** Como `salvarOferta` para muitas ofertas de uma vez (uma ida ao banco por lote, não por produto), mantendo a ordem de entrada. */
+  salvarOfertas(ofertas: OfertaArmazenada[]): Promise<void>;
   acharOferta(mercadoId: number, codigoBarras: string): Promise<OfertaArmazenada | null>;
   removerOferta(mercadoId: number, codigoBarras: string): Promise<boolean>;
   listarOfertasDoMercado(mercadoId: number): Promise<OfertaArmazenada[]>;
   listarOfertasParaBusca(): Promise<{ oferta: OfertaArmazenada; mercado: Mercado }[]>;
   /** Grava a foto do produto (uma só por código de barras: a nova substitui a anterior). */
   salvarFoto(f: FotoProduto): Promise<void>;
+  /**
+   * Registra, de uma vez, os links de foto vindos de uma planilha (origem "planilha", ainda sem imagem). Não troca a foto que um mercado
+   * enviou à mão (com imagem) nem refaz um link igual ao já indicado.
+   */
+  salvarFotosDaPlanilha(fotos: [codigoBarras: string, url: string][], mercadoId: number, atualizadaEm: Date): Promise<void>;
   acharFoto(codigoBarras: string): Promise<FotoProduto | null>;
   /** Apaga a foto do produto (também o registro de "não achou"). Devolve false se não havia. */
   removerFoto(codigoBarras: string): Promise<boolean>;
