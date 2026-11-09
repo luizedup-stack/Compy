@@ -14,6 +14,9 @@ const REDES = [
   { arquivo: 'oba', saida: 'mercado-oba.xlsx', nome: 'Oba Hortifruti (preços do site)', endereco: 'Preços públicos do site obahortifruti.com.br, sem loja definida – São Paulo – SP' },
   { arquivo: 'covabra', saida: 'mercado-covabra.xlsx', nome: 'Covabra Supermercados (preços do site)', endereco: 'Preços públicos do site covabra.com.br, sem loja definida – Campinas – SP' },
   { arquivo: 'hortifruti', saida: 'mercado-hortifruti.xlsx', nome: 'Hortifruti Natural da Terra (preços do site)', endereco: 'Preços públicos do site hortifruti.com.br, sem loja definida – São Paulo – SP' },
+  // O Assaí bloqueia a coleta automática (proteção anti-robô): a planilha sai só com a aba Mercado e o cabeçalho, pronta para ser
+  // preenchida à mão ou por uma fonte autorizada pela rede. Sem produtos, o importador a recusa: preencha antes de enviar.
+  { arquivo: 'assai', saida: 'mercado-assai.xlsx', nome: 'Assaí Atacadista (preços do site)', endereco: 'Preços do Assaí Atacadista, sem loja definida – São Paulo – SP', modelo: true },
 ];
 
 // Procura "500g", "1,5 L", "12 x 350 ml", "12 un" no nome do produto. Devolve texto ou ''.
@@ -32,13 +35,14 @@ const LINHAS_POR_ARQUIVO = 4500;
 
 for (const rede of REDES) {
   const caminho = new URL(`../../dados-reais/${rede.arquivo}.json`, import.meta.url);
-  if (!existsSync(caminho)) continue;
-  const itens = JSON.parse(readFileSync(caminho, 'utf8'));
+  if (!existsSync(caminho) && !rede.modelo) continue;
+  const itens = existsSync(caminho) ? JSON.parse(readFileSync(caminho, 'utf8')) : [];
 
   // Redes grandes viram vários arquivos com a MESMA aba "Mercado": o servidor junta todos no mesmo mercado
   // (a chave é nome + endereço), cada arquivo acrescenta/atualiza os produtos dele.
   const partes = [];
   for (let i = 0; i < itens.length; i += LINHAS_POR_ARQUIVO) partes.push(itens.slice(i, i + LINHAS_POR_ARQUIVO));
+  if (partes.length === 0 && rede.modelo) partes.push([]); // modelo vazio (Assaí): só a aba Mercado e o cabeçalho
   if (partes.length === 0) continue;
 
   // Apaga as planilhas antigas desta rede (assim não sobra uma parte velha de uma coleta anterior).

@@ -67,6 +67,7 @@ function linhaParaMercado(l: Linha): Mercado {
   };
   if (l.detalhes !== null && l.detalhes !== undefined) m.detalhes = JSON.parse(l.detalhes as string) as Mercado['detalhes'];
   if (l.telefone !== null && l.telefone !== undefined) m.telefone = l.telefone as string;
+  if (l.removidoAte !== null && l.removidoAte !== undefined) m.removidoAte = l.removidoAte as Date;
   return m;
 }
 
@@ -100,7 +101,7 @@ function linhaParaOferta(l: Linha): OfertaArmazenada {
   };
 }
 
-const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone';
+const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone, removidoAte';
 const COLUNAS_OFERTA =
   'mercadoId, codigoBarras, nome, nomeNorm, preco, quantidadeTexto, quantidadeValor, quantidadeUnidade, categoria, disponivel, precoAtualizadoEm, promocaoPreco, promocaoInicio, promocaoFim';
 
@@ -169,6 +170,10 @@ function colunasDoMercado(parcial: Partial<Omit<Mercado, 'id'>>, r: sql.Request)
   if (parcial.detalhes !== undefined) {
     sets.push('detalhes = @detalhes');
     r.input('detalhes', sql.NVarChar(sql.MAX), parcial.detalhes === null ? null : JSON.stringify(parcial.detalhes));
+  }
+  if (parcial.removidoAte !== undefined) {
+    sets.push('removidoAte = @removidoAte');
+    r.input('removidoAte', sql.DateTime2(3), parcial.removidoAte);
   }
   if (parcial.telefone !== undefined) {
     sets.push('telefone = @telefone');
@@ -375,6 +380,23 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           throw e;
         }
       },
+      async reativarMercadosVencidos(agora) {
+        const l = await escrever(
+          `UPDATE dbo.Mercados SET status = 'ativo', removidoAte = NULL OUTPUT inserted.id WHERE status = 'removido' AND removidoAte IS NOT NULL AND removidoAte <= @agora`,
+          (r) => r.input('agora', sql.DateTime2(3), agora),
+        );
+        return l.length;
+      },
+      async apagarMercado(id) {
+        const l = await escrever(
+          `BEGIN TRAN;
+           DELETE FROM dbo.Ofertas WHERE mercadoId = @id;
+           DELETE FROM dbo.Mercados OUTPUT deleted.id WHERE id = @id;
+           COMMIT;`,
+          (r) => r.input('id', sql.Int, id),
+        );
+        return l.length > 0;
+      },
       listarMercados() {
         return comCache('mercados', async () => (await q(`SELECT ${COLUNAS_MERCADO} FROM dbo.Mercados ORDER BY id`)).map(linhaParaMercado));
       },
@@ -391,6 +413,35 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
            COMMIT;`,
           (r) => parametrosDaOferta(r, o),
         );
+      },
+      async salvarOfertas(ofertas) {
+        // Em lotes: cada lote vai ao banco como UM texto JSON (uma ida só), que o SQL Server abre com OPENJSON. Primeiro atualiza o que já
+        // existe, depois insere o que falta NA ORDEM de entrada (a coluna seq, que dá a ordem da lista do painel).
+        const COLUNAS_JSON =
+          "ord int '$.ord', mercadoId int '$.mercadoId', codigoBarras varchar(32) '$.codigoBarras', nome nvarchar(max) '$.nome', nomeNorm nvarchar(max) '$.nomeNorm', preco decimal(12,2) '$.preco', quantidadeTexto nvarchar(max) '$.quantidadeTexto', quantidadeValor float '$.quantidadeValor', quantidadeUnidade varchar(10) '$.quantidadeUnidade', categoria nvarchar(max) '$.categoria', disponivel bit '$.disponivel', precoAtualizadoEm datetime2(3) '$.precoAtualizadoEm', promocaoPreco decimal(12,2) '$.promocaoPreco', promocaoInicio datetime2(3) '$.promocaoInicio', promocaoFim datetime2(3) '$.promocaoFim'";
+        for (let i = 0; i < ofertas.length; i += 500) {
+          const json = JSON.stringify(
+            ofertas.slice(i, i + 500).map((o, ord) => ({
+              ord, mercadoId: o.mercadoId, codigoBarras: o.codigoBarras, nome: o.nome, nomeNorm: o.nomeNorm, preco: o.preco,
+              quantidadeTexto: o.quantidadeTexto, quantidadeValor: o.quantidadeValor, quantidadeUnidade: o.quantidadeUnidade, categoria: o.categoria,
+              disponivel: o.disponivel, precoAtualizadoEm: o.precoAtualizadoEm.toISOString(), promocaoPreco: o.promocaoPreco,
+              promocaoInicio: o.promocaoInicio?.toISOString() ?? null, promocaoFim: o.promocaoFim?.toISOString() ?? null,
+            })),
+          );
+          await escrever(
+            `DECLARE @o TABLE (ord int, mercadoId int, codigoBarras varchar(32), nome nvarchar(max), nomeNorm nvarchar(max), preco decimal(12,2), quantidadeTexto nvarchar(max), quantidadeValor float, quantidadeUnidade varchar(10), categoria nvarchar(max), disponivel bit, precoAtualizadoEm datetime2(3), promocaoPreco decimal(12,2), promocaoInicio datetime2(3), promocaoFim datetime2(3));
+             INSERT INTO @o SELECT ord, mercadoId, codigoBarras, nome, nomeNorm, preco, quantidadeTexto, quantidadeValor, quantidadeUnidade, categoria, disponivel, precoAtualizadoEm, promocaoPreco, promocaoInicio, promocaoFim FROM OPENJSON(@json) WITH (${COLUNAS_JSON});
+             BEGIN TRAN;
+             UPDATE t SET t.nome = s.nome, t.nomeNorm = s.nomeNorm, t.preco = s.preco, t.quantidadeTexto = s.quantidadeTexto, t.quantidadeValor = s.quantidadeValor, t.quantidadeUnidade = s.quantidadeUnidade, t.categoria = s.categoria, t.disponivel = s.disponivel, t.precoAtualizadoEm = s.precoAtualizadoEm, t.promocaoPreco = s.promocaoPreco, t.promocaoInicio = s.promocaoInicio, t.promocaoFim = s.promocaoFim
+               FROM dbo.Ofertas t WITH (UPDLOCK, SERIALIZABLE) JOIN @o s ON s.mercadoId = t.mercadoId AND s.codigoBarras = t.codigoBarras;
+             INSERT INTO dbo.Ofertas (${COLUNAS_OFERTA})
+               SELECT s.mercadoId, s.codigoBarras, s.nome, s.nomeNorm, s.preco, s.quantidadeTexto, s.quantidadeValor, s.quantidadeUnidade, s.categoria, s.disponivel, s.precoAtualizadoEm, s.promocaoPreco, s.promocaoInicio, s.promocaoFim
+               FROM @o s WHERE NOT EXISTS (SELECT 1 FROM dbo.Ofertas t WITH (UPDLOCK, SERIALIZABLE) WHERE t.mercadoId = s.mercadoId AND t.codigoBarras = s.codigoBarras)
+               ORDER BY s.ord;
+             COMMIT;`,
+            (r) => r.input('json', sql.NVarChar(sql.MAX), json),
+          );
+        }
       },
       async acharOferta(mercadoId, codigoBarras) {
         const l = await q(`SELECT ${COLUNAS_OFERTA} FROM dbo.Ofertas WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras`, (r) => {
@@ -454,6 +505,31 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           },
         );
         cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
+      },
+      async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
+        for (let i = 0; i < fotos.length; i += 500) {
+          const json = JSON.stringify(fotos.slice(i, i + 500).map(([codigoBarras, url]) => ({ codigoBarras, url })));
+          await q(
+            `DECLARE @f TABLE (codigoBarras varchar(32), url nvarchar(1000));
+             INSERT INTO @f SELECT codigoBarras, url FROM OPENJSON(@json) WITH (codigoBarras varchar(32) '$.codigoBarras', url nvarchar(1000) '$.url');
+             BEGIN TRAN;
+             UPDATE t SET t.origem = 'planilha', t.url = s.url, t.imagem = NULL, t.mercadoId = @mercadoId, t.atualizadaEm = @atualizadaEm
+               FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) JOIN @f s ON s.codigoBarras = t.codigoBarras
+               WHERE NOT (t.origem = 'mercado' AND t.imagem IS NOT NULL) AND NOT (t.origem = 'planilha' AND t.url = s.url);
+             INSERT INTO dbo.FotosProduto (codigoBarras, origem, url, imagem, mercadoId, atualizadaEm)
+               SELECT s.codigoBarras, 'planilha', s.url, NULL, @mercadoId, @atualizadaEm FROM @f s
+               WHERE NOT EXISTS (SELECT 1 FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) WHERE t.codigoBarras = s.codigoBarras);
+             COMMIT;`,
+            (r) => {
+              r.input('json', sql.NVarChar(sql.MAX), json);
+              r.input('mercadoId', sql.Int, mercadoId);
+              r.input('atualizadaEm', sql.DateTime2(3), atualizadaEm);
+            },
+          );
+        }
+        cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
       },
       async acharFoto(codigoBarras) {
         const l = await q('SELECT * FROM dbo.FotosProduto WHERE codigoBarras = @codigoBarras', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
@@ -465,6 +541,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras),
         );
         cache.delete('codigosComFoto');
+        cache.delete('codigosIlustrativos');
         return l.length > 0;
       },
       async listarResumoDeFotos(codigos) {
@@ -479,12 +556,21 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
         );
         return l.map((x) => ({ codigoBarras: x.codigoBarras as string, origem: x.origem as FotoProduto['origem'] }));
       },
+      async acharNomeDoProduto(codigoBarras) {
+        const l = await q('SELECT TOP (1) nome FROM dbo.Ofertas WHERE codigoBarras = @codigoBarras ORDER BY LEN(nome) DESC, mercadoId', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
+        return l[0] ? (l[0].nome as string) : null;
+      },
       async listarFotosParaBaixar(limite) {
         const l = await q(
           'SELECT TOP (@limite) codigoBarras, url FROM dbo.FotosProduto WHERE url IS NOT NULL AND imagem IS NULL ORDER BY codigoBarras',
           (r) => r.input('limite', sql.Int, Math.max(0, limite)),
         );
         return l.map((x) => ({ codigoBarras: x.codigoBarras as string, url: x.url as string }));
+      },
+      listarCodigosComFotoIlustrativa() {
+        return comCache('codigosIlustrativos', async () =>
+          (await q("SELECT codigoBarras FROM dbo.FotosProduto WHERE origem = 'ilustrativa' AND imagem IS NOT NULL ORDER BY codigoBarras")).map((x) => x.codigoBarras as string),
+        );
       },
       listarCodigosComFoto() {
         return comCache('codigosComFoto', async () =>
@@ -496,7 +582,7 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           `SELECT TOP (@limite) o.codigoBarras
            FROM (SELECT DISTINCT codigoBarras FROM dbo.Ofertas) o
            LEFT JOIN dbo.FotosProduto f ON f.codigoBarras = o.codigoBarras
-           WHERE f.codigoBarras IS NULL OR (f.url IS NULL AND f.imagem IS NULL AND f.atualizadaEm < @antes)
+           WHERE f.codigoBarras IS NULL OR (((f.url IS NULL AND f.imagem IS NULL) OR f.origem = 'ilustrativa') AND f.atualizadaEm < @antes)
            ORDER BY o.codigoBarras`,
           (r) => {
             r.input('limite', sql.Int, Math.max(0, limite));
@@ -504,6 +590,29 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           },
         );
         return l.map((x) => x.codigoBarras as string);
+      },
+
+      async acharConfiguracao(chave) {
+        const l = await q('SELECT valor FROM dbo.Configuracao WHERE chave = @chave', (r) => r.input('chave', sql.NVarChar(100), chave));
+        return l[0] ? (l[0].valor as string) : null;
+      },
+      async salvarConfiguracao(chave, valor) {
+        await q(
+          `BEGIN TRAN;
+           UPDATE dbo.Configuracao WITH (UPDLOCK, SERIALIZABLE) SET valor = @valor WHERE chave = @chave;
+           IF @@ROWCOUNT = 0 INSERT INTO dbo.Configuracao (chave, valor) VALUES (@chave, @valor);
+           COMMIT;`,
+          (r) => {
+            r.input('chave', sql.NVarChar(100), chave);
+            r.input('valor', sql.NVarChar(sql.MAX), valor);
+          },
+        );
+      },
+      async listarConfiguracoes(prefixo) {
+        const l = await q('SELECT chave, valor FROM dbo.Configuracao WHERE LEFT(chave, LEN(@prefixo)) = @prefixo ORDER BY chave', (r) =>
+          r.input('prefixo', sql.NVarChar(100), prefixo),
+        );
+        return l.map((x) => ({ chave: x.chave as string, valor: x.valor as string }));
       },
 
       async registrarBusca(b) {

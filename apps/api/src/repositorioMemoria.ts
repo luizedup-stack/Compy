@@ -23,6 +23,7 @@ interface Dados {
   mercados: Map<number, Mercado>;
   ofertas: Map<string, OfertaArmazenada>;
   fotos: Map<string, FotoProduto>;
+  configuracoes: Map<string, string>;
   buscas: BuscaRegistrada[];
   proximoUsuarioId: number;
   proximoMercadoId: number;
@@ -35,6 +36,7 @@ function dadosVazios(): Dados {
     mercados: new Map(),
     ofertas: new Map(),
     fotos: new Map(),
+    configuracoes: new Map(),
     buscas: [],
     proximoUsuarioId: 1,
     proximoMercadoId: 1,
@@ -80,6 +82,7 @@ function deTexto(texto: string): Dados {
   const d = lido.dados;
   // Estado salvo por uma versão anterior ao recurso de fotos: sem fotos.
   if (d && !(d.fotos instanceof Map)) d.fotos = new Map();
+  if (d && !(d.configuracoes instanceof Map)) d.configuracoes = new Map();
   if (
     lido.versao !== 1 ||
     !d ||
@@ -209,9 +212,29 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async listarMercados() {
       return [...dados.mercados.values()].map(copia);
     },
+    async reativarMercadosVencidos(agora) {
+      let n = 0;
+      for (const m of dados.mercados.values()) {
+        if (m.status === 'removido' && m.removidoAte && m.removidoAte.getTime() <= agora.getTime()) {
+          m.status = 'ativo';
+          m.removidoAte = null;
+          n++;
+        }
+      }
+      return n;
+    },
+    async apagarMercado(id) {
+      if (!dados.mercados.delete(id)) return false;
+      for (const [chave, o] of dados.ofertas) if (o.mercadoId === id) dados.ofertas.delete(chave);
+      for (const f of dados.fotos.values()) if (f.mercadoId === id) f.mercadoId = null; // como o banco (ON DELETE SET NULL)
+      return true;
+    },
 
     async salvarOferta(o) {
       dados.ofertas.set(chaveOferta(o.mercadoId, o.codigoBarras), copia(o));
+    },
+    async salvarOfertas(ofertas) {
+      for (const o of ofertas) dados.ofertas.set(chaveOferta(o.mercadoId, o.codigoBarras), copia(o));
     },
     async acharOferta(mercadoId, codigoBarras) {
       const o = dados.ofertas.get(chaveOferta(mercadoId, codigoBarras));
@@ -237,6 +260,14 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async salvarFoto(f) {
       dados.fotos.set(f.codigoBarras, copia(f));
     },
+    async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
+      for (const [codigoBarras, url] of fotos) {
+        const atual = dados.fotos.get(codigoBarras);
+        if (atual?.origem === 'mercado' && atual.imagem !== null) continue;
+        if (atual?.origem === 'planilha' && atual.url === url) continue;
+        dados.fotos.set(codigoBarras, copia({ codigoBarras, origem: 'planilha', url, imagem: null, mercadoId, atualizadaEm }));
+      }
+    },
     async acharFoto(codigoBarras) {
       const f = dados.fotos.get(codigoBarras);
       return f ? copia(f) : null;
@@ -251,12 +282,20 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
         .map((f) => ({ codigoBarras: f.codigoBarras, origem: f.origem }))
         .sort((a, b) => (a.codigoBarras < b.codigoBarras ? -1 : a.codigoBarras > b.codigoBarras ? 1 : 0));
     },
+    async acharNomeDoProduto(codigoBarras) {
+      let nome: string | null = null;
+      for (const o of dados.ofertas.values()) if (o.codigoBarras === codigoBarras && (nome === null || o.nome.length > nome.length)) nome = o.nome;
+      return nome;
+    },
     async listarFotosParaBaixar(limite) {
       return [...dados.fotos.values()]
         .filter((f) => f.url !== null && f.imagem === null)
         .map((f) => ({ codigoBarras: f.codigoBarras, url: f.url as string }))
         .sort((a, b) => (a.codigoBarras < b.codigoBarras ? -1 : a.codigoBarras > b.codigoBarras ? 1 : 0))
         .slice(0, Math.max(0, limite));
+    },
+    async listarCodigosComFotoIlustrativa() {
+      return [...dados.fotos.values()].filter((f) => f.origem === 'ilustrativa' && f.imagem !== null).map((f) => f.codigoBarras).sort();
     },
     async listarCodigosComFoto() {
       return [...dados.fotos.values()].filter(fotoPronta).map((f) => f.codigoBarras).sort();
@@ -267,10 +306,25 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
       return [...codigos]
         .filter((c) => {
           const f = dados.fotos.get(c);
-          return !f || (f.url === null && f.imagem === null && f.atualizadaEm.getTime() < tentarDeNovoAntesDe.getTime());
+          if (!f) return true;
+          const semFotoReal = (f.url === null && f.imagem === null) || f.origem === 'ilustrativa';
+          return semFotoReal && f.atualizadaEm.getTime() < tentarDeNovoAntesDe.getTime();
         })
         .sort()
         .slice(0, Math.max(0, limite));
+    },
+
+    async acharConfiguracao(chave) {
+      return dados.configuracoes.get(chave) ?? null;
+    },
+    async salvarConfiguracao(chave, valor) {
+      dados.configuracoes.set(chave, valor);
+    },
+    async listarConfiguracoes(prefixo) {
+      return [...dados.configuracoes]
+        .filter(([c]) => c.startsWith(prefixo))
+        .map(([chave, valor]) => ({ chave, valor }))
+        .sort((a, b) => (a.chave < b.chave ? -1 : a.chave > b.chave ? 1 : 0));
     },
 
     async registrarBusca(b) {

@@ -12,6 +12,7 @@ import type { Catalogo } from '@mercado/shared';
 const CHAVE_META = 'bolso-certo.catalogo.meta';
 const chaveParte = (i: number) => `bolso-certo.catalogo.parte.${i}`;
 export const OFERTAS_POR_PARTE = 3000;
+const CHAVE_FOTOS = 'bolso-certo.catalogo.fotos';
 /** Marca no começo de uma parte compactada. Parte sem a marca é o formato antigo (JSON puro) e ainda é lida. */
 const MARCA_GZIP = 'gz:';
 
@@ -55,8 +56,21 @@ export async function lerCatalogoLocal(): Promise<CatalogoLocal | null> {
       if (!texto) return null; // cópia incompleta: é como se não houvesse
       for (const o of descompactar(texto)) ofertas.push(o);
     }
+    let fotos: { comFoto?: string[]; fotosIlustrativas?: string[] } = {};
+    try {
+      const textoFotos = await AsyncStorage.getItem(CHAVE_FOTOS);
+      if (textoFotos) fotos = JSON.parse(textoFotos) as typeof fotos;
+    } catch {
+      // sem as fotos a cópia continua valendo
+    }
     emMemoria = {
-      catalogo: { geradoEm: meta.geradoEm ?? '', mercados: meta.mercados, ofertas },
+      catalogo: {
+        geradoEm: meta.geradoEm ?? '',
+        mercados: meta.mercados,
+        ofertas,
+        ...(Array.isArray(fotos.comFoto) ? { comFoto: fotos.comFoto } : {}),
+        ...(Array.isArray(fotos.fotosIlustrativas) ? { fotosIlustrativas: fotos.fotosIlustrativas } : {}),
+      },
       baixadoEm: meta.baixadoEm,
     };
     return emMemoria;
@@ -78,6 +92,8 @@ export async function guardarCatalogoLocal(catalogo: Catalogo, baixadoEm: number
     await AsyncStorage.multiSet(partes.map((p, i) => [chaveParte(i), compactar(p)] as [string, string]));
     const meta: Meta = { geradoEm: catalogo.geradoEm, baixadoEm, mercados: catalogo.mercados, partes: partes.length };
     await AsyncStorage.setItem(CHAVE_META, JSON.stringify(meta));
+    // Quais produtos têm foto (e quais são ilustrativas): sem isto, ao reabrir o app sem internet as fotos sumiriam.
+    await AsyncStorage.setItem(CHAVE_FOTOS, JSON.stringify({ comFoto: catalogo.comFoto ?? [], fotosIlustrativas: catalogo.fotosIlustrativas ?? [] })).catch(() => undefined);
     if (partesAntes > partes.length) {
       await AsyncStorage.multiRemove(Array.from({ length: partesAntes - partes.length }, (_, i) => chaveParte(partes.length + i)));
     }
@@ -94,7 +110,7 @@ export async function apagarCatalogoLocal(): Promise<void> {
   try {
     const bruto = await AsyncStorage.getItem(CHAVE_META);
     const partes = bruto ? ((JSON.parse(bruto) as Partial<Meta>).partes ?? 0) : 0;
-    await AsyncStorage.multiRemove([CHAVE_META, ...Array.from({ length: partes }, (_, i) => chaveParte(i))]);
+    await AsyncStorage.multiRemove([CHAVE_META, CHAVE_FOTOS, ...Array.from({ length: partes }, (_, i) => chaveParte(i))]);
   } catch {
     // Nada a fazer.
   }

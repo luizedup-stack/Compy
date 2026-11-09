@@ -1,0 +1,619 @@
+[
+ {
+  "id": "papel-higienico",
+  "palavras": [
+   "papel",
+   "higienico"
+  ],
+  "busca": "papel higiênico folha dupla"
+ },
+ {
+  "id": "leite",
+  "palavras": [
+   "leite"
+  ],
+  "busca": "leite integral parmalat"
+ },
+ {
+  "id": "feijao",
+  "palavras": [
+   "feijao"
+  ],
+  "busca": "feijão carioca camil"
+ },
+ {
+  "id": "macarrao",
+  "palavras": [
+   "macarrao"
+  ],
+  "busca": "macarrão espaguete renata"
+ },
+ {
+  "id": "sal",
+  "palavras": [
+   "sal"
+  ],
+  "busca": "sal refinado iodado"
+ },
+ {
+  "id": "oleo-de-soja",
+  "palavras": [
+   "oleo",
+   "soja"
+  ],
+  "busca": "óleo de soja liza"
+ },
+ {
+  "id": "cafe",
+  "palavras": [
+   "cafe"
+  ],
+  "busca": "café torrado e moído pilão"
+ },
+ {
+  "id": "biscoito",
+  "palavras": [
+   "biscoito"
+  ],
+  "busca": "biscoito recheado trakinas"
+ },
+ {
+  "id": "molho-de-tomate",
+  "palavras": [
+   "molho",
+   "tomate"
+  ],
+  "busca": "molho de tomate pomarola"
+ },
+ {
+  "id": "queijo",
+  "palavras": [
+   "queijo"
+  ],
+  "busca": "queijo mussarela fatiado"
+ },
+ {
+  "id": "iogurte",
+  "palavras": [
+   "iogurte"
+  ],
+  "busca": "iogurte natural danone"
+ },
+ {
+  "id": "suco",
+  "palavras": [
+   "suco"
+  ],
+  "busca": "suco de laranja del valle"
+ },
+ {
+  "id": "refrigerante",
+  "palavras": [
+   "refrigerante"
+  ],
+  "busca": "refrigerante coca-cola"
+ },
+ {
+  "id": "cerveja",
+  "palavras": [
+   "cerveja"
+  ],
+  "busca": "cerveja pilsen skol"
+ },
+ {
+  "id": "sabao-em-po",
+  "palavras": [
+   "sabao",
+   "po"
+  ],
+  "busca": "sabão em pó omo"
+ },
+ {
+  "id": "detergente",
+  "palavras": [
+   "detergente"
+  ],
+  "busca": "detergente líquido ypê"
+ },
+ {
+  "id": "amaciante",
+  "palavras": [
+   "amaciante"
+  ],
+  "busca": "amaciante comfort"
+ },
+ {
+  "id": "agua-sanitaria",
+  "palavras": [
+   "agua",
+   "sanitaria"
+  ],
+  "busca": "água sanitária qboa"
+ },
+ {
+  "id": "desinfetante",
+  "palavras": [
+   "desinfetante"
+  ],
+  "busca": "desinfetante pinho sol"
+ },
+ {
+  "id": "esponja",
+  "palavras": [
+   "esponja"
+  ],
+  "busca": "esponja de limpeza scotch-brite"
+ },
+ {
+  "id": "shampoo",
+  "palavras": [
+   "shampoo"
+  ],
+  "busca": "shampoo seda"
+ },
+ {
+  "id": "sabonete",
+  "palavras": [
+   "sabonete"
+  ],
+  "busca": "sabonete dove"
+ },
+ {
+  "id": "creme-dental",
+  "palavras": [
+   "creme",
+   "dental"
+  ],
+  "busca": "creme dental colgate"
+ },
+ {
+  "id": "desodorante",
+  "palavras": [
+   "desodorante"
+  ],
+  "busca": "desodorante aerosol rexona"
+ },
+ {
+  "id": "ovos",
+  "palavras": [
+   "ovos"
+  ],
+  "busca": "ovos brancos"
+ },
+ {
+  "id": "arroz",
+  "palavras": [
+   "arroz"
+  ],
+  "busca": "arroz branco tipo 1 tio joao"
+ },
+ {
+  "id": "farinha-de-trigo",
+  "palavras": [
+   "farinha",
+   "trigo"
+  ],
+  "busca": "farinha de trigo dona benta"
+ },
+ {
+  "id": "acucar",
+  "palavras": [
+   "acucar"
+  ],
+  "busca": "açúcar refinado união"
+ },
+ {
+  "id": "manteiga",
+  "palavras": [
+   "manteiga"
+  ],
+  "busca": "manteiga com sal aviação"
+ },
+ {
+  "id": "agua-mineral",
+  "palavras": [
+   "agua",
+   "mineral"
+  ],
+  "busca": "água mineral sem gás crystal"
+ },
+ {
+  "id": "leite-condensado",
+  "palavras": [
+   "leite",
+   "condensado"
+  ],
+  "busca": "leite condensado moça nestle"
+ },
+ {
+  "id": "leite-em-po",
+  "palavras": [
+   "leite",
+   "po"
+  ],
+  "busca": "leite em pó integral ninho nestle"
+ },
+ {
+  "id": "creme-de-leite",
+  "palavras": [
+   "creme",
+   "leite"
+  ],
+  "busca": "creme de leite nestle"
+ },
+ {
+  "id": "doce-de-leite",
+  "palavras": [
+   "doce",
+   "leite"
+  ],
+  "busca": "doce de leite mococa"
+ },
+ {
+  "id": "feijao-preto",
+  "palavras": [
+   "feijao",
+   "preto"
+  ],
+  "busca": "feijão preto camil"
+ },
+ {
+  "id": "farinha-de-mandioca",
+  "palavras": [
+   "farinha",
+   "mandioca"
+  ],
+  "busca": "farinha de mandioca yoki"
+ },
+ {
+  "id": "azeite",
+  "palavras": [
+   "azeite"
+  ],
+  "busca": "azeite de oliva extra virgem gallo"
+ },
+ {
+  "id": "achocolatado",
+  "palavras": [
+   "achocolatado"
+  ],
+  "busca": "achocolatado em pó nescau"
+ },
+ {
+  "id": "bolacha",
+  "palavras": [
+   "bolacha"
+  ],
+  "busca": "bolacha maisena piraquê"
+ },
+ {
+  "id": "extrato-de-tomate",
+  "palavras": [
+   "extrato",
+   "tomate"
+  ],
+  "busca": "extrato de tomate elefante"
+ },
+ {
+  "id": "milho-verde",
+  "palavras": [
+   "milho",
+   "verde"
+  ],
+  "busca": "milho verde quero"
+ },
+ {
+  "id": "ervilha",
+  "palavras": [
+   "ervilha"
+  ],
+  "busca": "ervilha quero"
+ },
+ {
+  "id": "sardinha",
+  "palavras": [
+   "sardinha"
+  ],
+  "busca": "sardinha em óleo gomes da costa"
+ },
+ {
+  "id": "atum",
+  "palavras": [
+   "atum"
+  ],
+  "busca": "atum sólido em óleo gomes da costa"
+ },
+ {
+  "id": "aveia",
+  "palavras": [
+   "aveia"
+  ],
+  "busca": "aveia em flocos quaker"
+ },
+ {
+  "id": "granola",
+  "palavras": [
+   "granola"
+  ],
+  "busca": "granola tradicional nestlé"
+ },
+ {
+  "id": "cereal",
+  "palavras": [
+   "cereal"
+  ],
+  "busca": "cereal matinal sucrilhos kellogg's"
+ },
+ {
+  "id": "margarina",
+  "palavras": [
+   "margarina"
+  ],
+  "busca": "margarina qualy"
+ },
+ {
+  "id": "requeijao",
+  "palavras": [
+   "requeijao"
+  ],
+  "busca": "requeijão cremoso catupiry"
+ },
+ {
+  "id": "presunto",
+  "palavras": [
+   "presunto"
+  ],
+  "busca": "presunto cozido sadia"
+ },
+ {
+  "id": "mortadela",
+  "palavras": [
+   "mortadela"
+  ],
+  "busca": "mortadela ouro sadia"
+ },
+ {
+  "id": "salsicha",
+  "palavras": [
+   "salsicha"
+  ],
+  "busca": "salsicha hot dog sadia"
+ },
+ {
+  "id": "linguica",
+  "palavras": [
+   "linguica"
+  ],
+  "busca": "linguiça toscana sadia"
+ },
+ {
+  "id": "hamburguer",
+  "palavras": [
+   "hamburguer"
+  ],
+  "busca": "hambúrguer bovino sadia"
+ },
+ {
+  "id": "vinagre",
+  "palavras": [
+   "vinagre"
+  ],
+  "busca": "vinagre de álcool castelo"
+ },
+ {
+  "id": "maionese",
+  "palavras": [
+   "maionese"
+  ],
+  "busca": "maionese hellmann's"
+ },
+ {
+  "id": "ketchup",
+  "palavras": [
+   "ketchup"
+  ],
+  "busca": "ketchup heinz"
+ },
+ {
+  "id": "mostarda",
+  "palavras": [
+   "mostarda"
+  ],
+  "busca": "mostarda amarela hemmer"
+ },
+ {
+  "id": "tempero",
+  "palavras": [
+   "tempero"
+  ],
+  "busca": "tempero completo sazon"
+ },
+ {
+  "id": "caldo",
+  "palavras": [
+   "caldo"
+  ],
+  "busca": "caldo de galinha knorr"
+ },
+ {
+  "id": "gelatina",
+  "palavras": [
+   "gelatina"
+  ],
+  "busca": "gelatina em pó royal"
+ },
+ {
+  "id": "pao-de-forma",
+  "palavras": [
+   "pao",
+   "forma"
+  ],
+  "busca": "pão de forma tradicional wickbold"
+ },
+ {
+  "id": "torrada",
+  "palavras": [
+   "torrada"
+  ],
+  "busca": "torrada tradicional bauducco"
+ },
+ {
+  "id": "chocolate",
+  "palavras": [
+   "chocolate"
+  ],
+  "busca": "chocolate ao leite lacta"
+ },
+ {
+  "id": "bala",
+  "palavras": [
+   "bala"
+  ],
+  "busca": "bala de goma fini"
+ },
+ {
+  "id": "amendoim",
+  "palavras": [
+   "amendoim"
+  ],
+  "busca": "amendoim torrado dori"
+ },
+ {
+  "id": "pipoca",
+  "palavras": [
+   "pipoca"
+  ],
+  "busca": "pipoca de micro-ondas yoki"
+ },
+ {
+  "id": "batata-palha",
+  "palavras": [
+   "batata",
+   "palha"
+  ],
+  "busca": "batata palha yoki"
+ },
+ {
+  "id": "lentilha",
+  "palavras": [
+   "lentilha"
+  ],
+  "busca": "lentilha camil"
+ },
+ {
+  "id": "grao-de-bico",
+  "palavras": [
+   "grao",
+   "bico"
+  ],
+  "busca": "grão de bico camil"
+ },
+ {
+  "id": "palmito",
+  "palavras": [
+   "palmito"
+  ],
+  "busca": "palmito pupunha quero"
+ },
+ {
+  "id": "azeitona",
+  "palavras": [
+   "azeitona"
+  ],
+  "busca": "azeitona verde sem caroço"
+ },
+ {
+  "id": "cha",
+  "palavras": [
+   "cha"
+  ],
+  "busca": "chá mate leão"
+ },
+ {
+  "id": "sabao-em-barra",
+  "palavras": [
+   "sabao",
+   "barra"
+  ],
+  "busca": "sabão em barra ypê"
+ },
+ {
+  "id": "limpador",
+  "palavras": [
+   "limpador"
+  ],
+  "busca": "limpador multiuso veja"
+ },
+ {
+  "id": "papel-toalha",
+  "palavras": [
+   "papel",
+   "toalha"
+  ],
+  "busca": "papel toalha snob"
+ },
+ {
+  "id": "guardanapo",
+  "palavras": [
+   "guardanapo"
+  ],
+  "busca": "guardanapo de papel snob"
+ },
+ {
+  "id": "sacos-de-lixo",
+  "palavras": [
+   "lixo"
+  ],
+  "busca": "saco de lixo super sacos"
+ },
+ {
+  "id": "condicionador",
+  "palavras": [
+   "condicionador"
+  ],
+  "busca": "condicionador seda"
+ },
+ {
+  "id": "escova-de-dente",
+  "palavras": [
+   "escova",
+   "dente"
+  ],
+  "busca": "escova dental oral-b"
+ },
+ {
+  "id": "absorvente",
+  "palavras": [
+   "absorvente"
+  ],
+  "busca": "absorvente always"
+ },
+ {
+  "id": "fralda",
+  "palavras": [
+   "fralda"
+  ],
+  "busca": "fralda descartável pampers"
+ },
+ {
+  "id": "algodao",
+  "palavras": [
+   "algodao"
+  ],
+  "busca": "algodão hidrófilo cremer"
+ },
+ {
+  "id": "cotonete",
+  "palavras": [
+   "cotonete"
+  ],
+  "busca": "hastes flexíveis cotonete johnson"
+ },
+ {
+  "id": "racao",
+  "palavras": [
+   "racao"
+  ],
+  "busca": "ração para cães pedigree"
+ }
+]

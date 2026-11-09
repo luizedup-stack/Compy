@@ -6,6 +6,7 @@ import { AppState, View } from 'react-native';
 
 import { renovarCopiaDosProdutos } from './api';
 import { AvisoSemConexao } from './componentes/AvisoSemConexao';
+import { BotaoAtualizar } from './componentes/BotaoAtualizar';
 import type { AbasParamList, RootStackParamList, RotaInicial } from './rotas';
 import { useSessao } from './sessao';
 import { Busca } from './telas/Busca';
@@ -62,7 +63,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
   // 1) Ao abrir o app, renova a cópia dos produtos guardada no celular, em segundo plano (a consulta é pública).
   // 2) Sempre que o app volta para a tela (o usuário saiu dele e voltou, por exemplo depois de recuperar o sinal),
   //    tenta renovar de novo; sem internet a tentativa falha em silêncio e continua valendo a cópia guardada.
-  //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 3 horas.)
+  //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 3 minutos.)
   // Espera a leitura do endereço do servidor guardado (carregando) para não consultar o endereço errado.
   useEffect(() => {
     if (carregando) return;
@@ -87,7 +88,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
             </View>
           )}
         >
-          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo' }} />
+          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo', headerRight: () => <BotaoAtualizar /> }} />
           <Stack.Screen
             name="MercadoDetalhe"
             component={MercadoDetalhe}

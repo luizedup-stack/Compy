@@ -1,3 +1,4 @@
+import type { FotosEmbutidas } from './fotos/embutidas';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,6 +25,10 @@ export interface OpcoesServidor {
   instancia?: string;
   /** Veja OpcoesApp.fotos. */
   fotos?: { agendarPendentes(): void };
+  /** Veja OpcoesApp.fotosEmbutidas. */
+  fotosEmbutidas?: FotosEmbutidas;
+  /** Veja OpcoesApp.cacheRespostasMs. */
+  cacheRespostasMs?: number;
 }
 
 /** Prefixo em que a API entrega o painel do mercado (quando a pasta do painel compilado existe). */
@@ -48,7 +53,7 @@ export function completarAdminDeDesenvolvimento(config: Config): { config: Confi
 /** Monta tudo a partir da configuração (repositório em memória, administrador, dados de teste), sem escutar porta. */
 export async function montarServidor(
   config: Config,
-  { logger = false, email = criarEmailConsole(), repo = criarRepositorioMemoria(), instancia, fotos }: OpcoesServidor = {},
+  { logger = false, email = criarEmailConsole(), repo = criarRepositorioMemoria(), instancia, fotos, fotosEmbutidas, cacheRespostasMs }: OpcoesServidor = {},
 ): Promise<{ app: FastifyInstance; repo: Repositorio }> {
   const app = await construirApp({
     repo,
@@ -59,6 +64,8 @@ export async function montarServidor(
     instancia,
     confiarNoProxy: config.confiarNoProxy,
     fotos,
+    fotosEmbutidas,
+    ...(cacheRespostasMs !== undefined ? { cacheRespostasMs } : {}),
   });
   try {
     if (config.adminEmail !== null && config.adminSenha !== null) {

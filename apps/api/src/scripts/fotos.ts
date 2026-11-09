@@ -8,7 +8,8 @@
 // Respeita o limite do serviço (uma consulta por vez, com pausa) e pode levar vários minutos para muitos produtos.
 import { abrirConexao, aplicarMigracoes } from '../banco/conexao';
 import { criarGerenciadorDeFotos } from '../fotos/gerenciador';
-import { criarBuscadorOpenFoodFacts } from '../fotos/openFoodFacts';
+import { carregarBancoIlustrativo, carregarCategorias } from '../fotos/ilustrativas';
+import { criarBuscadorOpenFoodFacts, criarBuscadorPorNomeOpenFoodFacts } from '../fotos/openFoodFacts';
 import { criarRepositorioSqlServer } from '../repositorioSqlServer';
 
 async function main(): Promise<void> {
@@ -24,10 +25,16 @@ async function main(): Promise<void> {
     const gerenciador = criarGerenciadorDeFotos({
       repo,
       buscador: criarBuscadorOpenFoodFacts({ userAgent: 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }),
+      // Com FOTOS_ILUSTRATIVAS=0 não usa a foto do tipo de produto quando não acha a específica.
+      ...(process.env.FOTOS_ILUSTRATIVAS !== '0' ? { ilustrativas: carregarBancoIlustrativo(), categorias: carregarCategorias() } : {}),
+      // Com FOTOS_POR_NOME=0 só procura pelo código de barras; senão também pelo nome (mais devagar: o serviço limita essas buscas).
+      ...(process.env.FOTOS_ILUSTRATIVAS !== '0' || process.env.FOTOS_POR_NOME === '1'
+        ? { buscadorPorNome: criarBuscadorPorNomeOpenFoodFacts({ userAgent: 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }), procurarProdutoPorNome: process.env.FOTOS_POR_NOME === '1' }
+        : {}),
       log: (m) => console.log(m),
     });
     const r = await gerenciador.processarPendentes();
-    console.log(`Pronto: ${r.achadas} fotos achadas, ${r.naoAchadas} produtos sem foto no banco aberto${r.adiadas ? ' (o serviço pediu calma: rode de novo mais tarde para o resto)' : ''}.`);
+    console.log(`Pronto: ${r.achadas} fotos achadas, ${r.ilustrativas} com foto ilustrativa, ${r.naoAchadas} produtos sem foto${r.adiadas ? ' (o serviço pediu calma: rode de novo mais tarde para o resto)' : ''}.`);
     console.log(`Produtos com foto no banco: ${(await repo.listarCodigosComFoto()).length}.`);
   } finally {
     await pool.close();

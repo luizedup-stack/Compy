@@ -227,7 +227,7 @@ export function trocarSenha(senhaAtual: string, senhaNova: string): Promise<void
 // consultas são feitas nessa cópia, com a mesma conta que o servidor usa (packages/shared).
 
 /** Quanto tempo uma tentativa de renovar a cópia vale antes de tentar de novo. */
-const PRAZO_RENOVAR_MS = 3 * 60 * 60 * 1000;
+const PRAZO_RENOVAR_MS = 3 * 60 * 1000;
 let renovacaoAutomatica = true;
 let renovando: Promise<void> | null = null;
 let ultimaTentativa = 0;
@@ -239,7 +239,7 @@ export function definirRenovacaoAutomatica(ligada: boolean): void {
 }
 
 /**
- * Baixa a cópia de todos os produtos e a guarda no celular. Sem `forcar`, não repete dentro de 3 horas (a cópia é grande: são dezenas de milhares de ofertas).
+ * Baixa a cópia de todos os produtos e a guarda no celular. Sem `forcar`, não repete dentro de 3 minutos.
  * Nunca lança erro: falhas só significam que a cópia antiga continua valendo.
  */
 export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
@@ -261,19 +261,54 @@ export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
   return renovando;
 }
 
-/** Faz a consulta no servidor; se ele não responder (status 0), refaz na cópia do celular, se houver. */
+/**
+ * Quanto o app espera o servidor antes de mostrar a cópia guardada no celular (só se houver cópia). O servidor gratuito dorme sem uso e
+ * a primeira resposta do dia demora quase 1 minuto: com a cópia, a pessoa vê os produtos na hora e o servidor acorda por baixo dos panos.
+ */
+let prazoRespostaMs = 6000;
+export function definirPrazoResposta(ms: number): void {
+  prazoRespostaMs = ms;
+}
+
+/** Faz a consulta no servidor; se ele não responder (status 0) ou demorar demais, refaz na cópia do celular, se houver. */
 async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo: Catalogo) => T): Promise<T> {
   try {
-    const resultado = await noServidor();
+    const local = await lerCatalogoLocal();
+    const servidor = noServidor();
+    let resultado: T;
+    if (local) {
+      const demorou = Symbol('demorou');
+      let relogio: ReturnType<typeof setTimeout> | undefined;
+      const prazo = new Promise<typeof demorou>((resolve) => {
+        relogio = setTimeout(() => resolve(demorou), prazoRespostaMs);
+      });
+      const primeiro = await Promise.race([servidor, prazo]).finally(() => clearTimeout(relogio));
+      if (primeiro === demorou) {
+        // Segue esperando o servidor em segundo plano (é a consulta que o acorda) e, quando ele responder, renova a cópia.
+        // Quando o servidor responder, o aviso some (os dados da tela são os da cópia até a próxima consulta).
+        servidor.then(
+          () => {
+            marcarComConexao();
+            return renovarCopiaDosProdutos();
+          },
+          () => undefined,
+        );
+        marcarSemConexao(local.baixadoEm, true);
+        return naCopia(local.catalogo);
+      }
+      resultado = primeiro as T;
+    } else {
+      resultado = await servidor;
+    }
     marcarComConexao();
     void renovarCopiaDosProdutos();
     return resultado;
   } catch (e) {
     if (!(e instanceof ErroApi) || !servidorIndisponivel(e)) throw e;
-    const local = await lerCatalogoLocal();
-    if (!local) throw e;
-    marcarSemConexao(local.baixadoEm);
-    return naCopia(local.catalogo);
+    const copia = await lerCatalogoLocal();
+    if (!copia) throw e;
+    marcarSemConexao(copia.baixadoEm);
+    return naCopia(copia.catalogo);
   }
 }
 

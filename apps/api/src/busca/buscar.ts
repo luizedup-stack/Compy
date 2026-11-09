@@ -6,6 +6,7 @@ import {
   type GrupoProduto,
   type Unidade,
 } from '@mercado/shared';
+import type { FotosEmbutidas } from '../fotos/embutidas';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 
 export { LIMITE_GRUPOS_BUSCA, type OrdemBusca } from '@mercado/shared';
@@ -22,7 +23,7 @@ export function precoPorUnidadeDaOferta(o: OfertaArmazenada): {
 }
 
 /** Cópia dos mercados ativos e das ofertas disponíveis deles, no formato que o app do celular guarda (GET /catalogo). */
-export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
+export async function montarCatalogo(repo: Repositorio, embutidas?: FotosEmbutidas): Promise<Catalogo> {
   const mercados = new Map<number, { id: number; nome: string; endereco: string }>();
   const ofertas: Catalogo['ofertas'] = [];
   for (const { oferta: o, mercado: m } of await repo.listarOfertasParaBusca()) {
@@ -43,7 +44,51 @@ export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
   for (const m of await repo.listarMercados()) {
     if (m.status === 'ativo' && !mercados.has(m.id)) mercados.set(m.id, { id: m.id, nome: m.nome, endereco: m.endereco });
   }
-  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: await repo.listarCodigosComFoto() };
+  const comFoto = new Set(await repo.listarCodigosComFoto());
+  const fotosIlustrativas = new Set(await repo.listarCodigosComFotoIlustrativa());
+  // Produto sem nenhuma foto guardada: usa a do tipo, direto do banco de fotos do sistema (veja fotos/embutidas.ts).
+  if (embutidas) {
+    for (const o of ofertas) {
+      if (comFoto.has(o.codigoBarras) || !embutidas.imagemDoNome(o.nome)) continue;
+      comFoto.add(o.codigoBarras);
+      fotosIlustrativas.add(o.codigoBarras);
+    }
+  }
+  return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: [...comFoto], fotosIlustrativas: [...fotosIlustrativas] };
+}
+
+/** Quantas ofertas, no máximo, vão na cópia que o app guarda no celular (GET /catalogo). A busca no servidor não tem esse limite. */
+export const LIMITE_OFERTAS_COPIA = 8000;
+
+/**
+ * Reduz o catálogo à cópia do celular quando ele é grande demais (com todos os produtos das redes passaria de 10 MB): ficam os produtos
+ * vendidos em mais mercados (os que servem para comparar) e, no empate, os que apareceram primeiro. Cada produto escolhido leva todas as suas ofertas.
+ */
+export function limitarCatalogo(catalogo: Catalogo, maximo = LIMITE_OFERTAS_COPIA): Catalogo {
+  if (catalogo.ofertas.length <= maximo) return catalogo;
+  const porCodigo = new Map<string, Catalogo['ofertas']>();
+  for (const o of catalogo.ofertas) {
+    const lista = porCodigo.get(o.codigoBarras);
+    if (lista) lista.push(o);
+    else porCodigo.set(o.codigoBarras, [o]);
+  }
+  const ordem = [...porCodigo.entries()]
+    .map(([codigo, ofertas], posicao) => ({ codigo, ofertas, mercados: new Set(ofertas.map((o) => o.mercadoId)).size, posicao }))
+    .sort((a, b) => b.mercados - a.mercados || a.posicao - b.posicao);
+  const escolhidos = new Set<string>();
+  const ofertas: Catalogo['ofertas'] = [];
+  for (const item of ordem) {
+    if (ofertas.length + item.ofertas.length > maximo) continue;
+    escolhidos.add(item.codigo);
+    ofertas.push(...item.ofertas);
+  }
+  return {
+    ...catalogo,
+    ofertas,
+    ...(catalogo.comFoto ? { comFoto: catalogo.comFoto.filter((c) => escolhidos.has(c)) } : {}),
+    ...(catalogo.fotosIlustrativas ? { fotosIlustrativas: catalogo.fotosIlustrativas.filter((c) => escolhidos.has(c)) } : {}),
+    parcial: true,
+  };
 }
 
 /**
@@ -54,10 +99,10 @@ export async function montarCatalogo(repo: Repositorio): Promise<Catalogo> {
  */
 export async function buscar(
   repo: Repositorio,
-  { q, ordem, usuarioId }: { q: string; ordem: OrdemBusca; usuarioId?: number },
+  { q, ordem, usuarioId, embutidas, catalogo }: { q: string; ordem: OrdemBusca; usuarioId?: number; embutidas?: FotosEmbutidas; catalogo?: Catalogo },
 ): Promise<GrupoProduto[]> {
   if (!consultaValida(q)) return [];
-  const grupos = buscarNoCatalogo(await montarCatalogo(repo), { q, ordem });
+  const grupos = buscarNoCatalogo(catalogo ?? (await montarCatalogo(repo, embutidas)), { q, ordem });
 
   const mercados = new Set<number>();
   for (const g of grupos) for (const o of g.ofertas) mercados.add(o.mercadoId);

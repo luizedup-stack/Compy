@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { buscar, listarProdutos, mensagemDoErro } from '../api';
+import { useAtualizacao } from '../atualizar';
 import { Botao } from '../componentes/Botao';
 import { CartaoOferta } from '../componentes/CartaoOferta';
 import { FotoDoProduto } from '../componentes/FotoDoProduto';
@@ -102,6 +103,13 @@ export function Busca() {
     void disparar('', 'unidade');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir a tela; trocar a ordem tem o seu próprio disparo
   }, []);
+
+  // Botão "Atualizar" do topo: refaz a consulta que está na tela (a lista inicial ou a busca digitada), sem fechar o app.
+  const { versao } = useAtualizacao();
+  useEffect(() => {
+    if (versao > 0) void disparar(texto.trim(), ordem, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só quando o botão é tocado
+  }, [versao]);
 
   /** Pede a próxima página da lista inicial e a junta ao que já está na tela. */
   async function carregarMais() {
@@ -267,7 +275,7 @@ function GrupoCartao({ grupo }: { grupo: GrupoProduto }) {
   return (
     <View style={estilos.grupo}>
       <View style={estilos.topoGrupo}>
-        <FotoDoProduto foto={grupo.foto} nome={grupo.nome} />
+        <FotoDoProduto foto={grupo.foto} nome={grupo.nome} ilustrativa={grupo.fotoIlustrativa === true} />
         <Text accessibilityRole="header" style={estilos.nomeGrupo}>
           {grupo.nome}
         </Text>

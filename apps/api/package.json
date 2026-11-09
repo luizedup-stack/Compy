@@ -7,7 +7,9 @@
     "start": "tsx src/server.ts",
     "test": "vitest run",
     "carregar": "tsx src/scripts/carregar.ts",
-    "fotos": "tsx src/scripts/fotos.ts"
+    "fotos": "tsx src/scripts/fotos.ts",
+    "montar-banco-de-fotos": "tsx src/scripts/montarBancoDeFotos.ts",
+    "creditos-banco-de-fotos": "tsx src/scripts/creditosBancoDeFotos.ts"
   },
   "dependencies": {
     "@fastify/compress": "^9.3.0",

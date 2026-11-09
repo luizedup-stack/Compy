@@ -225,6 +225,42 @@ describe('a foto aparece onde o app olha', () => {
     expect(doMercado.itens.find((i) => i.codigoBarras === ARROZ)?.foto).toBeNull();
   });
 
+  it('a foto ilustrativa (do tipo de produto) é marcada como tal na busca e no catálogo; a específica não', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'ilustrativa', url: null, imagem: FOTO_JPEG }));
+    await amb.repo.salvarFoto(foto({ codigoBarras: ARROZ, origem: 'planilha', url: 'https://l.exemplo.com/a.jpg', imagem: FOTO_JPEG }));
+    const busca = (await amb.app.inject({ method: 'GET', url: '/busca?q=leite' })).json() as GrupoProduto[];
+    const leite = busca.find((g) => g.codigoBarras === LEITE)!;
+    expect(leite).toMatchObject({ foto: `/fotos/${LEITE}`, fotoIlustrativa: true });
+    const inicial = (await amb.app.inject({ method: 'GET', url: '/produtos' })).json() as { grupos: GrupoProduto[] };
+    expect(inicial.grupos.find((g) => g.codigoBarras === ARROZ)?.fotoIlustrativa).toBeUndefined(); // específica: sem a marca
+    const catalogo = (await amb.app.inject({ method: 'GET', url: '/catalogo' })).json() as { fotosIlustrativas: string[] };
+    expect(catalogo.fotosIlustrativas).toEqual([LEITE]);
+  });
+
+  it('confirmar o preço (ou editar) devolve o produto COM a foto: ela não some da tela', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'mercado', url: null, imagem: FOTO_JPEG, mercadoId: mercadoA.id }));
+    const confirmar = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${LEITE}`, headers: comToken(tokenA), payload: { preco: 5.99 } });
+    expect(confirmar.statusCode).toBe(200);
+    expect(confirmar.json()).toMatchObject({ codigoBarras: LEITE, foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    const editar = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${LEITE}`, headers: comToken(tokenA), payload: { nome: 'Leite Integral 1L' } });
+    expect(editar.json()).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    const semFoto = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${ARROZ}`, headers: comToken(tokenA), payload: { preco: 7 } });
+    expect(semFoto.json()).toMatchObject({ foto: null, fotoOrigem: null }); // sem foto continua sem foto
+  });
+
+  it('produto novo cadastrado à mão com um código que já tem foto (de outro mercado) já vem com a foto', async () => {
+    await amb.repo.salvarFoto(foto({ codigoBarras: '7891000300305', origem: 'mercado', url: null, imagem: FOTO_JPEG, mercadoId: mercadoB.id }));
+    const res = await amb.app.inject({ method: 'POST', url: '/painel/produtos', headers: comToken(tokenA), payload: { codigoBarras: '7891000300305', nome: 'Feijão 1kg', preco: 8.5 } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ foto: '/fotos/7891000300305', fotoOrigem: 'mercado' });
+  });
+
+  it('o painel mostra a origem "ilustrativa" para o dono do mercado trocar pela foto certa', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'ilustrativa', url: null, imagem: FOTO_JPEG }));
+    const lista = (await amb.app.inject({ method: 'GET', url: '/painel/produtos', headers: comToken(tokenA) })).json() as { itens: ProdutoPainel[] };
+    expect(lista.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'ilustrativa' });
+  });
+
   it('foto "não achada" não conta como foto', async () => {
     await amb.repo.salvarFoto(foto({ url: null }));
     const busca = (await amb.app.inject({ method: 'GET', url: '/busca?q=leite' })).json() as GrupoProduto[];

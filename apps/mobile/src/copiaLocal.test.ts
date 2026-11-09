@@ -5,6 +5,7 @@ import {
   MSG_SEM_SERVIDOR,
   buscar,
   definirAoExpirar,
+  definirPrazoResposta,
   definirRenovacaoAutomatica,
   definirToken,
   listarMercados,
@@ -13,7 +14,7 @@ import {
   renovarCopiaDosProdutos,
 } from './api';
 import { apagarCatalogoLocal, esquecerCatalogoEmMemoria, guardarCatalogoLocal, lerCatalogoLocal, OFERTAS_POR_PARTE } from './catalogo';
-import { estaSemConexao } from './conexao';
+import { estaSemConexao, servidorEstaLento } from './conexao';
 import { simularApi } from './teste/ajudas';
 import { catalogoDeTeste, ofertaCatalogo } from './teste/catalogo';
 
@@ -182,5 +183,44 @@ describe('renovar a cópia', () => {
     const api = simularApi({ 'GET /catalogo': { status: 200, corpo: catalogoDeTeste() } });
     await renovarCopiaDosProdutos(true);
     expect(api.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('servidor lento (acordando): com cópia no celular, a lista aparece sem esperar', () => {
+  afterEach(() => {
+    definirPrazoResposta(6000);
+  });
+
+  it('passado o prazo, responde da cópia (marcando que são dados salvos) e o servidor continua sendo esperado', async () => {
+    await guardarCatalogoLocal(catalogoDeTeste(), 1234);
+    definirPrazoResposta(30);
+    let soltar: (() => void) | undefined;
+    const demorada = new Promise<Response>((resolve) => {
+      soltar = () => resolve({ ok: true, status: 200, json: async () => ({ grupos: [], total: 0 }) } as unknown as Response);
+    });
+    const fetchFalso = jest.fn().mockReturnValue(demorada);
+    const original = globalThis.fetch;
+    globalThis.fetch = fetchFalso as unknown as typeof fetch;
+    try {
+      const { grupos, total } = await listarProdutos('unidade', 1);
+      expect(total).toBeGreaterThan(0); // veio da cópia
+      expect(grupos.length).toBeGreaterThan(0);
+      expect(estaSemConexao()).toBe(true);
+      expect(servidorEstaLento()).toBe(true); // o aviso diz "servidor lento", não "sem conexão"
+      soltar?.();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(estaSemConexao()).toBe(false); // o servidor respondeu: o aviso some
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('servidor que responde dentro do prazo continua valendo (sem aviso de dados salvos)', async () => {
+    await guardarCatalogoLocal(catalogoDeTeste(), 1234);
+    definirPrazoResposta(5000);
+    simularApi({ 'GET /produtos': { status: 200, corpo: { grupos: [], total: 0 } } });
+    const r = await listarProdutos('unidade', 1);
+    expect(r.total).toBe(0);
+    expect(estaSemConexao()).toBe(false);
   });
 });

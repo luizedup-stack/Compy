@@ -62,7 +62,7 @@ describe('GET /admin/mercados', () => {
       temLogin: boolean;
     }[];
     expect(lista.map((m) => m.id)).toEqual([id1, id2]);
-    expect(Object.keys(lista[0]!).sort()).toEqual(['endereco', 'id', 'nome', 'status', 'temLogin', 'totalProdutos']);
+    expect(Object.keys(lista[0]!).sort()).toEqual(['endereco', 'id', 'nome', 'removidoAte', 'status', 'temLogin', 'totalProdutos']);
     expect(lista[0]).toMatchObject({ status: 'ativo', totalProdutos: 26, temLogin: false });
     expect(lista[1]).toMatchObject({ status: 'ativo', temLogin: true });
     expect(lista[1]!.totalProdutos).toBe((await amb.repo.listarOfertasDoMercado(id2)).length);
@@ -202,5 +202,76 @@ describe('POST /admin/mercados/:id/remover', () => {
     const res = await remover(admin.token, 999);
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({ erro: 'Mercado não encontrado' });
+  });
+});
+
+describe('tirar acesso com prazo, dar acesso de novo e apagar', () => {
+  const chamar = (token: string, metodo: 'POST' | 'DELETE', url: string, corpo?: unknown) =>
+    amb.app.inject({ method: metodo, url, headers: comToken(token), ...(corpo !== undefined ? { payload: corpo as object } : {}) });
+  const mercadoDe = async (id: number) => (await amb.repo.acharMercado(id))!;
+
+  it('permanente: sem corpo ou tipo "permanente" deixa sem data de volta', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    expect((await chamar(admin.token, 'POST', `/admin/mercados/${id}/remover`, { tipo: 'permanente' })).statusCode).toBe(204);
+    expect(await mercadoDe(id)).toMatchObject({ status: 'removido' });
+    expect((await mercadoDe(id)).removidoAte ?? null).toBeNull();
+    const lista = (await amb.app.inject({ method: 'GET', url: '/admin/mercados', headers: comToken(admin.token) })).json() as { id: number; removidoAte: string | null }[];
+    expect(lista.find((m) => m.id === id)?.removidoAte).toBeNull();
+  });
+
+  it('temporário: calcula a data em dias, meses e anos e a lista mostra até quando', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    for (const [quantidade, unidade, dias] of [[10, 'dias', 10], [2, 'meses', 59], [1, 'anos', 365]] as const) {
+      const antes = Date.now();
+      expect((await chamar(admin.token, 'POST', `/admin/mercados/${id}/remover`, { tipo: 'temporario', quantidade, unidade })).statusCode).toBe(204);
+      const ate = (await mercadoDe(id)).removidoAte!.getTime();
+      const emDias = (ate - antes) / 86_400_000;
+      expect(emDias).toBeGreaterThan(dias - 2);
+      expect(emDias).toBeLessThan(dias + 4); // meses/anos variam com o calendário
+    }
+    const lista = (await amb.app.inject({ method: 'GET', url: '/admin/mercados', headers: comToken(admin.token) })).json() as { id: number; removidoAte: string | null }[];
+    expect(lista.find((m) => m.id === id)?.removidoAte).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('prazo inválido → 400 e nada muda', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    for (const corpo of [{ tipo: 'temporario', quantidade: 0, unidade: 'dias' }, { tipo: 'temporario', quantidade: 1.5, unidade: 'dias' }, { tipo: 'temporario', quantidade: 3, unidade: 'semanas' }, { tipo: 'temporario', quantidade: 11, unidade: 'anos' }, { tipo: 'temporario', quantidade: 4000, unidade: 'dias' }, { tipo: 'x' }]) {
+      expect((await chamar(admin.token, 'POST', `/admin/mercados/${id}/remover`, corpo)).statusCode).toBe(400);
+    }
+    expect((await mercadoDe(id)).status).toBe('ativo');
+  });
+
+  it('dar acesso novamente: volta a ativo e limpa a data; mercado inexistente → 404', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    await chamar(admin.token, 'POST', `/admin/mercados/${id}/remover`, { tipo: 'temporario', quantidade: 3, unidade: 'meses' });
+    expect((await chamar(admin.token, 'POST', `/admin/mercados/${id}/reativar`)).statusCode).toBe(204);
+    expect(await mercadoDe(id)).toMatchObject({ status: 'ativo' });
+    expect((await mercadoDe(id)).removidoAte ?? null).toBeNull();
+    expect((await chamar(admin.token, 'POST', '/admin/mercados/9999/reativar')).statusCode).toBe(404);
+  });
+
+  it('prazo vencido: ao listar, o mercado já volta sozinho', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    await amb.repo.atualizarMercado(id, { status: 'removido', removidoAte: new Date(Date.now() - 1000) });
+    const lista = (await amb.app.inject({ method: 'GET', url: '/admin/mercados', headers: comToken(admin.token) })).json() as { id: number; status: string }[];
+    expect(lista.find((m) => m.id === id)?.status).toBe('ativo');
+  });
+
+  it('apagar: remove o mercado e os produtos; quem não é administrador não consegue', async () => {
+    const admin = await amb.criarComPapel('admin');
+    const mercado = await amb.criarComPapel('mercado');
+    const id = await importarComoAdmin(admin.token, 'mercado-1-bom-preco.xlsx');
+    expect((await chamar(mercado.token, 'DELETE', `/admin/mercados/${id}`)).statusCode).toBe(403);
+    expect((await amb.app.inject({ method: 'DELETE', url: `/admin/mercados/${id}` })).statusCode).toBe(401);
+    expect((await chamar(admin.token, 'DELETE', `/admin/mercados/${id}`)).statusCode).toBe(204);
+    expect(await amb.repo.acharMercado(id)).toBeNull();
+    expect(await amb.repo.listarOfertasDoMercado(id)).toEqual([]);
+    expect((await chamar(admin.token, 'DELETE', `/admin/mercados/${id}`)).statusCode).toBe(404);
+    expect((await chamar(admin.token, 'POST', `/admin/mercados/${id}/reativar`)).statusCode).toBe(404);
   });
 });

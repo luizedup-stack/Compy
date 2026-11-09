@@ -146,6 +146,41 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
     });
 
     describe('mercados', () => {
+      it('reativarMercadosVencidos devolve ao ar só quem está sem acesso com prazo vencido', async () => {
+        const repo = await criar();
+        const vencido = await repo.criarMercado(novoMercado('Vencido', 'Rua 1'));
+        const aindaNoPrazo = await repo.criarMercado(novoMercado('No prazo', 'Rua 2'));
+        const permanente = await repo.criarMercado(novoMercado('Permanente', 'Rua 3'));
+        const ativo = await repo.criarMercado(novoMercado('Ativo', 'Rua 4'));
+        await repo.atualizarMercado(vencido.id, { status: 'removido', removidoAte: new Date('2026-11-01T00:00:00Z') });
+        await repo.atualizarMercado(aindaNoPrazo.id, { status: 'removido', removidoAte: new Date('2026-12-01T00:00:00Z') });
+        await repo.atualizarMercado(permanente.id, { status: 'removido', removidoAte: null });
+        expect((await repo.acharMercado(aindaNoPrazo.id))?.removidoAte?.toISOString()).toBe('2026-12-01T00:00:00.000Z');
+        expect(await repo.reativarMercadosVencidos(new Date('2026-11-09T00:00:00Z'))).toBe(1);
+        expect(await repo.reativarMercadosVencidos(new Date('2026-11-09T00:00:00Z'))).toBe(0);
+        expect(await repo.acharMercado(vencido.id)).toMatchObject({ status: 'ativo' });
+        expect((await repo.acharMercado(vencido.id))?.removidoAte ?? null).toBeNull();
+        expect((await repo.acharMercado(aindaNoPrazo.id))?.status).toBe('removido');
+        expect((await repo.acharMercado(permanente.id))?.status).toBe('removido');
+        expect((await repo.acharMercado(ativo.id))?.status).toBe('ativo');
+      });
+
+      it('apagarMercado apaga o mercado e as ofertas dele, e só as dele', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('B', 'Rua 2'));
+        await repo.salvarOferta(novaOferta(a.id));
+        await repo.salvarOferta(novaOferta(b.id));
+        await repo.salvarFoto({ codigoBarras: '7891000100103', origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA', mercadoId: a.id, atualizadaEm: new Date() });
+        expect(await repo.apagarMercado(a.id)).toBe(true);
+        expect(await repo.apagarMercado(a.id)).toBe(false);
+        expect(await repo.acharMercado(a.id)).toBeNull();
+        expect(await repo.listarOfertasDoMercado(a.id)).toEqual([]);
+        expect(await repo.listarOfertasDoMercado(b.id)).toHaveLength(1);
+        expect((await repo.listarMercados()).map((m) => m.id)).toEqual([b.id]);
+        expect(await repo.acharFoto('7891000100103')).toMatchObject({ mercadoId: null }); // a foto fica, sem dono
+      });
+
       it('cria e acha mercado por id, chave e usuário', async () => {
         const repo = await criar();
         const u = await repo.criarUsuario(novoUsuario());
@@ -208,6 +243,42 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(lista).toHaveLength(1);
         expect(lista[0]!.preco).toBe(4.5);
         expect((await repo.acharOferta(m.id, '7891000100103'))?.preco).toBe(4.5);
+      });
+
+      it('salvarOfertas grava muitas de uma vez: atualiza as que existem, insere as novas na ordem e aceita lotes grandes', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        await repo.salvarOferta({ ...novaOferta(m.id, '7891000100103'), preco: 1 });
+        const muitas = Array.from({ length: 1203 }, (_, i) => ({ ...novaOferta(m.id, String(7890000000000 + i)), nome: `Produto ${i}`, preco: 2 + (i % 7) }));
+        await repo.salvarOfertas([{ ...novaOferta(m.id, '7891000100103'), preco: 9.9, promocaoPreco: 8.5, promocaoInicio: new Date('2026-11-01T00:00:00Z'), promocaoFim: new Date('2026-11-30T00:00:00Z') }, ...muitas]);
+        const lista = await repo.listarOfertasDoMercado(m.id);
+        expect(lista).toHaveLength(1204);
+        expect(lista[0]!.codigoBarras).toBe('7891000100103'); // já existia: continua na primeira posição
+        expect(lista[0]).toMatchObject({ preco: 9.9, promocaoPreco: 8.5 });
+        expect(lista[0]!.promocaoFim?.toISOString()).toBe('2026-11-30T00:00:00.000Z');
+        expect(lista.slice(1).map((o) => o.codigoBarras)).toEqual(muitas.map((o) => o.codigoBarras)); // as novas, na ordem em que vieram
+        expect((await repo.acharOferta(m.id, '7890000000010'))?.nome).toBe('Produto 10');
+        await repo.salvarOfertas([]); // lista vazia não faz nada
+        expect(await repo.listarOfertasDoMercado(m.id)).toHaveLength(1204);
+      });
+
+      it('salvarFotosDaPlanilha registra os links, sem trocar foto enviada pelo mercado nem refazer link igual', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const em = new Date('2026-11-05T00:00:00Z');
+        await repo.salvarFoto({ codigoBarras: '7890000000001', origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA', mercadoId: m.id, atualizadaEm: em });
+        await repo.salvarFoto({ codigoBarras: '7890000000002', origem: 'planilha', url: 'https://l.exemplo.com/2.jpg', imagem: 'data:image/jpeg;base64,BBBB', mercadoId: m.id, atualizadaEm: em });
+        await repo.salvarFoto({ codigoBarras: '7890000000003', origem: 'ilustrativa', url: null, imagem: 'data:image/jpeg;base64,CCCC', mercadoId: null, atualizadaEm: em });
+        const depois = new Date('2026-11-09T00:00:00Z');
+        await repo.salvarFotosDaPlanilha(
+          [['7890000000001', 'https://l.exemplo.com/1.jpg'], ['7890000000002', 'https://l.exemplo.com/2.jpg'], ['7890000000003', 'https://l.exemplo.com/3.jpg'], ['7890000000004', 'https://l.exemplo.com/4.jpg']],
+          m.id,
+          depois,
+        );
+        expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'mercado', imagem: 'data:image/jpeg;base64,AAAA' }); // a do mercado vale mais
+        expect(await repo.acharFoto('7890000000002')).toMatchObject({ origem: 'planilha', imagem: 'data:image/jpeg;base64,BBBB' }); // link igual: não refaz
+        expect(await repo.acharFoto('7890000000003')).toMatchObject({ origem: 'planilha', url: 'https://l.exemplo.com/3.jpg', imagem: null }); // troca a ilustrativa
+        expect(await repo.acharFoto('7890000000004')).toMatchObject({ origem: 'planilha', url: 'https://l.exemplo.com/4.jpg', imagem: null, mercadoId: m.id });
       });
 
       it('acha e remove oferta', async () => {
@@ -487,6 +558,30 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
       });
     });
 
+    describe('configurações (chave/valor)', () => {
+      it('guarda e acha; chave que não existe é null; salvar de novo troca o valor', async () => {
+        const repo = await criar();
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBeNull();
+        await repo.salvarConfiguracao('ilustrativa:leite', 'data:image/jpeg;base64,AAAA');
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBe('data:image/jpeg;base64,AAAA');
+        await repo.salvarConfiguracao('ilustrativa:leite', 'novo');
+        expect(await repo.acharConfiguracao('ilustrativa:leite')).toBe('novo');
+      });
+
+      it('lista só as de um prefixo, em ordem de chave (e o "%" do prefixo não vira curinga)', async () => {
+        const repo = await criar();
+        await repo.salvarConfiguracao('ilustrativa:arroz', 'A');
+        await repo.salvarConfiguracao('ilustrativa:leite', 'L');
+        await repo.salvarConfiguracao('outra:coisa', 'X');
+        expect(await repo.listarConfiguracoes('ilustrativa:')).toEqual([
+          { chave: 'ilustrativa:arroz', valor: 'A' },
+          { chave: 'ilustrativa:leite', valor: 'L' },
+        ]);
+        expect(await repo.listarConfiguracoes('%')).toEqual([]);
+        expect(await repo.listarConfiguracoes('nada:')).toEqual([]);
+      });
+    });
+
     describe('fotos dos produtos', () => {
       it('grava e acha a foto pelo código de barras; sem foto, null', async () => {
         const repo = await criar();
@@ -542,6 +637,21 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarResumoDeFotos([])).toEqual([]);
       });
 
+      it('foto ilustrativa conta como pronta, aparece na lista das ilustrativas e é procurada de novo depois do prazo', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        await repo.salvarOferta(novaOferta(m.id, '7890000000001'));
+        await repo.salvarOferta(novaOferta(m.id, '7890000000002'));
+        await repo.salvarFoto(novaFoto('7890000000001', { origem: 'ilustrativa', url: null, imagem: 'data:image/jpeg;base64,AAAA', atualizadaEm: new Date('2026-11-01T00:00:00Z') }));
+        await repo.salvarFoto(novaFoto('7890000000002')); // foto específica
+        expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001', '7890000000002']);
+        expect(await repo.listarCodigosComFotoIlustrativa()).toEqual(['7890000000001']);
+        expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([{ codigoBarras: '7890000000001', origem: 'ilustrativa' }]);
+        // antes do prazo não procura de novo; depois do prazo, sim (a foto específica pode ter aparecido) — e só a ilustrativa volta
+        expect(await repo.listarCodigosSemFoto(10, new Date('2026-10-20T00:00:00Z'))).toEqual([]);
+        expect(await repo.listarCodigosSemFoto(10, new Date('2026-11-05T00:00:00Z'))).toEqual(['7890000000001']);
+      });
+
       it('foto "na fila" (link da planilha sem imagem ainda) não conta como pronta; depois de baixada, conta', async () => {
         const repo = await criar();
         await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg' }));
@@ -550,6 +660,16 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         await repo.salvarFoto(novaFoto('7890000000001', { origem: 'planilha', url: 'https://loja.exemplo.com/a.jpg', imagem: 'data:image/jpeg;base64,AAAA' }));
         expect(await repo.listarCodigosComFoto()).toEqual(['7890000000001']);
         expect(await repo.listarResumoDeFotos(['7890000000001'])).toEqual([{ codigoBarras: '7890000000001', origem: 'planilha' }]);
+      });
+
+      it('acharNomeDoProduto: o nome mais comprido entre os mercados; null se ninguém vende', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('Mercado A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('Mercado B', 'Rua 2'));
+        await repo.salvarOferta({ ...novaOferta(a.id, '7890000000001'), nome: 'Leite 1L' });
+        await repo.salvarOferta({ ...novaOferta(b.id, '7890000000001'), nome: 'Leite Integral Piracanjuba 1L' });
+        expect(await repo.acharNomeDoProduto('7890000000001')).toBe('Leite Integral Piracanjuba 1L');
+        expect(await repo.acharNomeDoProduto('7899999999999')).toBeNull();
       });
 
       it('listarFotosParaBaixar: só as que têm o link e ainda não a imagem, em ordem, até o limite', async () => {

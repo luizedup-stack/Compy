@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { listarMercados, mensagemDoErro, type Mercado } from '../api';
+import { useAtualizacao } from '../atualizar';
 import { Botao } from '../componentes/Botao';
 import type { RootStackParamList } from '../rotas';
 import { cores } from '../tema';
@@ -54,6 +55,12 @@ export function Mercados() {
       contador.current += 1; // ao sair da tela, nenhuma resposta tardia mexe no estado
     };
   }, [carregar]);
+
+  // Botão "Atualizar" do topo: recarrega a lista de mercados e os totais, sem fechar o app.
+  const { versao } = useAtualizacao();
+  useEffect(() => {
+    if (versao > 0) void carregar(true);
+  }, [versao, carregar]);
 
   if (estado.tipo === 'carregando') {
     return (
