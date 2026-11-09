@@ -26,6 +26,7 @@ const base: Config = {
   fotosAutomaticas: false,
   fotosPorNome: false,
   fotosIlustrativas: true,
+  fotosIntervaloMs: 0,
 };
 
 type Servidor = Awaited<ReturnType<typeof montarServidor>>;

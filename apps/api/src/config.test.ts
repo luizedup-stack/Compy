@@ -203,5 +203,8 @@ describe('lerConfig: fotos ilustrativas', () => {
   it('ligadas por padrão (enquanto o sistema está em teste); FOTOS_ILUSTRATIVAS=0 desliga', () => {
     expect(lerConfig({}).fotosIlustrativas).toBe(true);
     expect(lerConfig(producao({ FOTOS_ILUSTRATIVAS: '0' })).fotosIlustrativas).toBe(false);
+    expect(lerConfig({}).fotosIntervaloMs).toBe(2500);
+    expect(lerConfig({ FOTOS_INTERVALO_MS: '5000' }).fotosIntervaloMs).toBe(5000);
+    expect(lerConfig({ FOTOS_INTERVALO_MS: 'abc' }).fotosIntervaloMs).toBe(2500);
   });
 });

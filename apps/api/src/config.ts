@@ -39,6 +39,8 @@ export type Config = {
    * enquanto o sistema está em teste; desligue (0) quando os produtos reais tiverem as próprias fotos.
    */
   fotosIlustrativas: boolean;
+  /** Pausa, em ms, entre uma foto e outra na busca automática (FOTOS_INTERVALO_MS). Maior = mais leve para o servidor gratuito. */
+  fotosIntervaloMs: number;
 };
 
 const PASTA_PADRAO = path.resolve(__dirname, '../../../dados-de-teste');
@@ -126,5 +128,10 @@ export function lerConfig(env: NodeJS.ProcessEnv): Config {
     fotosAutomaticas: (ler(env, 'FOTOS_AUTOMATICAS') ?? (producao ? '1' : '0')) === '1',
     fotosPorNome: ler(env, 'FOTOS_POR_NOME') === '1',
     fotosIlustrativas: ler(env, 'FOTOS_ILUSTRATIVAS') !== '0',
+    fotosIntervaloMs: (() => {
+      const texto = ler(env, 'FOTOS_INTERVALO_MS');
+      const n = Number(texto);
+      return texto !== null && Number.isFinite(n) && n >= 0 ? n : 2500;
+    })(),
   };
 }
