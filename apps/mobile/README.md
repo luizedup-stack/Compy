@@ -1,4 +1,4 @@
-# Bolso Certo — aplicativo do cliente
+# Compy — aplicativo do cliente
 
 Aplicativo de celular (Expo / React Native) para comparar preços. Nesta etapa ele tem cadastro, login,
 confirmação de e-mail, redefinição de senha, a busca com comparação de preços, a lista de mercados com os produtos de

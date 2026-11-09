@@ -1,4 +1,4 @@
-# Bolso Certo - inicia tudo para testar no computador e no celular.
+# Compy - inicia tudo para testar no computador e no celular.
 #
 # Uso (PowerShell, na pasta do projeto):
 #   .\iniciar-teste.ps1                    # dados reais (Atacadao + Carrefour)
@@ -31,7 +31,7 @@ foreach ($porta in 3000, 5173, 8081) {
   foreach ($c in @(Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue)) {
     $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)" -ErrorAction SilentlyContinue
     if ($proc -and $proc.CommandLine -and $proc.CommandLine.Contains($raiz)) {
-      Write-Host "Encerrando servidor antigo do Bolso Certo na porta $porta..." -ForegroundColor Yellow
+      Write-Host "Encerrando servidor antigo do Compy na porta $porta..." -ForegroundColor Yellow
       Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
     }
   }
@@ -39,7 +39,7 @@ foreach ($porta in 3000, 5173, 8081) {
 Start-Sleep -Seconds 2
 foreach ($porta in 3000, 5173, 8081) {
   if (Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue) {
-    throw "A porta $porta continua em uso por outro programa (nao e do Bolso Certo). Feche-o e rode de novo."
+    throw "A porta $porta continua em uso por outro programa (nao e do Compy). Feche-o e rode de novo."
   }
 }
 
@@ -72,16 +72,16 @@ function Abrir($titulo, $comando) {
   Start-Process powershell -ArgumentList '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $cmd | Out-Null
 }
 
-Abrir 'Bolso Certo - API' ("`$env:PASTA_DADOS_DE_TESTE='$carga'; `$env:ADMIN_EMAIL='$adminEmail'; `$env:ADMIN_SENHA='$adminSenha'; npm run dev -w @mercado/api")
+Abrir 'Compy - API' ("`$env:PASTA_DADOS_DE_TESTE='$carga'; `$env:ADMIN_EMAIL='$adminEmail'; `$env:ADMIN_SENHA='$adminSenha'; npm run dev -w @mercado/api")
 Start-Sleep -Seconds 4
-Abrir 'Bolso Certo - Painel' ("`$env:VITE_API_URL='http://localhost:3000'; npm run dev -w @mercado/painel")
-Abrir 'Bolso Certo - App (QR code)' ("`$env:EXPO_PUBLIC_API_URL='$urlApi'; npm run start -w @mercado/mobile")
+Abrir 'Compy - Painel' ("`$env:VITE_API_URL='http://localhost:3000'; npm run dev -w @mercado/painel")
+Abrir 'Compy - App (QR code)' ("`$env:EXPO_PUBLIC_API_URL='$urlApi'; npm run start -w @mercado/mobile")
 
 Start-Sleep -Seconds 6
 Start-Process 'http://localhost:5173'
 
 Write-Host ''
-Write-Host 'Bolso Certo iniciado.' -ForegroundColor Green
+Write-Host 'Compy iniciado.' -ForegroundColor Green
 Write-Host "  Planilhas carregadas : $qtd ($Dados)"
 Write-Host "  Painel (navegador)   : http://localhost:5173"
 Write-Host "  Administrador        : $adminEmail  /  $adminSenha"

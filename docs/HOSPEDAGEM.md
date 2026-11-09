@@ -116,7 +116,7 @@ quando o Render mostrar os endereços dele — o guia lembra). Por ora, siga par
    [banco] Atualizando o banco: 002-configuracao.sql
    [banco] Banco conectado.
    Dados de teste carregados: 4 planilhas, 113 produtos.
-   Bolso Certo API em http://localhost:...
+   Compy API em http://localhost:...
    ```
 5. O endereço do serviço aparece no topo da página, parecido com `https://bolso-certo.onrender.com`. **Esse é o endereço do seu servidor.**
    Abra `https://bolso-certo.onrender.com` no navegador: ele leva ao painel. Entre com `ADMIN_EMAIL` e `ADMIN_SENHA`.
@@ -138,7 +138,7 @@ protegida por usuário e senha, mas **apague essa regra assim que terminar** os 
 
 ## Passo 3 — Programa de Windows e app do celular usando o servidor
 
-### Programa de Windows ("Bolso Certo - Mercado")
+### Programa de Windows ("Compy Mercado")
 
 Duas formas, escolha uma:
 
@@ -147,7 +147,7 @@ Duas formas, escolha uma:
   $env:BOLSO_URL_NUVEM = "https://bolso-certo.onrender.com"
   npm run construir:exe
   ```
-- **Trocar num programa que você já tem**: abra o programa → menu **Bolso Certo → Servidor na nuvem…** → cole o endereço → **Salvar e reiniciar**.
+- **Trocar num programa que você já tem**: abra o programa → menu **Compy → Servidor na nuvem…** → cole o endereço → **Salvar e reiniciar**.
   (Para voltar a usar tudo só no computador, deixe o campo em branco.)
 
 No modo nuvem o programa não liga nada no seu computador: ele abre o painel que está no servidor, e os dados ficam no banco. Se o servidor

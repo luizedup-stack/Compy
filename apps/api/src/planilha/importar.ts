@@ -12,6 +12,7 @@ import {
   type RelatorioImportacao,
 } from '@mercado/shared';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
+import { ImagemInvalida, reduzirParaJpeg } from '../fotos/baixar';
 import { conferirZip } from './conferirZip';
 import { ErroPlanilha } from './erroPlanilha';
 
@@ -46,6 +47,44 @@ function primitivo(valor: unknown): Primitivo {
 }
 
 const texto = (valor: unknown): string => String(primitivo(valor) ?? '').trim();
+
+/** Quantas imagens coladas numa planilha o servidor aceita (cada uma é reduzida e guardada). */
+const MAXIMO_IMAGENS_POR_PLANILHA = 100;
+
+/**
+ * Imagens COLADAS na planilha (Inserir > Imagem, posta sobre a célula da coluna Foto): cada uma é da linha em que está ancorada.
+ * Devolve a imagem já reduzida (JPEG pequeno) por código de barras; o que não der certo vira aviso no relatório e o produto entra do mesmo jeito.
+ * Imagem fora da coluna Foto (um logotipo no topo, por exemplo) é ignorada.
+ */
+async function lerImagensDaPlanilha(
+  wb: ExcelJS.Workbook,
+  aba: ExcelJS.Worksheet,
+  colunaFoto: number | undefined,
+  linhas: Map<number, string>,
+  erros: RelatorioImportacao['erros'],
+): Promise<Map<string, string>> {
+  const imagens = new Map<string, string>();
+  let lidas = 0;
+  for (const colada of aba.getImages()) {
+    const linha = Math.floor(colada.range.tl.nativeRow) + 1;
+    const coluna = Math.floor(colada.range.tl.nativeCol) + 1;
+    if (colunaFoto !== undefined && coluna !== colunaFoto) continue;
+    const codigo = linhas.get(linha);
+    if (codigo === undefined) continue;
+    if (++lidas > MAXIMO_IMAGENS_POR_PLANILHA) {
+      erros.push({ linha, motivo: `Foto ignorada: a planilha tem imagens demais (o limite é ${MAXIMO_IMAGENS_POR_PLANILHA})` });
+      continue;
+    }
+    try {
+      const bytes = wb.getImage(Number(colada.imageId))?.buffer;
+      if (!bytes) throw new ImagemInvalida('imagem vazia');
+      imagens.set(codigo, await reduzirParaJpeg(Buffer.from(bytes)));
+    } catch {
+      erros.push({ linha, motivo: 'Foto ignorada: não consegui ler a imagem colada nesta linha' });
+    }
+  }
+  return imagens;
+}
 
 /** Nomes aceitos para a coluna opcional com o link da foto do produto (comparados sem acento e sem maiúsculas). */
 const NOMES_COLUNA_FOTO = ['foto', 'link da foto', 'imagem', 'link da imagem', 'url da foto'];
@@ -173,7 +212,9 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
   });
 
   erros.sort((a, b) => a.linha - b.linha);
-  return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros };
+  // Linha da planilha -> código de barras (só a linha que vale de cada produto): serve para achar de que produto é cada imagem colada.
+  const linhas = new Map<number, string>([...validas.values()].map((v) => [v.linha, v.oferta.codigoBarras]));
+  return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros, linhas, colunaFoto };
 }
 
 /** Só usa `r`, o repositório da transação (nunca o externo, que travaria esperando a si mesmo). */
@@ -228,15 +269,31 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
     throw new ErroPlanilha('Arquivo inválido: envie uma planilha .xlsx');
   }
   const dadosMercado = lerMercado(encontrarAba(wb, ABA_MERCADO));
-  const { ofertas, fotos, erros } = lerProdutos(encontrarAba(wb, ABA_PRODUTOS));
+  const abaProdutos = encontrarAba(wb, ABA_PRODUTOS);
+  const { ofertas, fotos, erros, linhas, colunaFoto } = lerProdutos(abaProdutos);
+  const imagens = await lerImagensDaPlanilha(wb, abaProdutos, colunaFoto, linhas, erros);
+  erros.sort((a, b) => a.linha - b.linha);
 
   return repo.transacao(async (r) => {
     const { mercado, criado } = await resolverMercado(r, ator, dadosMercado);
     const agora = new Date();
     await r.salvarOfertas(ofertas.map((oferta) => ({ ...oferta, mercadoId: mercado.id, precoAtualizadoEm: agora })));
-    // Fotos indicadas na planilha: o servidor baixa e guarda depois (veja fotos/gerenciador.ts). A foto que um mercado enviou à
-    // mão pelo painel vale mais e não é trocada; um link já indicado antes (igual) também não é refeito.
-    await r.salvarFotosDaPlanilha([...fotos], mercado.id, agora);
-    return { mercadoId: mercado.id, mercadoCriado: criado, importadas: ofertas.length, erros };
+    // Fotos do mercado: links (o servidor baixa depois, veja fotos/gerenciador.ts) e imagens coladas (já prontas). Imagem e link na
+    // mesma linha: vale a imagem. Onde o produto já tem foto de verdade de outro, a do mercado fica só para ele.
+    await r.salvarFotosDaPlanilha([...fotos].filter(([codigo]) => !imagens.has(codigo)), mercado.id, agora);
+    const prontas = [...imagens].map(([codigoBarras, imagem]) => ({ codigoBarras, imagem }));
+    for (const { codigoBarras, imagem } of prontas) {
+      // A mesma regra da foto enviada pelo painel: sem foto de verdade, vira a de todos; com foto de outro, fica só do mercado.
+      const jaTem = (await r.listarResumoDeFotos([codigoBarras])).some((f) => f.origem !== 'ilustrativa');
+      const atual = jaTem ? await r.acharFoto(codigoBarras) : null;
+      const eDono = atual?.origem === 'mercado' && atual.mercadoId === mercado.id;
+      if (jaTem && !eDono) {
+        await r.salvarFotoDoMercado({ codigoBarras, mercadoId: mercado.id, imagem, atualizadaEm: agora });
+      } else {
+        await r.salvarFoto({ codigoBarras, origem: 'mercado', url: null, imagem, mercadoId: mercado.id, atualizadaEm: agora });
+        await r.removerFotoDoMercado(mercado.id, codigoBarras);
+      }
+    }
+    return { mercadoId: mercado.id, mercadoCriado: criado, importadas: ofertas.length, erros, ...(prontas.length > 0 ? { fotosColadas: prontas.length } : {}) };
   });
 }

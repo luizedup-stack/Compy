@@ -6,8 +6,8 @@
 
 ## O que você precisa fazer (uma vez só, gratuito)
 
-1. Entrar em <https://console.cloud.google.com> com a sua conta Google e criar um **projeto** (por exemplo, "Bolso Certo").
-2. Em **APIs e serviços → Tela de consentimento OAuth**: tipo "Externo", nome do aplicativo "Bolso Certo", seu e-mail de suporte.
+1. Entrar em <https://console.cloud.google.com> com a sua conta Google e criar um **projeto** (por exemplo, "Compy").
+2. Em **APIs e serviços → Tela de consentimento OAuth**: tipo "Externo", nome do aplicativo "Compy", seu e-mail de suporte.
    Para os testes pode ficar em modo "Em teste", adicionando os e-mails de quem vai testar.
 3. Em **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth** criar dois:
    - **Android**: nome do pacote `br.com.bolsocerto.app` e a **impressão digital SHA-1** da chave com que o APK é assinado.

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { criarEmailSmtp, problemaNaConfigSmtp, type ConfigSmtp } from './email';
 
-const CONFIG: ConfigSmtp = { host: 'smtp.exemplo.com', porta: 465, seguro: true, usuario: 'conta@exemplo.com', senha: 'segredo', de: 'Bolso Certo <conta@exemplo.com>' };
+const CONFIG: ConfigSmtp = { host: 'smtp.exemplo.com', porta: 465, seguro: true, usuario: 'conta@exemplo.com', senha: 'segredo', de: 'Compy <conta@exemplo.com>' };
 
 describe('criarEmailSmtp', () => {
   it('entrega ao servidor de e-mail o remetente, o destinatário, o assunto e o texto', async () => {
@@ -10,7 +10,7 @@ describe('criarEmailSmtp', () => {
     await criarEmailSmtp(CONFIG, criar).enviar('cliente@exemplo.com', 'Assunto', 'Texto com o código');
     expect(criar).toHaveBeenCalledWith(CONFIG);
     expect(sendMail).toHaveBeenCalledWith({
-      from: 'Bolso Certo <conta@exemplo.com>',
+      from: 'Compy <conta@exemplo.com>',
       to: 'cliente@exemplo.com',
       subject: 'Assunto',
       text: 'Texto com o código',

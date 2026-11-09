@@ -1,4 +1,4 @@
-// Testes do software "Bolso Certo - Mercado":
+// Testes do software "Compy Mercado":
 // - o mercado se cadastra sozinho só com e-mail e senha;
 // - o mercado (nome, endereço completo, telefone) é cadastrado depois, em "Meu mercado"; um usuário pode ter vários;
 // - cada usuário só vê e edita os mercados dele; o administrador (desenvolvedor) enxerga todos;
