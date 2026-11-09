@@ -43,6 +43,10 @@ const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: OrigensDeFoto =
   fotoOrigem: fotos.has(o.codigoBarras) ? (fotos.get(o.codigoBarras) === 'mercado' ? 'mercado' : fotos.get(o.codigoBarras) === 'ilustrativa' ? 'ilustrativa' : 'automatica') : null,
 });
 
+/** A origem da foto de cada código dado (só dos que têm foto). */
+const fotosDe = async (r: Repositorio, codigos: string[]): Promise<OrigensDeFoto> =>
+  new Map((await r.listarResumoDeFotos(codigos)).map((f) => [f.codigoBarras, f.origem]));
+
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Texto aparado e não vazio, ou `undefined`. */
@@ -231,7 +235,7 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
       const agora = new Date();
       const inicio = (pagina - 1) * POR_PAGINA;
       const daPagina = ofertas.slice(inicio, inicio + POR_PAGINA);
-      const fotos: OrigensDeFoto = new Map((await repo.listarResumoDeFotos(daPagina.map((o) => o.codigoBarras))).map((f) => [f.codigoBarras, f.origem]));
+      const fotos = await fotosDe(repo, daPagina.map((o) => o.codigoBarras));
       return { itens: daPagina.map((o) => aProdutoPainel(o, agora, fotos)), total: ofertas.length };
     });
 
@@ -245,7 +249,7 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
         const agora = new Date();
         const oferta: OfertaArmazenada = { ...novo.oferta, mercadoId, precoAtualizadoEm: agora };
         await r.salvarOferta(oferta);
-        return aProdutoPainel(oferta, agora);
+        return aProdutoPainel(oferta, agora, await fotosDe(r, [oferta.codigoBarras])); // o código pode já ter foto (de outro mercado ou achada)
       });
       if (!resultado) return reply.code(409).send({ erro: 'Já existe um produto com esse código de barras neste mercado' });
       aoMudarProdutos?.(); // produto novo: procura a foto dele
@@ -272,7 +276,8 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
           mercadoId: atual.mercadoId,
         };
         await r.salvarOferta(nova);
-        return aProdutoPainel(nova, agora);
+        // A resposta substitui a linha na tela: tem de trazer também a foto, senão ela some ao confirmar o preço ou editar.
+        return aProdutoPainel(nova, agora, await fotosDe(r, [nova.codigoBarras]));
       });
       if (!resultado) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
       return resultado;

@@ -146,6 +146,41 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
     });
 
     describe('mercados', () => {
+      it('reativarMercadosVencidos devolve ao ar só quem está sem acesso com prazo vencido', async () => {
+        const repo = await criar();
+        const vencido = await repo.criarMercado(novoMercado('Vencido', 'Rua 1'));
+        const aindaNoPrazo = await repo.criarMercado(novoMercado('No prazo', 'Rua 2'));
+        const permanente = await repo.criarMercado(novoMercado('Permanente', 'Rua 3'));
+        const ativo = await repo.criarMercado(novoMercado('Ativo', 'Rua 4'));
+        await repo.atualizarMercado(vencido.id, { status: 'removido', removidoAte: new Date('2026-11-01T00:00:00Z') });
+        await repo.atualizarMercado(aindaNoPrazo.id, { status: 'removido', removidoAte: new Date('2026-12-01T00:00:00Z') });
+        await repo.atualizarMercado(permanente.id, { status: 'removido', removidoAte: null });
+        expect((await repo.acharMercado(aindaNoPrazo.id))?.removidoAte?.toISOString()).toBe('2026-12-01T00:00:00.000Z');
+        expect(await repo.reativarMercadosVencidos(new Date('2026-11-09T00:00:00Z'))).toBe(1);
+        expect(await repo.reativarMercadosVencidos(new Date('2026-11-09T00:00:00Z'))).toBe(0);
+        expect(await repo.acharMercado(vencido.id)).toMatchObject({ status: 'ativo' });
+        expect((await repo.acharMercado(vencido.id))?.removidoAte ?? null).toBeNull();
+        expect((await repo.acharMercado(aindaNoPrazo.id))?.status).toBe('removido');
+        expect((await repo.acharMercado(permanente.id))?.status).toBe('removido');
+        expect((await repo.acharMercado(ativo.id))?.status).toBe('ativo');
+      });
+
+      it('apagarMercado apaga o mercado e as ofertas dele, e só as dele', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('B', 'Rua 2'));
+        await repo.salvarOferta(novaOferta(a.id));
+        await repo.salvarOferta(novaOferta(b.id));
+        await repo.salvarFoto({ codigoBarras: '7891000100103', origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA', mercadoId: a.id, atualizadaEm: new Date() });
+        expect(await repo.apagarMercado(a.id)).toBe(true);
+        expect(await repo.apagarMercado(a.id)).toBe(false);
+        expect(await repo.acharMercado(a.id)).toBeNull();
+        expect(await repo.listarOfertasDoMercado(a.id)).toEqual([]);
+        expect(await repo.listarOfertasDoMercado(b.id)).toHaveLength(1);
+        expect((await repo.listarMercados()).map((m) => m.id)).toEqual([b.id]);
+        expect(await repo.acharFoto('7891000100103')).toMatchObject({ mercadoId: null }); // a foto fica, sem dono
+      });
+
       it('cria e acha mercado por id, chave e usuário', async () => {
         const repo = await criar();
         const u = await repo.criarUsuario(novoUsuario());

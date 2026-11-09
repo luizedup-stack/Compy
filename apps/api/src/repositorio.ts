@@ -27,6 +27,8 @@ export interface Mercado {
   detalhes?: EnderecoMercado | null;
   /** Telefone com DDD, só dígitos. Ausente/null enquanto o mercado não preencher. */
   telefone?: string | null;
+  /** Só com status 'removido': até quando o mercado fica sem acesso (volta sozinho). Vazio = sem acesso até alguém dar o acesso de novo. */
+  removidoAte?: Date | null;
 }
 
 export interface OfertaArmazenada {
@@ -125,6 +127,10 @@ export interface Repositorio {
   listarMercadosDoUsuario(usuarioId: number): Promise<Mercado[]>;
   atualizarMercado(id: number, parcial: Partial<Omit<Mercado, 'id'>>): Promise<void>;
   listarMercados(): Promise<Mercado[]>;
+  /** Volta a 'ativo' os mercados sem acesso cuja data (`removidoAte`) já passou. Devolve quantos voltaram. */
+  reativarMercadosVencidos(agora: Date): Promise<number>;
+  /** Apaga o mercado e todas as ofertas dele de vez (a conta do dono e as fotos dos produtos ficam). Devolve false se não existia. */
+  apagarMercado(id: number): Promise<boolean>;
   salvarOferta(o: OfertaArmazenada): Promise<void>;
   /** Como `salvarOferta` para muitas ofertas de uma vez (uma ida ao banco por lote, não por produto), mantendo a ordem de entrada. */
   salvarOfertas(ofertas: OfertaArmazenada[]): Promise<void>;

@@ -49,6 +49,16 @@ async function main(): Promise<void> {
   }
   await app.listen({ port: config.porta, host: config.host });
   console.log(`Bolso Certo API em http://localhost:${config.porta}`);
+  // Mercados sem acesso por prazo (acesso temporário) voltam sozinhos quando o prazo acaba.
+  const devolverAcessos = () =>
+    void repo
+      .reativarMercadosVencidos(new Date())
+      .then((n) => {
+        if (n > 0) app.limparCatalogo(); // quem voltou aparece na hora no aplicativo
+      })
+      .catch((e: unknown) => console.warn('Acessos temporários:', e instanceof Error ? e.message : e));
+  devolverAcessos();
+  setInterval(devolverAcessos, 5 * 60 * 1000).unref();
   if (fotos) {
     fotos.agendarPendentes(); // produtos que ainda não têm foto (carga de teste, planilhas anteriores)
     setInterval(() => fotos.agendarPendentes(), 6 * 60 * 60 * 1000).unref(); // e de tempos em tempos, para os "não achados" antigos

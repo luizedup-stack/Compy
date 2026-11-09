@@ -23,6 +23,8 @@ declare module 'fastify' {
     repo: Repositorio;
     /** Identificador aleatório gerado a cada início do servidor (veja construirApp). */
     instancia: string;
+    /** Descarta o catálogo guardado (para escritas que não passam pela API; veja construirApp). */
+    limparCatalogo: () => void;
   }
   interface FastifyRequest {
     usuario: UsuarioAutenticado;

@@ -67,6 +67,7 @@ function linhaParaMercado(l: Linha): Mercado {
   };
   if (l.detalhes !== null && l.detalhes !== undefined) m.detalhes = JSON.parse(l.detalhes as string) as Mercado['detalhes'];
   if (l.telefone !== null && l.telefone !== undefined) m.telefone = l.telefone as string;
+  if (l.removidoAte !== null && l.removidoAte !== undefined) m.removidoAte = l.removidoAte as Date;
   return m;
 }
 
@@ -100,7 +101,7 @@ function linhaParaOferta(l: Linha): OfertaArmazenada {
   };
 }
 
-const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone';
+const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone, removidoAte';
 const COLUNAS_OFERTA =
   'mercadoId, codigoBarras, nome, nomeNorm, preco, quantidadeTexto, quantidadeValor, quantidadeUnidade, categoria, disponivel, precoAtualizadoEm, promocaoPreco, promocaoInicio, promocaoFim';
 
@@ -169,6 +170,10 @@ function colunasDoMercado(parcial: Partial<Omit<Mercado, 'id'>>, r: sql.Request)
   if (parcial.detalhes !== undefined) {
     sets.push('detalhes = @detalhes');
     r.input('detalhes', sql.NVarChar(sql.MAX), parcial.detalhes === null ? null : JSON.stringify(parcial.detalhes));
+  }
+  if (parcial.removidoAte !== undefined) {
+    sets.push('removidoAte = @removidoAte');
+    r.input('removidoAte', sql.DateTime2(3), parcial.removidoAte);
   }
   if (parcial.telefone !== undefined) {
     sets.push('telefone = @telefone');
@@ -374,6 +379,23 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
           if (violacaoDeUnico(e)) throw new ErroMercadoDuplicado();
           throw e;
         }
+      },
+      async reativarMercadosVencidos(agora) {
+        const l = await escrever(
+          `UPDATE dbo.Mercados SET status = 'ativo', removidoAte = NULL OUTPUT inserted.id WHERE status = 'removido' AND removidoAte IS NOT NULL AND removidoAte <= @agora`,
+          (r) => r.input('agora', sql.DateTime2(3), agora),
+        );
+        return l.length;
+      },
+      async apagarMercado(id) {
+        const l = await escrever(
+          `BEGIN TRAN;
+           DELETE FROM dbo.Ofertas WHERE mercadoId = @id;
+           DELETE FROM dbo.Mercados OUTPUT deleted.id WHERE id = @id;
+           COMMIT;`,
+          (r) => r.input('id', sql.Int, id),
+        );
+        return l.length > 0;
       },
       listarMercados() {
         return comCache('mercados', async () => (await q(`SELECT ${COLUNAS_MERCADO} FROM dbo.Mercados ORDER BY id`)).map(linhaParaMercado));
