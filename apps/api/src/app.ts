@@ -13,7 +13,9 @@ import { rotasAdmin } from './rotas/admin';
 import { rotasBusca } from './rotas/busca';
 import { rotasConta } from './rotas/conta';
 import type { FotosEmbutidas } from './fotos/embutidas';
+import { montarCatalogo } from './busca/buscar';
 import { rotasFotos } from './rotas/fotos';
+import { lembrar } from './rotas/lembrar';
 import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
@@ -158,12 +160,14 @@ export async function construirApp({
 
   await app.register(rotasAuth({ repo, email }));
   const aoMudarProdutos = () => fotos?.agendarPendentes();
+  // Em produção, o catálogo montado é montado uma vez e reaproveitado por busca, lista inicial, cópia do celular e lista de mercados.
+  const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs) : undefined;
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
-  await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
+  await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));
-  await app.register(rotasMercados({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
+  await app.register(rotasMercados({ repo, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasMeusMercados({ repo }));
   await app.register(rotasFotos({ repo, ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasPrivacidade());

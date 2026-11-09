@@ -1,4 +1,4 @@
-import { caminhoDaFoto, type ProdutoMercado } from '@mercado/shared';
+import { caminhoDaFoto, mercadosDoCatalogo, type Catalogo, type ProdutoMercado } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { precoPorUnidadeDaOferta } from '../busca/buscar';
 import type { FotosEmbutidas } from '../fotos/embutidas';
@@ -23,10 +23,20 @@ const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>,
   ...(ilustrativas.has(o.codigoBarras) ? { fotoIlustrativa: true } : {}),
 });
 
-export function rotasMercados({ repo, embutidas }: { repo: Repositorio; embutidas?: FotosEmbutidas }): FastifyPluginAsync {
+export function rotasMercados({
+  repo,
+  embutidas,
+  catalogo,
+}: {
+  repo: Repositorio;
+  embutidas?: FotosEmbutidas;
+  /** O catálogo montado e reaproveitado por um tempo (só em produção): com ele a lista de mercados não precisa contar produto por produto no banco. */
+  catalogo?: () => Promise<Catalogo>;
+}): FastifyPluginAsync {
   return async (app) => {
     // Rotas públicas (o app funciona sem login).
     app.get('/mercados', async () => {
+      if (catalogo) return mercadosDoCatalogo(await catalogo());
       const ativos = (await repo.listarMercados()).filter((m) => m.status === 'ativo');
       ativos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.id - b.id);
       return Promise.all(

@@ -24,3 +24,44 @@ describe('cache curto da lista de produtos (cacheRespostasMs)', () => {
     expect((await amb.app.inject({ method: 'GET', url: '/catalogo' })).statusCode).toBe(200);
   });
 });
+
+describe('cache curto: depois do prazo entrega o antigo na hora e renova por trás', () => {
+  it('passado o prazo, a resposta não espera a montagem; o pedido seguinte já vem renovado', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const amb = await criarAmbiente({ cacheRespostasMs: 1000 });
+      const espia = vi.spyOn(amb.repo, 'listarOfertasParaBusca');
+      await amb.app.inject({ method: 'GET', url: '/catalogo' });
+      expect(espia).toHaveBeenCalledTimes(1);
+      vi.setSystemTime(Date.now() + 5000); // venceu o prazo (1 s), mas não é velho demais
+      await amb.app.inject({ method: 'GET', url: '/catalogo' }); // entrega o antigo e dispara a renovação
+      await new Promise((r) => setImmediate(r));
+      expect(espia).toHaveBeenCalledTimes(2);
+      await amb.app.inject({ method: 'GET', url: '/catalogo' }); // já usa o renovado
+      expect(espia).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('lista de mercados com o catálogo reaproveitado', () => {
+  it('traz os mesmos mercados e totais que a contagem direta no banco (inclusive mercado sem produtos)', async () => {
+    const dados = async (cacheRespostasMs?: number) => {
+      const amb = await criarAmbiente(cacheRespostasMs ? { cacheRespostasMs } : {});
+      const m = (nome: string, rua: string) =>
+        amb.repo.criarMercado({ nome, endereco: rua, nomeNorm: nome.toLowerCase(), enderecoNorm: rua.toLowerCase(), status: 'ativo', contaSituacao: 'gratuita', usuarioId: null });
+      const b = await m('Beta', 'Rua 2');
+      await m('Alfa', 'Rua 1'); // sem produtos
+      const oferta = (codigoBarras: string, disponivel: boolean) => ({
+        mercadoId: b.id, codigoBarras, nome: 'Leite', nomeNorm: 'leite', preco: 5, quantidadeTexto: null, quantidadeValor: null, quantidadeUnidade: null,
+        categoria: null, disponivel, precoAtualizadoEm: new Date(), promocaoPreco: null, promocaoInicio: null, promocaoFim: null,
+      });
+      await amb.repo.salvarOfertas([oferta('7891000100103', true), oferta('7891000100104', true), oferta('7891000100105', false)]);
+      return (await amb.app.inject({ method: 'GET', url: '/mercados' })).json();
+    };
+    const direto = await dados();
+    expect(direto.map((x: { nome: string; totalProdutos: number }) => [x.nome, x.totalProdutos])).toEqual([['Alfa', 0], ['Beta', 2]]);
+    expect(await dados(60_000)).toEqual(direto);
+  });
+});
