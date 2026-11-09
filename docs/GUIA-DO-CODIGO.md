@@ -129,3 +129,10 @@ O APK do celular é gerado como descrito em `apps/mobile/README.md` (seção "Ge
 O app do cliente **não depende** do programa do mercado estar aberto: ele usa a cópia guardada e atualiza os
 produtos sozinho quando consegue falar com o servidor (ao abrir, ao voltar para o app e a cada consulta). O app em
 si só é atualizado pela loja de aplicativos.
+
+## Painel: acesso dos mercados e tema (claro/escuro)
+
+- **Tirar acesso / Dar acesso novamente / Apagar** (Administração > Mercados, `apps/painel/src/admin/Mercados.tsx`): "Tirar acesso" põe o mercado em `status = 'removido'` e, se o prazo for temporário, guarda `removidoAte` (coluna da migração `006-acesso-temporario.sql`). Sem `removidoAte` o acesso é permanente. O servidor devolve o mercado sozinho quando o prazo acaba (`reativarMercadosVencidos`, a cada 5 min e ao listar). "Apagar" remove o mercado e as ofertas dele (`apagarMercado`). Rotas em `apps/api/src/rotas/admin.ts`.
+- **Mercado sem acesso some do aplicativo na hora**: o catálogo guardado em memória (`rotas/lembrar.ts`) é descartado a cada escrita bem-sucedida (contador "geração" em `app.ts`).
+- **Tema**: as cores ficam como variáveis no começo de `apps/painel/src/estilos.css` (claro = azul clarinho e branco; escuro por `prefers-color-scheme` ou pelo botão do cabeçalho). A escolha fica no navegador (`apps/painel/src/tema.ts`).
+

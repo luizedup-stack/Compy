@@ -2,7 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { aplicarTema } from './tema';
 import './estilos.css';
+
+aplicarTema(); // antes de desenhar a tela: não pisca no tema errado
 
 createRoot(document.getElementById('raiz')!).render(
   <StrictMode>
