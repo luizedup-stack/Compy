@@ -1,7 +1,7 @@
 // Coleta preços públicos de páginas de produto do Carrefour (dados estruturados da própria página).
 // Só usa URLs do sitemap oficial; 1 requisição por vez, ~0,7 s entre elas. Não contorna bloqueios.
 // Uso: node ferramentas/coleta/coletar-carrefour.mjs [limite]
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { urlDaFoto } from './foto.mjs';
 
 const LIMITE = Number(process.argv[2] ?? 350);
@@ -10,9 +10,11 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const PALAVRAS = /(^|-)(arroz|feijao|macarrao|farinha|acucar|sal|oleo|azeite|cafe|leite|achocolatado|biscoito|bolacha|molho|extrato|milho|ervilha|sardinha|atum|fuba|aveia|granola|cereal|margarina|manteiga|requeijao|queijo|presunto|mortadela|salsicha|linguica|hamburguer|iogurte|suco|refrigerante|agua|cerveja|vinagre|maionese|ketchup|mostarda|tempero|caldo|gelatina|sabao|detergente|amaciante|desinfetante|esponja|papel|guardanapo|shampoo|condicionador|sabonete|creme|desodorante|absorvente|fralda|racao|cha|chocolate|bala|amendoim|pipoca|lentilha|palmito|azeitona)(-|$)/;
 const GRUPOS = /^\/(Mercearia|Bebidas|Limpeza|Higiene|Perfumaria|Alimentos|Congelados|Frios|Laticínios|Padaria|Pet|Bebê|Cuidados|Matinais|Biscoitos|Doces|Enlatados|Molhos|Cereais|Hortifruti|Açougue|Mercado)/i;
 
-// Se existir dados-reais/atacadao.json, prioriza páginas cujo nome se parece com produtos do Atacadão (mais produtos em comum para comparar).
-const caminhoRef = new URL('../../dados-reais/atacadao.json', import.meta.url);
-const REF = existsSync(caminhoRef) ? JSON.parse(readFileSync(caminhoRef, 'utf8')) : null;
+// Prioriza páginas cujo nome se parece com produtos já coletados nas OUTRAS redes (dados-reais/*.json): assim os produtos do
+// Carrefour que entram são os que dá para comparar com os demais mercados.
+const pastaRef = new URL('../../dados-reais/', import.meta.url);
+const arquivosRef = readdirSync(pastaRef).filter((n) => n.endsWith('.json') && !n.endsWith('.progresso.json') && n !== 'carrefour.json');
+const REF = arquivosRef.length ? arquivosRef.flatMap((n) => JSON.parse(readFileSync(new URL(n, pastaRef), 'utf8'))) : null;
 const tokens = (t) => new Set(t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter((x) => x.length >= 3));
 const indice = new Map();
 const tamRef = [];

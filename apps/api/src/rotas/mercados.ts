@@ -10,7 +10,7 @@ const MSG_NAO_ACHOU = 'Mercado não encontrado';
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>, ilustrativas: Set<string>): ProdutoMercado => ({
+const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>, ilustrativas: Set<string>, proprias: Map<string, Date>): ProdutoMercado => ({
   codigoBarras: o.codigoBarras,
   nome: o.nome,
   preco: o.preco,
@@ -19,8 +19,13 @@ const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>,
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
-  foto: comFoto.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
-  ...(ilustrativas.has(o.codigoBarras) ? { fotoIlustrativa: true } : {}),
+  // A foto que o próprio mercado enviou só para ele (o produto já tinha outra) passa na frente, na lista deste mercado.
+  foto: proprias.has(o.codigoBarras)
+    ? caminhoDaFoto(o.codigoBarras, { mercadoId: o.mercadoId, versao: (proprias.get(o.codigoBarras) as Date).getTime() })
+    : comFoto.has(o.codigoBarras)
+      ? caminhoDaFoto(o.codigoBarras)
+      : null,
+  ...(ilustrativas.has(o.codigoBarras) && !proprias.has(o.codigoBarras) ? { fotoIlustrativa: true } : {}),
 });
 
 export function rotasMercados({
@@ -72,8 +77,10 @@ export function rotasMercados({
         }
       }
       const inicio = (pagina - 1) * POR_PAGINA;
+      const daPagina = ofertas.slice(inicio, inicio + POR_PAGINA);
+      const proprias = new Map((await repo.listarFotosDoMercado(mercado.id, daPagina.map((o) => o.codigoBarras))).map((f) => [f.codigoBarras, f.atualizadaEm]));
       return {
-        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora, comFoto, ilustrativas)),
+        itens: daPagina.map((o) => aProdutoMercado(o, agora, comFoto, ilustrativas, proprias)),
         total: ofertas.length,
       };
     });

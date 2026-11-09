@@ -571,10 +571,10 @@ describe('Busca', () => {
 
       expect(screen.container.queryAll((el) => el.type === 'TextInput')).toHaveLength(1);
       expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
-      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta); nada que edite.
+      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta) e o "Atualizar" do topo; nada que edite.
       const botoes = screen.queryAllByRole('button').map((el) => String(el.props.accessibilityLabel));
-      expect(botoes).toHaveLength(3);
-      expect(botoes.every((rotulo) => /^(Buscar|Mercados|Conta), tab, \d of 3$/.test(rotulo))).toBe(true);
+      expect(botoes).toHaveLength(4);
+      expect(botoes.every((rotulo) => /^((Buscar|Mercados|Conta), tab, \d of 3|Atualizar produtos e preços)$/.test(rotulo))).toBe(true);
     });
   });
 

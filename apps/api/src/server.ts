@@ -43,7 +43,9 @@ async function main(): Promise<void> {
       })
     : undefined;
 
-  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}), ...(config.fotosIlustrativas ? { fotosEmbutidas: criarFotosEmbutidas() } : {}), ...(config.producao ? { cacheRespostasMs: 20_000 } : {}) });
+  // TRAVA DE CUSTO (docs/TRAVAS-DE-CUSTO.md): a lista de produtos pronta vale 10 minutos (e é refeita na hora se houver qualquer escrita),
+  // para o banco gratuito do Azure ser consultado pouco e não gastar a cota do mês.
+  const { app } = await montarServidor(config, { logger: true, repo, ...(instancia ? { instancia } : {}), ...(fotos ? { fotos } : {}), ...(config.fotosIlustrativas ? { fotosEmbutidas: criarFotosEmbutidas() } : {}), ...(config.producao ? { cacheRespostasMs: 10 * 60 * 1000 } : {}) });
   if (senhaGerada) {
     console.log(`Administrador de desenvolvimento: ${ADMIN_DEV_EMAIL} / senha: ${config.adminSenha} (nova a cada início)`);
   }

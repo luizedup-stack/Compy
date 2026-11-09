@@ -187,7 +187,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
     try {
       const resposta = await enviarFotoDoProduto(produto.codigoBarras, await reduzirImagem(arquivo));
       setVersaoFoto(Date.now());
-      aoAtualizar({ ...produto, foto: resposta.foto, fotoOrigem: resposta.fotoOrigem });
+      aoAtualizar({ ...produto, foto: resposta.foto, fotoOrigem: resposta.fotoOrigem, fotoSoDoMercado: resposta.fotoSoDoMercado });
     } catch (e2) {
       if (sessaoRecusada(e2)) aoSessaoRecusada();
       else setErro(e2 instanceof ErroDeFoto ? e2.message : mensagemDoErro(e2));
@@ -200,8 +200,9 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
     setErro(null);
     setFotoOcupada(true);
     try {
-      await removerFotoDoProduto(produto.codigoBarras);
-      aoAtualizar({ ...produto, foto: null, fotoOrigem: null });
+      const restante = await removerFotoDoProduto(produto.codigoBarras);
+      // Só havia a foto própria do mercado: volta a valer a de todos (restante). Era a de todos: o produto fica sem foto.
+      aoAtualizar({ ...produto, foto: restante?.foto ?? null, fotoOrigem: restante?.fotoOrigem ?? null, fotoSoDoMercado: false });
     } catch (e2) {
       if (sessaoRecusada(e2)) aoSessaoRecusada();
       else setErro(mensagemDoErro(e2));
@@ -238,7 +239,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
         {produto.foto ? (
           <img
             className="foto-produto"
-            src={`${urlDaFoto(produto.foto)}${versaoFoto ? `?v=${versaoFoto}` : ''}`}
+            src={`${urlDaFoto(produto.foto)}${versaoFoto ? `${produto.foto.includes('?') ? '&' : '?'}v=${versaoFoto}` : ''}`}
             alt={`Foto de ${produto.nome}`}
             width={48}
             height={48}
@@ -248,6 +249,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
           <span className="sem-foto">Sem foto</span>
         )}
         {produto.fotoOrigem === 'ilustrativa' && <span className="sem-foto">Foto ilustrativa (do tipo de produto)</span>}
+        {produto.fotoSoDoMercado && <span className="sem-foto">Esta foto aparece só no seu mercado (o produto já tinha outra foto)</span>}
         <div className="acoes-botoes">
           <input
             ref={entradaFoto}

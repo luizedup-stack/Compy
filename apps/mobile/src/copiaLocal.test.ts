@@ -13,7 +13,7 @@ import {
   produtosDoMercado,
   renovarCopiaDosProdutos,
 } from './api';
-import { apagarCatalogoLocal, esquecerCatalogoEmMemoria, guardarCatalogoLocal, lerCatalogoLocal } from './catalogo';
+import { apagarCatalogoLocal, esquecerCatalogoEmMemoria, guardarCatalogoLocal, lerCatalogoLocal, OFERTAS_POR_PARTE } from './catalogo';
 import { estaSemConexao, servidorEstaLento } from './conexao';
 import { simularApi } from './teste/ajudas';
 import { catalogoDeTeste, ofertaCatalogo } from './teste/catalogo';
@@ -31,7 +31,7 @@ afterEach(() => {
 describe('cópia dos produtos guardada no celular', () => {
   it('guarda e lê de volta (mesmo depois de esquecer a memória), em várias partes', async () => {
     const catalogo = catalogoDeTeste();
-    catalogo.ofertas = Array.from({ length: 700 }, (_, i) =>
+    catalogo.ofertas = Array.from({ length: 2 * OFERTAS_POR_PARTE + 100 }, (_, i) =>
       ofertaCatalogo({ mercadoId: 4, codigoBarras: String(7890000000000 + i), nome: `Produto ${i}` }),
     );
     await guardarCatalogoLocal(catalogo, 1234);
@@ -39,14 +39,14 @@ describe('cópia dos produtos guardada no celular', () => {
     esquecerCatalogoEmMemoria();
     const lido = await lerCatalogoLocal();
     expect(lido?.baixadoEm).toBe(1234);
-    expect(lido?.catalogo.ofertas).toHaveLength(700);
+    expect(lido?.catalogo.ofertas).toHaveLength(2 * OFERTAS_POR_PARTE + 100);
     expect(lido?.catalogo.mercados).toEqual(catalogo.mercados);
-    expect(await AsyncStorage.getItem('bolso-certo.catalogo.parte.2')).not.toBeNull(); // 700 ofertas = 3 partes
+    expect(await AsyncStorage.getItem('bolso-certo.catalogo.parte.2')).not.toBeNull(); // 2 partes cheias + 100 = 3 partes
   });
 
   it('uma cópia nova menor apaga as partes que sobraram', async () => {
     const grande = catalogoDeTeste();
-    grande.ofertas = Array.from({ length: 700 }, (_, i) => ofertaCatalogo({ mercadoId: 4, codigoBarras: String(i), nome: `P ${i}` }));
+    grande.ofertas = Array.from({ length: OFERTAS_POR_PARTE + 100 }, (_, i) => ofertaCatalogo({ mercadoId: 4, codigoBarras: String(i), nome: `P ${i}` }));
     await guardarCatalogoLocal(grande);
     await guardarCatalogoLocal(catalogoDeTeste());
     expect(await AsyncStorage.getItem('bolso-certo.catalogo.parte.1')).toBeNull();
@@ -56,7 +56,7 @@ describe('cópia dos produtos guardada no celular', () => {
 
   it('cópia incompleta (falta uma parte) vale como se não existisse', async () => {
     const catalogo = catalogoDeTeste();
-    catalogo.ofertas = Array.from({ length: 400 }, (_, i) => ofertaCatalogo({ mercadoId: 4, codigoBarras: String(i), nome: `P ${i}` }));
+    catalogo.ofertas = Array.from({ length: OFERTAS_POR_PARTE + 100 }, (_, i) => ofertaCatalogo({ mercadoId: 4, codigoBarras: String(i), nome: `P ${i}` }));
     await guardarCatalogoLocal(catalogo);
     await AsyncStorage.removeItem('bolso-certo.catalogo.parte.1');
     esquecerCatalogoEmMemoria();
@@ -157,7 +157,7 @@ describe('renovar a cópia', () => {
     expect((await lerCatalogoLocal())?.catalogo.ofertas).toHaveLength(3);
   });
 
-  it('não repete a tentativa dentro de 10 minutos, a não ser que seja forçada', async () => {
+  it('não repete a tentativa dentro do prazo, a não ser que seja forçada', async () => {
     definirRenovacaoAutomatica(true);
     const api = simularApi({ 'GET /catalogo': { status: 200, corpo: catalogoDeTeste() } });
     await renovarCopiaDosProdutos();
@@ -175,7 +175,7 @@ describe('renovar a cópia', () => {
     await expect(renovarCopiaDosProdutos()).resolves.toBeUndefined();
     expect((await lerCatalogoLocal())?.baixadoEm).toBe(777);
     rotas['GET /catalogo'] = { status: 200, corpo: catalogoDeTeste() };
-    await renovarCopiaDosProdutos(); // a falha não "gastou" os 10 minutos
+    await renovarCopiaDosProdutos(); // a falha não "gastou" o prazo
     expect((await lerCatalogoLocal())?.baixadoEm).not.toBe(777);
   });
 

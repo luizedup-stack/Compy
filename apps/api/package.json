@@ -12,6 +12,7 @@
     "creditos-banco-de-fotos": "tsx src/scripts/creditosBancoDeFotos.ts"
   },
   "dependencies": {
+    "@fastify/compress": "^9.3.0",
     "@fastify/cors": "^11.4.0",
     "@fastify/jwt": "^10.2.7",
     "@fastify/multipart": "^9.4.0",

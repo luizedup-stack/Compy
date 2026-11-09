@@ -1,15 +1,31 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { gunzipSync, gzipSync, strFromU8, strToU8 } from 'fflate';
 import type { Catalogo } from '@mercado/shared';
 
 /**
  * A cópia de todos os mercados e produtos, guardada no celular. Com ela o app busca, lista mercados e mostra
  * produtos sozinho, sem internet e sem o servidor ligado. Quando há conexão, a cópia é renovada.
- * Fica em partes pequenas porque o armazenamento do Android não lê textos muito grandes de uma vez.
+ * Fica em partes porque o armazenamento do Android não lê textos muito grandes de uma vez, e cada parte é guardada
+ * COMPACTADA (gzip): com dezenas de milhares de ofertas o texto puro passaria do limite de ~6 MB do armazenamento
+ * do Android; compactado fica na casa de 2 MB.
  */
 const CHAVE_META = 'bolso-certo.catalogo.meta';
 const chaveParte = (i: number) => `bolso-certo.catalogo.parte.${i}`;
+export const OFERTAS_POR_PARTE = 3000;
 const CHAVE_FOTOS = 'bolso-certo.catalogo.fotos';
-const OFERTAS_POR_PARTE = 300;
+/** Marca no começo de uma parte compactada. Parte sem a marca é o formato antigo (JSON puro) e ainda é lida. */
+const MARCA_GZIP = 'gz:';
+
+/** Transforma as ofertas de uma parte em texto compacto (gzip em base64) para guardar. */
+function compactar(ofertas: Catalogo['ofertas']): string {
+  return MARCA_GZIP + btoa(strFromU8(gzipSync(strToU8(JSON.stringify(ofertas))), true));
+}
+
+/** O contrário de compactar(); também lê o formato antigo (JSON puro). */
+function descompactar(texto: string): Catalogo['ofertas'] {
+  if (!texto.startsWith(MARCA_GZIP)) return JSON.parse(texto) as Catalogo['ofertas'];
+  return JSON.parse(strFromU8(gunzipSync(strToU8(atob(texto.slice(MARCA_GZIP.length)), true)))) as Catalogo['ofertas'];
+}
 
 interface Meta {
   geradoEm: string;
@@ -38,7 +54,7 @@ export async function lerCatalogoLocal(): Promise<CatalogoLocal | null> {
     const ofertas: Catalogo['ofertas'] = [];
     for (const [, texto] of pares) {
       if (!texto) return null; // cópia incompleta: é como se não houvesse
-      ofertas.push(...(JSON.parse(texto) as Catalogo['ofertas']));
+      for (const o of descompactar(texto)) ofertas.push(o);
     }
     let fotos: { comFoto?: string[]; fotosIlustrativas?: string[] } = {};
     try {
@@ -73,7 +89,7 @@ export async function guardarCatalogoLocal(catalogo: Catalogo, baixadoEm: number
   try {
     const anterior = await AsyncStorage.getItem(CHAVE_META);
     const partesAntes = anterior ? ((JSON.parse(anterior) as Partial<Meta>).partes ?? 0) : 0;
-    await AsyncStorage.multiSet(partes.map((p, i) => [chaveParte(i), JSON.stringify(p)] as [string, string]));
+    await AsyncStorage.multiSet(partes.map((p, i) => [chaveParte(i), compactar(p)] as [string, string]));
     const meta: Meta = { geradoEm: catalogo.geradoEm, baixadoEm, mercados: catalogo.mercados, partes: partes.length };
     await AsyncStorage.setItem(CHAVE_META, JSON.stringify(meta));
     // Quais produtos têm foto (e quais são ilustrativas): sem isto, ao reabrir o app sem internet as fotos sumiriam.

@@ -332,18 +332,23 @@ export const urlDaFoto = (caminho: string): string => `${URL_BASE}${caminho}`;
 export async function enviarFotoDoProduto(
   codigo: string,
   imagem: string,
-): Promise<{ foto: string; fotoOrigem: 'mercado' }> {
+): Promise<{ foto: string; fotoOrigem: 'mercado'; fotoSoDoMercado: boolean }> {
   const resposta = await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/foto`, {
     method: 'PUT',
     headers: JSON_HEADERS,
     body: JSON.stringify({ imagem }),
   });
-  return (await resposta.json()) as { foto: string; fotoOrigem: 'mercado' };
+  return (await resposta.json()) as { foto: string; fotoOrigem: 'mercado'; fotoSoDoMercado: boolean };
 }
 
-/** Remove a foto que o mercado enviou (a achada sozinha não se remove). */
-export async function removerFotoDoProduto(codigo: string): Promise<void> {
-  await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/foto`, { method: 'DELETE' });
+/**
+ * Remove a foto que o mercado enviou (a achada sozinha não se remove). Se era uma foto só do mercado, o produto fica com a foto
+ * de todos e ela é devolvida; se era a foto de todos, não devolve nada (null).
+ */
+export async function removerFotoDoProduto(codigo: string): Promise<{ foto: string | null; fotoOrigem: 'automatica' | 'mercado' | 'ilustrativa' | null } | null> {
+  const resposta = await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/foto`, { method: 'DELETE' });
+  if (resposta.status === 204) return null;
+  return (await resposta.json()) as { foto: string | null; fotoOrigem: 'automatica' | 'mercado' | 'ilustrativa' | null };
 }
 
 export async function removerProduto(codigo: string): Promise<void> {

@@ -88,7 +88,7 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 
 **Colocar planilhas reais no banco em lote** → `apps/api/src/scripts/carregar.ts` (`npm run carregar -w @mercado/api -- <pasta>`).
 
-**Fotos dos produtos** → a foto é do código de barras.
+**Fotos dos produtos** → a foto é do código de barras. **Regra da foto enviada por um mercado** (`PUT /painel/produtos/:codigo/foto`, em `apps/api/src/rotas/painel.ts`): se o produto ainda não tem foto, a do mercado vira a de todos (tabela `FotosProduto`); se já tem, fica só para o mercado que a enviou (tabela `FotosProdutoMercado`, migração `007-fotos-do-mercado.sql`, métodos `*FotoDoMercado` do repositório), e a entrega usa `GET /fotos/:codigo?mercado=ID`. O mercado dono da foto de todos a substitui. Testes em `apps/api/src/rotas/fotos.test.ts`.
 - busca automática no Open Food Facts: `apps/api/src/fotos/openFoodFacts.ts` (consulta e validação da resposta) e `apps/api/src/fotos/gerenciador.ts` (fila devagar, em segundo plano; não procura o mesmo produto duas vezes);
 - envio pelo mercado: `apps/api/src/rotas/painel.ts` (`PUT/DELETE /painel/produtos/:codigo/foto`), conferência da imagem em `apps/api/src/fotos/imagem.ts`, tela em `apps/painel/src/Produtos.tsx` e redução da imagem em `apps/painel/src/foto.ts`;
 - entrega da foto: `apps/api/src/rotas/fotos.ts` (`GET /fotos/:codigo`); no app, `apps/mobile/src/componentes/FotoDoProduto.tsx`;
@@ -96,6 +96,22 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 - foto ilustrativa do tipo de produto: banco de imagens em `apps/api/dados/fotos-ilustrativas/` (montado por `src/scripts/montarBancoDeFotos.ts`, créditos em `CREDITOS.md`), escolha pelo nome em `apps/api/src/fotos/ilustrativas.ts`; `apps/api/src/fotos/embutidas.ts` entrega essa foto na hora (catálogo, busca, `/fotos/:codigo`, produtos do mercado) sem depender do gerenciador nem do banco de dados; busca pelo nome em `openFoodFacts.ts`;
 - armazenamento: tabela `FotosProduto` (`003-fotos.sql`, `004-fotos-da-planilha.sql`) e os métodos `*Foto*` do repositório; ferramenta em lote `apps/api/src/scripts/fotos.ts`;
 - coleta das fotos dos sites: `ferramentas/coleta/foto.mjs` (usado pelos coletores) e a coluna "Foto" em `gerar-planilhas.mjs`.
+
+**Coleta de produtos de várias redes (catálogos públicos)** → `ferramentas/coleta/coletar-vtex.mjs` coleta as redes que usam a plataforma VTEX
+(Atacadão, Mambo, Savegnago, Oba, Sam's Club, Covabra, Hortifruti…; lista em `REDES`; `--listar` mostra todas): lê a árvore de categorias, percorre cada
+categoria com 3 pedidos por vez e pausa entre eles (educado com o site), só guarda produto com código de barras válido e em estoque, e **continua de onde
+parou** se for interrompido (`dados-reais/<rede>.json` + `<rede>.progresso.json`). Teste: `coletar-vtex.test.mjs`. O Carrefour tem coletor próprio
+(`coletar-carrefour.mjs`). `gerar-planilhas.mjs` transforma os `.json` em planilhas `mercado-<rede>[-parte-NN].xlsx` (redes grandes são divididas em
+partes de 4.500 linhas por causa do limite do importador). Como refazer e limites: `dados-reais/LEIA-ME.md`.
+
+**Produtos que já vêm no programa de Windows** → as planilhas de `dados-reais/` são copiadas para dentro do programa (`apps/desktop/construir.mjs`,
+`fontesDeDados`). `apps/desktop/api-embutida.ts`: se a "assinatura" das planilhas mudou (`dados-versao.txt`), os produtos são reimportados sozinhos ao
+abrir, sem perder contas e correções; o menu "Atualizar produtos com as planilhas do programa" (`main.cjs`) faz isso na hora.
+
+**Cópia dos produtos no celular com muitos produtos** → servidor responde `/catalogo` compactado (`@fastify/compress`, em `apps/api/src/app.ts`); o app
+guarda a cópia em partes de 3.000 ofertas **compactadas** (gzip, `fflate`) em `apps/mobile/src/catalogo.ts` e renova a cada 30 minutos
+(`PRAZO_RENOVAR_MS` em `apps/mobile/src/api.ts`). A lista da tela inicial é montada por `listarProdutosNoCatalogo` (`packages/shared/src/busca.ts`),
+que ordena por um resumo leve e só monta os produtos da página pedida (0,2 s com 50 mil ofertas).
 
 **App sem login e "Como chegar"** → o app abre sempre nas abas (`apps/mobile/src/navegacao.tsx`); Entrar e Cadastrar abrem por cima, a partir da aba Conta (`telas/Conta.tsx`). As rotas de leitura da API são públicas (`usuarioOpcional` em `apps/api/src/auth/guardas.ts`). A pergunta "Ir até o mercado?" e os links do Google Maps e do Waze estão em `apps/mobile/src/rota.ts`.
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import compress from '@fastify/compress';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
@@ -129,6 +130,9 @@ export async function construirApp({
     origin: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+  // Respostas de texto (JSON) saem compactadas (gzip) quando o app aceita: a cópia dos produtos, com dezenas de milhares de
+  // ofertas, passa de 10 MB e cai para ~1,5 MB. Fotos e outros arquivos já compactados não são mexidos.
+  await app.register(compress, { threshold: 1024 });
   // Depois do CORS: a resposta 429 também leva os cabeçalhos de CORS.
   if (limitarRequisicoes) await registrarLimites(app);
   await app.register(jwt, { secret: jwtSecret, sign: { expiresIn: '7d' } });

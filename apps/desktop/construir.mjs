@@ -39,7 +39,8 @@ await build({
 passo('Reunindo os arquivos');
 fs.cpSync(path.join(raiz, 'apps/painel/dist'), path.join(montagem, 'painel'), { recursive: true });
 // Planilhas que já vêm carregadas: as reais (só no seu computador) ou, na falta delas, as de exemplo do projeto.
-const fontesDeDados = [path.join(raiz, '.dados-carga'), path.join(raiz, 'dados-reais'), path.join(raiz, 'dados-de-teste')];
+// Ordem de preferência: as planilhas reais coletadas (dados-reais/, as mais completas), depois .dados-carga/ e por fim as de exemplo.
+const fontesDeDados = [path.join(raiz, 'dados-reais'), path.join(raiz, '.dados-carga'), path.join(raiz, 'dados-de-teste')];
 const pastaDados = path.join(montagem, 'dados');
 fs.mkdirSync(pastaDados);
 for (const fonte of fontesDeDados) {

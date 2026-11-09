@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ErroApi, mensagemDoErro, produtosDoMercado } from '../api';
+import { useAtualizacao } from '../atualizar';
 import { Botao } from '../componentes/Botao';
 import { LinhaProduto } from '../componentes/LinhaProduto';
 import { perguntarSeQuerIr } from '../rota';
@@ -30,7 +31,7 @@ export function MercadoDetalhe({ navigation, route }: Props) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable accessibilityRole="link" accessibilityLabel="Como chegar ao mercado" onPress={() => perguntarSeQuerIr({ nome, endereco })}>
-          <Text style={{ color: cores.marca, fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
         </Pressable>
       ),
     });
@@ -99,6 +100,8 @@ export function MercadoDetalhe({ navigation, route }: Props) {
     [id],
   );
 
+  // O botão "Atualizar" do topo também recarrega os produtos deste mercado (versao muda a cada toque).
+  const { versao } = useAtualizacao();
   useEffect(() => {
     progresso.current = { pagina: 0, recebidos: 0, total: 0, vazia: false };
     buscando.current = false;
@@ -107,7 +110,7 @@ export function MercadoDetalhe({ navigation, route }: Props) {
       contador.current += 1; // ao sair da tela, nenhuma resposta tardia mexe no estado
       buscando.current = false;
     };
-  }, [carregarPagina]);
+  }, [carregarPagina, versao]);
 
   /** Fim da lista: pede a próxima página só se a primeira já chegou, nada está em andamento e ainda faltam produtos. */
   function aoChegarAoFim() {

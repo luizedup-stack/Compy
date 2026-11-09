@@ -83,7 +83,14 @@ export interface ProdutoPainel {
   foto?: string | null;
   /** De onde veio a foto: achada sozinha num banco aberto de produtos ou enviada por um mercado. */
   fotoOrigem?: 'automatica' | 'mercado' | 'ilustrativa' | null;
+  /** A foto é só deste mercado (o produto já tinha outra foto, que continua valendo para os demais mercados). */
+  fotoSoDoMercado?: boolean;
 }
 
-/** Caminho, na API, da foto de um produto (a foto é do código de barras, igual para todos os mercados). */
-export const caminhoDaFoto = (codigoBarras: string): string => `/fotos/${codigoBarras}`;
+/**
+ * Caminho, na API, da foto de um produto. Normalmente a foto é do código de barras (igual para todos os mercados). Se o mercado
+ * enviou uma foto só dele (o produto já tinha outra), informe `doMercado`: o caminho leva o mercado e a data da foto (`versao`),
+ * para o link mudar quando o mercado troca a foto.
+ */
+export const caminhoDaFoto = (codigoBarras: string, doMercado?: { mercadoId: number; versao: number }): string =>
+  doMercado ? `/fotos/${codigoBarras}?mercado=${doMercado.mercadoId}&v=${doMercado.versao}` : `/fotos/${codigoBarras}`;
