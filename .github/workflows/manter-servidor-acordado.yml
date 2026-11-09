@@ -9,9 +9,11 @@
 # - Para testar agora: aba Actions > "Manter servidor acordado" > "Run workflow".
 name: Manter servidor acordado
 
+# TRAVA DE CUSTO (veja docs/TRAVAS-DE-CUSTO.md): só toca das 7h às 23h de Brasília (10h às 2h59 UTC, que é o horário do GitHub).
+# Ligado o dia todo seriam ~744 das 750 horas gratuitas do Render; assim ficam ~530 e sobra margem para o servidor nunca ser suspenso.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/5 10-23,0-2 * * *'
   workflow_dispatch:
 
 # Uma execução por vez: se uma demorar (servidor acordando), a próxima espera.

@@ -109,7 +109,7 @@ partes de 4.500 linhas por causa do limite do importador). Como refazer e limite
 abrir, sem perder contas e correções; o menu "Atualizar produtos com as planilhas do programa" (`main.cjs`) faz isso na hora.
 
 **Cópia dos produtos no celular com muitos produtos** → servidor responde `/catalogo` compactado (`@fastify/compress`, em `apps/api/src/app.ts`); o app
-guarda a cópia em partes de 3.000 ofertas **compactadas** (gzip, `fflate`) em `apps/mobile/src/catalogo.ts` e renova a cada 3 minutos
+guarda a cópia em partes de 3.000 ofertas **compactadas** (gzip, `fflate`) em `apps/mobile/src/catalogo.ts` e renova a cada 30 minutos
 (`PRAZO_RENOVAR_MS` em `apps/mobile/src/api.ts`). A lista da tela inicial é montada por `listarProdutosNoCatalogo` (`packages/shared/src/busca.ts`),
 que ordena por um resumo leve e só monta os produtos da página pedida (0,2 s com 50 mil ofertas).
 

@@ -227,7 +227,7 @@ export function trocarSenha(senhaAtual: string, senhaNova: string): Promise<void
 // consultas são feitas nessa cópia, com a mesma conta que o servidor usa (packages/shared).
 
 /** Quanto tempo uma tentativa de renovar a cópia vale antes de tentar de novo. */
-const PRAZO_RENOVAR_MS = 3 * 60 * 1000;
+const PRAZO_RENOVAR_MS = 30 * 60 * 1000;
 let renovacaoAutomatica = true;
 let renovando: Promise<void> | null = null;
 let ultimaTentativa = 0;
@@ -239,7 +239,7 @@ export function definirRenovacaoAutomatica(ligada: boolean): void {
 }
 
 /**
- * Baixa a cópia de todos os produtos e a guarda no celular. Sem `forcar`, não repete dentro de 3 minutos.
+ * Baixa a cópia de todos os produtos e a guarda no celular. Sem `forcar`, não repete dentro de 30 minutos (trava de custo: veja docs/TRAVAS-DE-CUSTO.md).
  * Nunca lança erro: falhas só significam que a cópia antiga continua valendo.
  */
 export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
