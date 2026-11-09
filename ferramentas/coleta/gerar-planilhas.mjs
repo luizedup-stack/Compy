@@ -7,7 +7,12 @@ import { fileURLToPath } from 'node:url';
 const REDES = [
   { arquivo: 'atacadao', saida: 'mercado-atacadao.xlsx', nome: 'Atacadão (preços do site)', endereco: 'Preços públicos do site atacadao.com.br, sem loja definida – São Paulo – SP' },
   { arquivo: 'carrefour', saida: 'mercado-carrefour.xlsx', nome: 'Carrefour Mercado (preços do site)', endereco: 'Preços públicos do site mercado.carrefour.com.br, sem loja definida – São Paulo – SP' },
+  // O Assaí bloqueia a coleta automática (proteção anti-robô): a planilha sai só com a aba Mercado e o cabeçalho, pronta para ser
+  // preenchida à mão ou por uma fonte autorizada pela rede. Sem produtos, o importador a recusa: preencha antes de enviar.
+  { arquivo: 'assai', saida: 'mercado-assai.xlsx', nome: 'Assaí Atacadista (preços do site)', endereco: 'Preços do Assaí Atacadista, sem loja definida – São Paulo – SP', modelo: true },
 ];
+// O envio aceita até 5.000 produtos por planilha (LIMITE_LINHAS): redes maiores saem em partes, todas com a mesma aba Mercado.
+const POR_PLANILHA = 4900;
 
 // Procura "500g", "1,5 L", "12 x 350 ml", "12 un" no nome do produto. Devolve texto ou ''.
 const UNID = '(?:kg|g|mg|ml|l|lt|litros?|un|und|unid|unidades?|rolos?|dz)';
@@ -22,8 +27,12 @@ function quantidadeDoNome(nome) {
 
 for (const rede of REDES) {
   const caminho = new URL(`../../dados-reais/${rede.arquivo}.json`, import.meta.url);
-  if (!existsSync(caminho)) continue;
-  const itens = JSON.parse(readFileSync(caminho, 'utf8'));
+  if (!existsSync(caminho) && !rede.modelo) continue;
+  const todos = existsSync(caminho) ? JSON.parse(readFileSync(caminho, 'utf8')) : [];
+  const partes = [];
+  for (let i = 0; i < Math.max(todos.length, 1); i += POR_PLANILHA) partes.push(todos.slice(i, i + POR_PLANILHA));
+  for (const [n, itens] of partes.entries()) {
+  const saida = partes.length > 1 ? rede.saida.replace('.xlsx', `-${n + 1}.xlsx`) : rede.saida;
   const wb = new ExcelJS.Workbook();
   const m = wb.addWorksheet('Mercado');
   m.addRow(['Nome do mercado', rede.nome]);
@@ -38,6 +47,7 @@ for (const rede of REDES) {
     r.getCell(3).numFmt = '0.00';
   }
   p.columns.forEach((c, i) => { c.width = [18, 60, 10, 14, 24, 11, 60][i]; });
-  await wb.xlsx.writeFile(fileURLToPath(new URL(`../../dados-reais/${rede.saida}`, import.meta.url)));
-  console.log(rede.saida, itens.length, 'produtos,', itens.filter((i) => i.foto).length, 'com link de foto');
+  await wb.xlsx.writeFile(fileURLToPath(new URL(`../../dados-reais/${saida}`, import.meta.url)));
+  console.log(saida, itens.length, 'produtos,', itens.filter((i) => i.foto).length, 'com link de foto');
+  }
 }

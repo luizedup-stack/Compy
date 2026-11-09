@@ -57,6 +57,40 @@ export async function montarCatalogo(repo: Repositorio, embutidas?: FotosEmbutid
   return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: [...comFoto], fotosIlustrativas: [...fotosIlustrativas] };
 }
 
+/** Quantas ofertas, no máximo, vão na cópia que o app guarda no celular (GET /catalogo). A busca no servidor não tem esse limite. */
+export const LIMITE_OFERTAS_COPIA = 8000;
+
+/**
+ * Reduz o catálogo à cópia do celular quando ele é grande demais (com todos os produtos das redes passaria de 10 MB): ficam os produtos
+ * vendidos em mais mercados (os que servem para comparar) e, no empate, os que apareceram primeiro. Cada produto escolhido leva todas as suas ofertas.
+ */
+export function limitarCatalogo(catalogo: Catalogo, maximo = LIMITE_OFERTAS_COPIA): Catalogo {
+  if (catalogo.ofertas.length <= maximo) return catalogo;
+  const porCodigo = new Map<string, Catalogo['ofertas']>();
+  for (const o of catalogo.ofertas) {
+    const lista = porCodigo.get(o.codigoBarras);
+    if (lista) lista.push(o);
+    else porCodigo.set(o.codigoBarras, [o]);
+  }
+  const ordem = [...porCodigo.entries()]
+    .map(([codigo, ofertas], posicao) => ({ codigo, ofertas, mercados: new Set(ofertas.map((o) => o.mercadoId)).size, posicao }))
+    .sort((a, b) => b.mercados - a.mercados || a.posicao - b.posicao);
+  const escolhidos = new Set<string>();
+  const ofertas: Catalogo['ofertas'] = [];
+  for (const item of ordem) {
+    if (ofertas.length + item.ofertas.length > maximo) continue;
+    escolhidos.add(item.codigo);
+    ofertas.push(...item.ofertas);
+  }
+  return {
+    ...catalogo,
+    ofertas,
+    ...(catalogo.comFoto ? { comFoto: catalogo.comFoto.filter((c) => escolhidos.has(c)) } : {}),
+    ...(catalogo.fotosIlustrativas ? { fotosIlustrativas: catalogo.fotosIlustrativas.filter((c) => escolhidos.has(c)) } : {}),
+    parcial: true,
+  };
+}
+
 /**
  * Busca produtos pelo nome, agrupa o mesmo código de barras entre os mercados e ordena pelo preço
  * (a conta mora em packages/shared, a mesma que o app usa sem internet). Uma consulta curta demais, longa demais

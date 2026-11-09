@@ -57,6 +57,8 @@ export interface Catalogo {
   comFoto?: string[];
   /** Dos códigos com foto, os cuja foto é só ilustrativa (a do tipo de produto). */
   fotosIlustrativas?: string[];
+  /** true quando esta cópia traz só parte dos produtos (os mais úteis para comparar): a busca no servidor continua completa. */
+  parcial?: boolean;
 }
 
 export interface MercadoComTotal extends MercadoCatalogo {
