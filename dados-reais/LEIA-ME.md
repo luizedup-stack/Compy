@@ -1,6 +1,6 @@
 # Dados reais de teste (coletados em 05/11/2026)
 
-Preços e códigos de barras copiados de páginas e de uma API **públicas** dos sites das redes, só para testar o Bolso Certo. Não são dados oficiais das redes e **não têm autorização delas**. Não publique nem use fora dos testes.
+Preços e códigos de barras copiados de páginas e de uma API **públicas** dos sites das redes, só para testar o Compy. Não são dados oficiais das redes e **não têm autorização delas**. Não publique nem use fora dos testes.
 
 | Planilha | Fonte | Produtos |
 |---|---|---|

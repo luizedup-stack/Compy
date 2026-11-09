@@ -262,23 +262,88 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
         expect(await repo.listarOfertasDoMercado(m.id)).toHaveLength(1204);
       });
 
-      it('salvarFotosDaPlanilha registra os links, sem trocar foto enviada pelo mercado nem refazer link igual', async () => {
+      it('salvarFotosDoMercado: vira a foto de todos só onde não há foto de verdade; onde já há, a do mercado fica só para ele', async () => {
         const repo = await criar();
-        const m = await repo.criarMercado(novoMercado());
+        const a = await repo.criarMercado(novoMercado('A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('B', 'Rua 2'));
         const em = new Date('2026-11-05T00:00:00Z');
-        await repo.salvarFoto({ codigoBarras: '7890000000001', origem: 'mercado', url: null, imagem: 'data:image/jpeg;base64,AAAA', mercadoId: m.id, atualizadaEm: em });
-        await repo.salvarFoto({ codigoBarras: '7890000000002', origem: 'planilha', url: 'https://l.exemplo.com/2.jpg', imagem: 'data:image/jpeg;base64,BBBB', mercadoId: m.id, atualizadaEm: em });
-        await repo.salvarFoto({ codigoBarras: '7890000000003', origem: 'ilustrativa', url: null, imagem: 'data:image/jpeg;base64,CCCC', mercadoId: null, atualizadaEm: em });
+        const IMG = (x: string) => `data:image/jpeg;base64,${x}`;
+        // 1 não tem foto; 2 tem ilustrativa; 3 tem foto achada no banco aberto; 4 já tem foto enviada por B; 5 tem "procurou e não achou"
+        await repo.salvarFoto({ codigoBarras: '7890000000002', origem: 'ilustrativa', url: null, imagem: IMG('ILU'), mercadoId: null, atualizadaEm: em });
+        await repo.salvarFoto({ codigoBarras: '7890000000003', origem: 'openfoodfacts', url: 'https://off.exemplo.com/3.jpg', imagem: IMG('OFF'), mercadoId: null, atualizadaEm: em });
+        await repo.salvarFoto({ codigoBarras: '7890000000004', origem: 'mercado', url: null, imagem: IMG('DOB'), mercadoId: b.id, atualizadaEm: em });
+        await repo.salvarFoto({ codigoBarras: '7890000000005', origem: 'openfoodfacts', url: null, imagem: null, mercadoId: null, atualizadaEm: em });
         const depois = new Date('2026-11-09T00:00:00Z');
-        await repo.salvarFotosDaPlanilha(
-          [['7890000000001', 'https://l.exemplo.com/1.jpg'], ['7890000000002', 'https://l.exemplo.com/2.jpg'], ['7890000000003', 'https://l.exemplo.com/3.jpg'], ['7890000000004', 'https://l.exemplo.com/4.jpg']],
-          m.id,
+        await repo.salvarFotosDoMercado(
+          a.id,
+          ['7890000000001', '7890000000002', '7890000000003', '7890000000004', '7890000000005'].map((c) => ({ codigoBarras: c, imagem: IMG(`A${c.slice(-1)}`) })),
           depois,
         );
-        expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'mercado', imagem: 'data:image/jpeg;base64,AAAA' }); // a do mercado vale mais
-        expect(await repo.acharFoto('7890000000002')).toMatchObject({ origem: 'planilha', imagem: 'data:image/jpeg;base64,BBBB' }); // link igual: não refaz
-        expect(await repo.acharFoto('7890000000003')).toMatchObject({ origem: 'planilha', url: 'https://l.exemplo.com/3.jpg', imagem: null }); // troca a ilustrativa
-        expect(await repo.acharFoto('7890000000004')).toMatchObject({ origem: 'planilha', url: 'https://l.exemplo.com/4.jpg', imagem: null, mercadoId: m.id });
+        // vira de todos: sem foto, ilustrativa e "não achou"
+        for (const c of ['1', '2', '5']) expect(await repo.acharFoto(`789000000000${c}`)).toMatchObject({ origem: 'mercado', imagem: IMG(`A${c}`), mercadoId: a.id });
+        // já existiam de verdade: a compartilhada fica como estava e a de A fica só de A
+        expect(await repo.acharFoto('7890000000003')).toMatchObject({ origem: 'openfoodfacts', imagem: IMG('OFF') });
+        expect(await repo.acharFoto('7890000000004')).toMatchObject({ origem: 'mercado', imagem: IMG('DOB'), mercadoId: b.id });
+        expect(await repo.acharFotoDoMercado(a.id, '7890000000003')).toMatchObject({ imagem: IMG('A3') });
+        expect(await repo.acharFotoDoMercado(a.id, '7890000000004')).toMatchObject({ imagem: IMG('A4') });
+        expect(await repo.acharFotoDoMercado(a.id, '7890000000001')).toBeNull(); // virou a compartilhada: não precisa de própria
+        expect(await repo.acharFotoDoMercado(b.id, '7890000000003')).toBeNull(); // dos outros mercados: nada
+        expect(await repo.listarCodigosComFotoDoMercado(a.id, ['7890000000001', '7890000000003', '7890000000004'])).toEqual(['7890000000003', '7890000000004']);
+        expect(await repo.listarCodigosComFotoDoMercado(b.id, ['7890000000003'])).toEqual([]);
+
+        // enviar de novo troca a própria; o dono da compartilhada pode trocar a compartilhada
+        await repo.salvarFotosDoMercado(a.id, [{ codigoBarras: '7890000000003', imagem: IMG('A3NOVA') }, { codigoBarras: '7890000000001', imagem: IMG('A1NOVA') }], depois);
+        expect((await repo.acharFotoDoMercado(a.id, '7890000000003'))?.imagem).toBe(IMG('A3NOVA'));
+        expect((await repo.acharFoto('7890000000001'))?.imagem).toBe(IMG('A1NOVA'));
+        // apagar a própria
+        expect(await repo.removerFotoDoMercado(a.id, '7890000000003')).toBe(true);
+        expect(await repo.removerFotoDoMercado(a.id, '7890000000003')).toBe(false);
+      });
+
+      it('salvarFotosDoMercado com links: link vira própria onde já há foto de verdade, fica pendente até baixar, e não refaz link igual nem troca imagem do próprio mercado', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('A', 'Rua 1'));
+        const b = await repo.criarMercado(novoMercado('B', 'Rua 2'));
+        const em = new Date('2026-11-05T00:00:00Z');
+        await repo.salvarFoto({ codigoBarras: '7890000000003', origem: 'openfoodfacts', url: 'https://off.exemplo.com/3.jpg', imagem: 'data:image/jpeg;base64,OFF', mercadoId: null, atualizadaEm: em });
+        await repo.salvarFotosDoMercado(
+          a.id,
+          [{ codigoBarras: '7890000000001', url: 'https://l.exemplo.com/1.jpg' }, { codigoBarras: '7890000000003', url: 'https://l.exemplo.com/3.jpg' }],
+          em,
+        );
+        // sem foto antes: o link vira a compartilhada (pendente); com foto de verdade: o link fica só de A (pendente)
+        expect(await repo.acharFoto('7890000000001')).toMatchObject({ origem: 'planilha', url: 'https://l.exemplo.com/1.jpg', imagem: null, mercadoId: a.id });
+        expect(await repo.acharFotoDoMercado(a.id, '7890000000003')).toMatchObject({ url: 'https://l.exemplo.com/3.jpg', imagem: null });
+        expect(await repo.acharFoto('7890000000003')).toMatchObject({ origem: 'openfoodfacts', imagem: 'data:image/jpeg;base64,OFF' });
+        expect(await repo.listarCodigosComFotoDoMercado(a.id, ['7890000000003'])).toEqual([]); // ainda sem imagem
+        expect(await repo.listarFotosDoMercadoParaBaixar(10)).toEqual([{ mercadoId: a.id, codigoBarras: '7890000000003', url: 'https://l.exemplo.com/3.jpg' }]);
+
+        await repo.guardarImagemDaFotoDoMercado(a.id, '7890000000003', 'https://outro.exemplo.com/x.jpg', 'data:image/jpeg;base64,ERRADA', em); // link já mudou: ignora
+        expect((await repo.acharFotoDoMercado(a.id, '7890000000003'))?.imagem).toBeNull();
+        await repo.guardarImagemDaFotoDoMercado(a.id, '7890000000003', 'https://l.exemplo.com/3.jpg', 'data:image/jpeg;base64,BAIXADA', em);
+        expect((await repo.acharFotoDoMercado(a.id, '7890000000003'))?.imagem).toBe('data:image/jpeg;base64,BAIXADA');
+        expect(await repo.listarFotosDoMercadoParaBaixar(10)).toEqual([]);
+
+        // o mesmo link de novo não refaz; outro link do mesmo mercado não troca a imagem já guardada de um envio à mão
+        await repo.salvarFotosDoMercado(a.id, [{ codigoBarras: '7890000000003', url: 'https://l.exemplo.com/3.jpg' }, { codigoBarras: '7890000000003', url: 'https://l.exemplo.com/NOVO.jpg' }], em);
+        expect((await repo.acharFotoDoMercado(a.id, '7890000000003'))?.imagem).toBe('data:image/jpeg;base64,BAIXADA');
+        // B também tem foto própria do produto 3, sem mexer na de A
+        await repo.salvarFotosDoMercado(b.id, [{ codigoBarras: '7890000000003', imagem: 'data:image/jpeg;base64,DOB' }], em);
+        expect((await repo.acharFotoDoMercado(b.id, '7890000000003'))?.imagem).toBe('data:image/jpeg;base64,DOB');
+        expect((await repo.acharFotoDoMercado(a.id, '7890000000003'))?.imagem).toBe('data:image/jpeg;base64,BAIXADA');
+        // link de quem é o dono da compartilhada não troca a imagem que ele mesmo enviou
+        await repo.salvarFotosDoMercado(a.id, [{ codigoBarras: '7890000000009', imagem: 'data:image/jpeg;base64,MINHA' }], em);
+        await repo.salvarFotosDoMercado(a.id, [{ codigoBarras: '7890000000009', url: 'https://l.exemplo.com/9.jpg' }], em);
+        expect(await repo.acharFoto('7890000000009')).toMatchObject({ origem: 'mercado', imagem: 'data:image/jpeg;base64,MINHA' });
+      });
+
+      it('apagarMercado leva junto as fotos próprias dele', async () => {
+        const repo = await criar();
+        const a = await repo.criarMercado(novoMercado('A', 'Rua 1'));
+        await repo.salvarFoto({ codigoBarras: '7890000000003', origem: 'openfoodfacts', url: null, imagem: 'data:image/jpeg;base64,OFF', mercadoId: null, atualizadaEm: new Date() });
+        await repo.salvarFotosDoMercado(a.id, [{ codigoBarras: '7890000000003', imagem: 'data:image/jpeg;base64,A3' }], new Date());
+        expect(await repo.apagarMercado(a.id)).toBe(true);
+        expect(await repo.acharFotoDoMercado(a.id, '7890000000003')).toBeNull();
       });
 
       it('acha e remove oferta', async () => {

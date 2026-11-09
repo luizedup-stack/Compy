@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="t d">
+  <title id="t">Compy</title>
+  <desc id="d">Um C branco grosso com uma etiqueta de preço laranja dentro.</desc>
+  <defs>
+    <linearGradient id="fundo" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#1A3FA6"/>
+      <stop offset="1" stop-color="#0B1F5B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#fundo)"/>
+  <g transform="translate(512 512) scale(0.9) translate(-512 -512)">
+    <path d="M726.5 350.6 A262 262 0 1 0 658.8 734.2" fill="none" stroke="#FFFFFF" stroke-width="192"/>
+    <g transform="translate(690 572) rotate(35)">
+      <polygon points="-190,0 -95,-118 190,-118 190,118 -95,118" fill="#FF8A00" stroke="#FF8A00" stroke-width="44" stroke-linejoin="round"/>
+      <circle cx="128" cy="0" r="30" fill="#0B1F5B"/>
+    </g>
+  </g>
+</svg>

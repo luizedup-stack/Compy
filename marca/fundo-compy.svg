@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="t d">
+  <title id="t">Compy</title>
+  <desc id="d">Um C branco grosso com uma etiqueta de preço laranja dentro.</desc>
+  <defs>
+    <linearGradient id="fundo" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#1A3FA6"/>
+      <stop offset="1" stop-color="#0B1F5B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#fundo)"/>
+</svg>

@@ -66,6 +66,8 @@ export interface RelatorioImportacao {
   mercadoCriado: boolean;
   importadas: number;
   erros: { linha: number; motivo: string }[];
+  /** Quantas imagens coladas na coluna Foto foram recebidas (links não entram: o servidor baixa depois). */
+  fotosColadas?: number;
 }
 
 /** Produto como o painel do mercado o vê (resposta de /painel/produtos). */
@@ -85,5 +87,9 @@ export interface ProdutoPainel {
   fotoOrigem?: 'automatica' | 'mercado' | 'ilustrativa' | null;
 }
 
-/** Caminho, na API, da foto de um produto (a foto é do código de barras, igual para todos os mercados). */
-export const caminhoDaFoto = (codigoBarras: string): string => `/fotos/${codigoBarras}`;
+/**
+ * Caminho, na API, da foto de um produto. A foto é do código de barras (igual para todos os mercados); com `mercadoId`, é a foto PRÓPRIA
+ * desse mercado (quando ele tem uma: veja salvarFotosDoMercado na API).
+ */
+export const caminhoDaFoto = (codigoBarras: string, mercadoId?: number): string =>
+  mercadoId === undefined ? `/fotos/${codigoBarras}` : `/fotos/${codigoBarras}?mercadoId=${mercadoId}`;

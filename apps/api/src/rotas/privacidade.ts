@@ -6,7 +6,7 @@ const PAGINA = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Política de privacidade - Bolso Certo</title>
+<title>Política de privacidade - Compy</title>
 <style>
   body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
   h1 { font-size: 1.6rem; }
@@ -14,8 +14,8 @@ const PAGINA = `<!doctype html>
 </style>
 </head>
 <body>
-<h1>Política de privacidade do Bolso Certo</h1>
-<p>O Bolso Certo compara os preços de produtos entre mercados da sua região. Aqui explicamos, de forma simples, o que fazemos com os seus dados.</p>
+<h1>Política de privacidade do Compy</h1>
+<p>O Compy compara os preços de produtos entre mercados da sua região. Aqui explicamos, de forma simples, o que fazemos com os seus dados.</p>
 
 <h2>Quais dados coletamos</h2>
 <ul>
@@ -28,7 +28,7 @@ const PAGINA = `<!doctype html>
 <ul>
   <li>Criar e manter a sua conta, se você criar uma.</li>
   <li>Mostrar a você os preços dos produtos nos mercados.</li>
-  <li>Medir o uso do serviço, para saber o que as pessoas procuram e melhorar o Bolso Certo.</li>
+  <li>Medir o uso do serviço, para saber o que as pessoas procuram e melhorar o Compy.</li>
 </ul>
 
 <h2>Registros técnicos do servidor</h2>
@@ -41,7 +41,7 @@ const PAGINA = `<!doctype html>
 <p>Você pode apagar a sua conta quando quiser, no aplicativo, em "Excluir minha conta". Ao excluir, removemos os dados da sua conta (e-mail e senha) e anonimizamos as suas buscas: elas deixam de ter qualquer ligação com você.</p>
 
 <h2>Contato</h2>
-<p>Contato: a definir pelo Bolso Certo</p>
+<p>Contato: a definir pelo Compy</p>
 </body>
 </html>
 `;

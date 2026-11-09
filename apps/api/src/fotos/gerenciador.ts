@@ -114,9 +114,36 @@ export function criarGerenciadorDeFotos({
     }
   }
 
+  /**
+   * 1b) O mesmo para as fotos PRÓPRIAS dos mercados (link da planilha de um produto que já tinha foto de outro): baixa e guarda para o
+   * mercado, sem mexer na foto dos outros. Link que não serve é apagado. Devolve true se o serviço pediu calma.
+   */
+  async function baixarLinksDosMercados(resumo: ResumoDaBusca): Promise<boolean> {
+    for (;;) {
+      const lista = await repo.listarFotosDoMercadoParaBaixar(lote);
+      if (lista.length === 0) return false;
+      for (const { mercadoId, codigoBarras, url } of lista) {
+        try {
+          const imagem = await baixador(url);
+          await repo.guardarImagemDaFotoDoMercado(mercadoId, codigoBarras, url, imagem, agora());
+          resumo.achadas += 1;
+        } catch (e) {
+          if (e instanceof ErroTemporario) {
+            log(`Fotos: ${e.message}; o que falta fica para depois.`);
+            return true;
+          }
+          if (!(e instanceof ImagemInvalida)) throw e;
+          log(`Fotos: o link da foto de ${codigoBarras} (mercado ${mercadoId}) não serve (${e.message}); descartado.`);
+          await repo.removerFotoDoMercado(mercadoId, codigoBarras);
+        }
+        await esperar(intervaloMs);
+      }
+    }
+  }
+
   async function processarPendentes(): Promise<ResumoDaBusca> {
     const resumo: ResumoDaBusca = { achadas: 0, naoAchadas: 0, ilustrativas: 0, adiadas: false };
-    if (await baixarLinksPendentes(resumo)) {
+    if ((await baixarLinksPendentes(resumo)) || (await baixarLinksDosMercados(resumo))) {
       resumo.adiadas = true;
       return resumo;
     }

@@ -1,5 +1,5 @@
 /**
- * Cliente HTTP da API do Bolso Certo.
+ * Cliente HTTP da API do Compy.
  * Em um celular de verdade, EXPO_PUBLIC_API_URL precisa ser o endereço do computador na rede (ex.: http://192.168.0.10:3000).
  */
 import {

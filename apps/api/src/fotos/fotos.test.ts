@@ -589,3 +589,24 @@ describe('gerenciador: completa o banco ilustrativo sozinho', () => {
     expect(await repo.acharFoto('7890000000001')).toBeNull();
   });
 });
+
+describe('gerenciador: links de foto PRÓPRIA dos mercados', () => {
+  it('baixa e guarda para o mercado, sem mexer na foto compartilhada; link que não serve é descartado', async () => {
+    const repo = criarRepositorioMemoria();
+    const m = await repo.criarMercado({ nome: 'A', endereco: 'Rua 1', nomeNorm: 'a', enderecoNorm: 'rua 1', status: 'ativo', contaSituacao: 'gratuita', usuarioId: null });
+    const em = new Date('2026-11-05T00:00:00Z');
+    for (const c of ['7891000100103', '7891000200200']) {
+      await repo.salvarFoto({ codigoBarras: c, origem: 'openfoodfacts', url: null, imagem: 'data:image/jpeg;base64,OFF', mercadoId: null, atualizadaEm: em });
+    }
+    await repo.salvarFotosDoMercado(m.id, [{ codigoBarras: '7891000100103', url: 'https://l.exemplo.com/ok.jpg' }, { codigoBarras: '7891000200200', url: 'https://l.exemplo.com/quebrado.jpg' }], em);
+    const baixador = async (u: string) => {
+      if (u.includes('quebrado')) throw new ImagemInvalida('404');
+      return 'data:image/jpeg;base64,BAIXADA';
+    };
+    await criarGerenciadorDeFotos({ repo, buscador: { buscar: async () => null }, baixador, esperar: async () => undefined, intervaloMs: 0 }).processarPendentes();
+    expect((await repo.acharFotoDoMercado(m.id, '7891000100103'))?.imagem).toBe('data:image/jpeg;base64,BAIXADA');
+    expect(await repo.acharFoto('7891000100103')).toMatchObject({ imagem: 'data:image/jpeg;base64,OFF' }); // a dos outros continua
+    expect(await repo.acharFotoDoMercado(m.id, '7891000200200')).toBeNull(); // link ruim descartado
+    expect(await repo.listarFotosDoMercadoParaBaixar(10)).toEqual([]);
+  });
+});

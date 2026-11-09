@@ -118,10 +118,38 @@ describe('PUT /painel/produtos/:codigo/foto', () => {
     expect(lista.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
   });
 
-  it('a foto enviada passa na frente da achada sozinha', async () => {
-    await amb.repo.salvarFoto(foto());
-    expect((await colocarFoto(tokenA, LEITE, FOTO_JPEG)).statusCode).toBe(200);
-    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', url: null });
+  it('foto enviada onde o produto NÃO tem foto de verdade (nenhuma ou ilustrativa) vira a foto de todos', async () => {
+    const semFoto = await colocarFoto(tokenA, LEITE, FOTO_JPEG);
+    expect(semFoto.statusCode).toBe(200);
+    expect(semFoto.json()).toEqual({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', mercadoId: mercadoA.id });
+    await amb.repo.salvarFoto(foto({ codigoBarras: ARROZ, origem: 'ilustrativa', url: null, imagem: FOTO_JPEG }));
+    expect((await colocarFoto(tokenA, ARROZ, FOTO_JPEG)).statusCode).toBe(200);
+    expect(await amb.repo.acharFoto(ARROZ)).toMatchObject({ origem: 'mercado' });
+  });
+
+  it('foto enviada onde o produto JÁ tem foto de verdade fica só para quem enviou; a que existia continua para os outros', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'openfoodfacts', url: null, imagem: FOTO_JPEG }));
+    const outra = dataUrl('image/png', PNG);
+    const res = await colocarFoto(tokenA, LEITE, outra);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ foto: `/fotos/${LEITE}?mercadoId=${mercadoA.id}`, fotoOrigem: 'mercado' }); // a foto própria de A
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'openfoodfacts', imagem: FOTO_JPEG }); // a dos outros não mudou
+    const daA = await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}?mercadoId=${mercadoA.id}` });
+    expect(daA.headers['content-type']).toContain('image/png');
+    const dosOutros = await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` });
+    expect(dosOutros.headers['content-type']).toContain('image/jpeg');
+    const doB = await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}?mercadoId=${mercadoB.id}` });
+    expect(doB.headers['content-type']).toContain('image/jpeg'); // B não tem própria: vê a compartilhada
+    // no painel de A e na lista dele no aplicativo aparece a foto própria; no do B, a compartilhada
+    const lista = (await amb.app.inject({ method: 'GET', url: '/painel/produtos', headers: comToken(tokenA) })).json() as { itens: ProdutoPainel[] };
+    expect(lista.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: `/fotos/${LEITE}?mercadoId=${mercadoA.id}`, fotoOrigem: 'mercado' });
+    const doMercado = (await amb.app.inject({ method: 'GET', url: `/mercados/${mercadoA.id}/produtos` })).json() as { itens: { codigoBarras: string; foto: string | null }[] };
+    expect(doMercado.itens.find((i) => i.codigoBarras === LEITE)?.foto).toBe(`/fotos/${LEITE}?mercadoId=${mercadoA.id}`);
+    // apagar a própria devolve a compartilhada (e não mexe nela)
+    expect((await amb.app.inject({ method: 'DELETE', url: `/painel/produtos/${LEITE}/foto`, headers: comToken(tokenA) })).statusCode).toBe(204);
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toBeNull();
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'openfoodfacts' });
   });
 
   it('aceita PNG e WebP, e rejeita o que não é imagem permitida (SVG, texto, base64 solto)', async () => {

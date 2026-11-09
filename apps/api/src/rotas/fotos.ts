@@ -22,6 +22,12 @@ export function rotasFotos({ repo, embutidas }: { repo: Repositorio; embutidas?:
       };
 
       reply.header('Cache-Control', 'public, max-age=86400');
+      // ?mercadoId=N: a foto PRÓPRIA desse mercado, se ele tem (quando o produto já tinha foto de outro, a do mercado fica só para ele).
+      const textoMercado = (req.query as { mercadoId?: unknown }).mercadoId;
+      if (typeof textoMercado === 'string' && /^\d{1,9}$/.test(textoMercado)) {
+        const propria = await repo.acharFotoDoMercado(Number(textoMercado), codigo);
+        if (propria?.imagem) return entregar(propria.imagem);
+      }
       if (foto?.imagem) return entregar(foto.imagem);
       // Sem foto guardada (nem link do banco aberto a seguir): a ilustrativa do tipo, do banco de fotos do sistema.
       if (embutidas && !(foto?.url && foto.origem === 'openfoodfacts')) {

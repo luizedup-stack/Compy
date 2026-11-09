@@ -15,7 +15,7 @@ import { EsqueciSenha } from './telas/EsqueciSenha';
 import { Entrar } from './telas/Entrar';
 import { MercadoDetalhe } from './telas/MercadoDetalhe';
 import { Mercados } from './telas/Mercados';
-import { cores } from './tema';
+import { cores, fontes } from './tema';
 
 export type { RootStackParamList, RotaInicial } from './rotas';
 
@@ -24,11 +24,11 @@ const Abas = createBottomTabNavigator<AbasParamList>();
 
 const opcoesComuns = {
   headerTintColor: cores.marca,
-  headerTitleStyle: { color: cores.texto },
+  headerTitleStyle: { color: cores.marca, fontFamily: fontes.negrito },
   contentStyle: { backgroundColor: cores.fundo },
 };
 
-/** Área principal: as abas Buscar, Mercados e Conta (para todos, com ou sem login). O cabeçalho fica por conta da pilha ("Bolso Certo"). */
+/** Área principal: as abas Buscar, Mercados e Conta (para todos, com ou sem login). O cabeçalho fica por conta da pilha ("Compy"). */
 function Principal() {
   return (
     <Abas.Navigator
@@ -39,8 +39,9 @@ function Principal() {
         tabBarIcon: () => null,
         tabBarIconStyle: { display: 'none' },
         tabBarActiveTintColor: cores.marca,
+        tabBarActiveBackgroundColor: cores.fundoSuave,
         tabBarInactiveTintColor: cores.textoSuave,
-        tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 14, fontFamily: fontes.semi },
       }}
     >
       <Abas.Screen name="Busca" component={Busca} options={{ title: 'Buscar' }} />
@@ -87,7 +88,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
             </View>
           )}
         >
-          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo' }} />
+          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Compy' }} />
           <Stack.Screen
             name="MercadoDetalhe"
             component={MercadoDetalhe}

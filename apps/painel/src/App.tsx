@@ -1,4 +1,4 @@
-// Estrutura do painel "Bolso Certo - Mercado": cabeçalho (nome, menu, seletor de mercado, sair) e as rotas das telas.
+// Estrutura do painel "Compy Mercado": cabeçalho (nome, menu, seletor de mercado, sair) e as rotas das telas.
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Mercados from './admin/Mercados';
@@ -20,6 +20,7 @@ import EsqueciSenha from './EsqueciSenha';
 import Login from './Login';
 import MeuMercado from './MeuMercado';
 import Produtos from './Produtos';
+import Marca from './Marca';
 import { escolherTema, temaEmUso, type Tema } from './tema';
 
 /** Botão do cabeçalho que alterna entre o tema claro e o escuro (fica guardado neste navegador). */
@@ -131,8 +132,7 @@ function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
   return (
     <header className="cabecalho">
       <div className="marca">
-        <img src={`${import.meta.env.BASE_URL}icone-bolso-certo.svg`} alt="" width="32" height="32" />
-        <span>Bolso Certo - Mercado</span>
+        <Marca />
       </div>
       <AlternarTema />
       {sessao && (

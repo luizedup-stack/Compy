@@ -238,7 +238,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
         {produto.foto ? (
           <img
             className="foto-produto"
-            src={`${urlDaFoto(produto.foto)}${versaoFoto ? `?v=${versaoFoto}` : ''}`}
+            src={`${urlDaFoto(produto.foto)}${versaoFoto ? `${produto.foto.includes('?') ? '&' : '?'}v=${versaoFoto}` : ''}`}
             alt={`Foto de ${produto.nome}`}
             width={48}
             height={48}

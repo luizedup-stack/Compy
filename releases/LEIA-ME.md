@@ -1,15 +1,15 @@
-# APK do Bolso Certo (teste)
+# APK do Compy (teste)
 
 Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa a chave de teste do Android (instala direto no celular, mas não serve para a Play Store).
 
 | | |
 |---|---|
 | Arquivo | `bolso-certo.apk` (24.2 MB) |
-| Gerado em | 2026-11-09 (aviso correto quando o servidor só demora: "servidor demorando", não "sem conexão") |
+| Gerado em | 2026-11-10 (nova marca Compy: nome, ícone, cores e fonte Poppins) |
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
-| Pacote / versão | `br.com.bolsocerto.app`, versão **1.1.4 (código 6)** |
+| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.0 (código 7)** |
 | Android mínimo | 7.0 (API 24), celulares de 64 bits (arm64) |
-| SHA-256 do arquivo | `ddd28d56adfae40ab80f96cd513167cb81f58680f3f0bb778c224f37c9809a9e` |
+| SHA-256 do arquivo | `9442c98cb6b3ee5264beb92480a8c4123d63e104d95e11f51defdeb3c24a797b` |
 | Certificado de assinatura (SHA-256) | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` (Android Debug) |
 
 ## O que esta versão tem
@@ -27,7 +27,7 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 ## Atualizar quem já tem o app (sem desinstalar)
 
 Basta abrir o `.apk` novo e tocar em **Atualizar**: a conta e os dados ficam, e não precisa baixar nada além do arquivo. O Android aceita porque o pacote e a assinatura são
-os mesmos de antes e o número da versão é maior (esta é a versão 6; as anteriores eram de 1 a 5). Esta versão também ignora o endereço de servidor que versões antigas tinham guardado.
+os mesmos de antes e o número da versão é maior (esta é a versão 7; as anteriores eram de 1 a 6). Esta versão também ignora o endereço de servidor que versões antigas tinham guardado.
 Só se o Android recusar a atualização (sinal de que o app antigo foi assinado com outra chave) é preciso desinstalar o antigo uma vez.
 
 A primeira consulta depois de um tempo parado pode levar até ~1 minuto: o servidor e o banco gratuitos dormem sem uso.

@@ -10,7 +10,7 @@ const MSG_NAO_ACHOU = 'Mercado não encontrado';
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>, ilustrativas: Set<string>): ProdutoMercado => ({
+const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>, ilustrativas: Set<string>, proprias: Set<string>): ProdutoMercado => ({
   codigoBarras: o.codigoBarras,
   nome: o.nome,
   preco: o.preco,
@@ -19,8 +19,9 @@ const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>,
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
-  foto: comFoto.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
-  ...(ilustrativas.has(o.codigoBarras) ? { fotoIlustrativa: true } : {}),
+  // Foto própria deste mercado (se ele enviou uma quando o produto já tinha foto de outro) vale na lista dele.
+  foto: proprias.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras, o.mercadoId) : comFoto.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
+  ...(ilustrativas.has(o.codigoBarras) && !proprias.has(o.codigoBarras) ? { fotoIlustrativa: true } : {}),
 });
 
 export function rotasMercados({
@@ -64,6 +65,7 @@ export function rotasMercados({
       const agora = new Date();
       const comFoto = new Set(await repo.listarCodigosComFoto());
       const ilustrativas = new Set(await repo.listarCodigosComFotoIlustrativa());
+      const proprias = new Set(await repo.listarCodigosComFotoDoMercado(mercado.id, ofertas.map((o) => o.codigoBarras)));
       if (embutidas) {
         for (const o of ofertas) {
           if (comFoto.has(o.codigoBarras) || !embutidas.imagemDoNome(o.nome)) continue;
@@ -73,7 +75,7 @@ export function rotasMercados({
       }
       const inicio = (pagina - 1) * POR_PAGINA;
       return {
-        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora, comFoto, ilustrativas)),
+        itens: ofertas.slice(inicio, inicio + POR_PAGINA).map((o) => aProdutoMercado(o, agora, comFoto, ilustrativas, proprias)),
         total: ofertas.length,
       };
     });

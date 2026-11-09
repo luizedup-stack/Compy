@@ -27,25 +27,35 @@ declare module 'fastify' {
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** De onde veio a foto de cada código (só os que têm foto). */
-type OrigensDeFoto = Map<string, OrigemFoto>;
+/** De onde veio a foto de cada código (só os que têm foto) e quais têm foto PRÓPRIA do mercado que está vendo. */
+interface FotosDoPainel {
+  origens: Map<string, OrigemFoto>;
+  proprias: Set<string>;
+}
 
-const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: OrigensDeFoto = new Map()): ProdutoPainel => ({
-  codigoBarras: o.codigoBarras,
-  nome: o.nome,
-  preco: o.preco,
-  quantidadeTexto: o.quantidadeTexto,
-  categoria: o.categoria,
-  disponivel: o.disponivel,
-  atualizadoEm: o.precoAtualizadoEm.toISOString(),
-  desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
-  foto: fotos.has(o.codigoBarras) ? caminhoDaFoto(o.codigoBarras) : null,
-  fotoOrigem: fotos.has(o.codigoBarras) ? (fotos.get(o.codigoBarras) === 'mercado' ? 'mercado' : fotos.get(o.codigoBarras) === 'ilustrativa' ? 'ilustrativa' : 'automatica') : null,
+const aProdutoPainel = (o: OfertaArmazenada, agora: Date, fotos: FotosDoPainel = { origens: new Map(), proprias: new Set() }): ProdutoPainel => {
+  const propria = fotos.proprias.has(o.codigoBarras);
+  const origem = fotos.origens.get(o.codigoBarras);
+  return {
+    codigoBarras: o.codigoBarras,
+    nome: o.nome,
+    preco: o.preco,
+    quantidadeTexto: o.quantidadeTexto,
+    categoria: o.categoria,
+    disponivel: o.disponivel,
+    atualizadoEm: o.precoAtualizadoEm.toISOString(),
+    desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),
+    // A foto própria do mercado (quando o produto já tinha foto de outro) vale para ele: é a que ele vê aqui e na lista dele no aplicativo.
+    foto: propria ? caminhoDaFoto(o.codigoBarras, o.mercadoId) : origem ? caminhoDaFoto(o.codigoBarras) : null,
+    fotoOrigem: propria ? 'mercado' : origem ? (origem === 'mercado' ? 'mercado' : origem === 'ilustrativa' ? 'ilustrativa' : 'automatica') : null,
+  };
+};
+
+/** A origem da foto de cada código dado (só dos que têm foto) e quais têm foto própria deste mercado. */
+const fotosDe = async (r: Repositorio, mercadoId: number, codigos: string[]): Promise<FotosDoPainel> => ({
+  origens: new Map((await r.listarResumoDeFotos(codigos)).map((f) => [f.codigoBarras, f.origem])),
+  proprias: new Set(await r.listarCodigosComFotoDoMercado(mercadoId, codigos)),
 });
-
-/** A origem da foto de cada código dado (só dos que têm foto). */
-const fotosDe = async (r: Repositorio, codigos: string[]): Promise<OrigensDeFoto> =>
-  new Map((await r.listarResumoDeFotos(codigos)).map((f) => [f.codigoBarras, f.origem]));
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -235,7 +245,7 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
       const agora = new Date();
       const inicio = (pagina - 1) * POR_PAGINA;
       const daPagina = ofertas.slice(inicio, inicio + POR_PAGINA);
-      const fotos = await fotosDe(repo, daPagina.map((o) => o.codigoBarras));
+      const fotos = await fotosDe(repo, req.mercadoDoPainel.id, daPagina.map((o) => o.codigoBarras));
       return { itens: daPagina.map((o) => aProdutoPainel(o, agora, fotos)), total: ofertas.length };
     });
 
@@ -249,7 +259,7 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
         const agora = new Date();
         const oferta: OfertaArmazenada = { ...novo.oferta, mercadoId, precoAtualizadoEm: agora };
         await r.salvarOferta(oferta);
-        return aProdutoPainel(oferta, agora, await fotosDe(r, [oferta.codigoBarras])); // o código pode já ter foto (de outro mercado ou achada)
+        return aProdutoPainel(oferta, agora, await fotosDe(r, mercadoId, [oferta.codigoBarras])); // o código pode já ter foto (de outro mercado ou achada)
       });
       if (!resultado) return reply.code(409).send({ erro: 'Já existe um produto com esse código de barras neste mercado' });
       aoMudarProdutos?.(); // produto novo: procura a foto dele
@@ -277,7 +287,7 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
         };
         await r.salvarOferta(nova);
         // A resposta substitui a linha na tela: tem de trazer também a foto, senão ela some ao confirmar o preço ou editar.
-        return aProdutoPainel(nova, agora, await fotosDe(r, [nova.codigoBarras]));
+        return aProdutoPainel(nova, agora, await fotosDe(r, mercadoId, [nova.codigoBarras]));
       });
       if (!resultado) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
       return resultado;
@@ -297,15 +307,11 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
       if (!lida.ok) return reply.code(400).send({ erro: lida.erro });
       const oferta = await repo.acharOferta(req.mercadoDoPainel.id, req.params.codigo);
       if (!oferta) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
-      await repo.salvarFoto({
-        codigoBarras: oferta.codigoBarras,
-        origem: 'mercado',
-        url: null,
-        imagem: corpo.imagem as string,
-        mercadoId: req.mercadoDoPainel.id,
-        atualizadaEm: new Date(),
-      });
-      return { foto: caminhoDaFoto(oferta.codigoBarras), fotoOrigem: 'mercado' as const };
+      // A foto do mercado vira a de todos só onde o produto ainda não tem foto de verdade; onde já tem, fica só para este mercado.
+      const mercadoId = req.mercadoDoPainel.id;
+      await repo.salvarFotosDoMercado(mercadoId, [{ codigoBarras: oferta.codigoBarras, imagem: corpo.imagem as string }], new Date());
+      const propria = await repo.acharFotoDoMercado(mercadoId, oferta.codigoBarras);
+      return { foto: caminhoDaFoto(oferta.codigoBarras, propria ? mercadoId : undefined), fotoOrigem: 'mercado' as const };
     });
 
     // Remove a foto enviada por um mercado (a do próprio mercado; o administrador remove qualquer uma). A foto achada
@@ -313,12 +319,15 @@ export function rotasPainel({ repo, aoMudarProdutos }: { repo: Repositorio; aoMu
     app.delete<{ Params: { codigo: string } }>('/painel/produtos/:codigo/foto', opcoes, async (req, reply) => {
       const oferta = await repo.acharOferta(req.mercadoDoPainel.id, req.params.codigo);
       if (!oferta) return reply.code(404).send({ erro: MSG_NAO_ACHOU });
+      const mercadoId = req.mercadoDoPainel.id;
+      // Primeiro a foto PRÓPRIA do mercado (a que ele enviou quando o produto já tinha foto de outro): sai só a dele, a dos outros fica.
+      if (await repo.removerFotoDoMercado(mercadoId, oferta.codigoBarras)) return reply.code(204).send();
       const foto = await repo.acharFoto(oferta.codigoBarras);
       if (!foto || (foto.url === null && foto.imagem === null)) return reply.code(404).send({ erro: 'Este produto não tem foto' });
       if (foto.origem !== 'mercado') {
         return reply.code(409).send({ erro: 'Esta foto veio do banco aberto de produtos. Para trocá-la, envie uma foto sua.' });
       }
-      if (req.usuario.papel !== 'admin' && foto.mercadoId !== req.mercadoDoPainel.id) {
+      if (req.usuario.papel !== 'admin' && foto.mercadoId !== mercadoId) {
         return reply.code(403).send({ erro: 'Esta foto foi enviada por outro mercado' });
       }
       await repo.removerFoto(oferta.codigoBarras);

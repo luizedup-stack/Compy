@@ -41,7 +41,7 @@ export interface ConfigSmtp {
   usuario: string;
   /** A senha (ou "senha de aplicativo") da conta que envia. */
   senha: string;
-  /** Remetente que aparece para quem recebe. Ex.: "Bolso Certo <conta@gmail.com>". */
+  /** Remetente que aparece para quem recebe. Ex.: "Compy <conta@gmail.com>". */
   de: string;
 }
 

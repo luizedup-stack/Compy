@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import sharp from 'sharp';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { criarRepositorioMemoria } from '../repositorioMemoria';
 import type { Repositorio } from '../repositorio';
@@ -90,11 +91,61 @@ describe('coluna "Foto" da planilha', () => {
     expect(await repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', imagem: 'data:image/jpeg;base64,MANUAL' });
   });
 
-  it('o link da planilha passa na frente da foto achada sozinha (é o produto exato da loja)', async () => {
-    await importarPlanilha(repo, await planilha([[LEITE, 'Leite 1L', 5.99]]), admin);
+  it('onde já existe foto de verdade (achada no banco aberto), o link do mercado fica só para ele e a que existia continua para os outros', async () => {
+    const r = await importarPlanilha(repo, await planilha([[LEITE, 'Leite 1L', 5.99]]), admin);
     await repo.salvarFoto({ codigoBarras: LEITE, origem: 'openfoodfacts', url: 'https://images.openfoodfacts.org/x.jpg', imagem: 'data:image/jpeg;base64,OFF', mercadoId: null, atualizadaEm: new Date() });
     await importarPlanilha(repo, await planilha([[LEITE, 'Leite 1L', 5.99, '', '', '', 'https://loja.exemplo.com/leite.jpg']]), admin);
-    expect(await repo.acharFoto(LEITE)).toMatchObject({ origem: 'planilha', url: 'https://loja.exemplo.com/leite.jpg', imagem: null });
+    expect(await repo.acharFoto(LEITE)).toMatchObject({ origem: 'openfoodfacts', imagem: 'data:image/jpeg;base64,OFF' });
+    expect(await repo.acharFotoDoMercado(r.mercadoId, LEITE)).toMatchObject({ url: 'https://loja.exemplo.com/leite.jpg', imagem: null });
+    expect(await repo.listarFotosDoMercadoParaBaixar(10)).toEqual([{ mercadoId: r.mercadoId, codigoBarras: LEITE, url: 'https://loja.exemplo.com/leite.jpg' }]);
+  });
+
+  it('imagem COLADA na coluna Foto é recebida: vira a de todos se o produto não tem foto; se já tem, fica só do mercado', async () => {
+    const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#cc3300' } }).png().toBuffer();
+    const wb = new ExcelJS.Workbook();
+    const m = wb.addWorksheet('Mercado');
+    m.addRow(['Nome do mercado', 'Mercado Teste']);
+    m.addRow(['Endereço', 'Rua A, 1 – São Paulo – SP']);
+    const p = wb.addWorksheet('Produtos');
+    p.addRow(['Código de barras*', 'Produto*', 'Preço*', 'Quantidade', 'Categoria', 'Disponível', 'Foto']);
+    p.addRow([LEITE, 'Leite 1L', 5.99]);
+    p.addRow([ARROZ, 'Arroz 5kg', 25]);
+    p.addRow([FEIJAO, 'Feijão 1kg', 8]);
+    const id = wb.addImage({ buffer: png as unknown as ExcelJS.Buffer, extension: 'png' });
+    p.addImage(id, { tl: { col: 6, row: 1 }, ext: { width: 40, height: 30 } }); // linha 2 (LEITE), coluna G (Foto)
+    p.addImage(id, { tl: { col: 6, row: 2 }, ext: { width: 40, height: 30 } }); // linha 3 (ARROZ)
+    p.addImage(id, { tl: { col: 1, row: 3 }, ext: { width: 40, height: 30 } }); // linha 4, mas FORA da coluna Foto: ignorada
+    await repo.salvarFoto({ codigoBarras: ARROZ, origem: 'openfoodfacts', url: null, imagem: 'data:image/jpeg;base64,OFF', mercadoId: null, atualizadaEm: new Date() });
+
+    const r = await importarPlanilha(repo, Buffer.from(await wb.xlsx.writeBuffer()), admin);
+    expect(r.importadas).toBe(3);
+    expect(r.erros).toEqual([]);
+    expect(r.fotosColadas).toBe(2);
+    // LEITE não tinha foto: a colada vira a de todos (JPEG pequeno)
+    const leite = await repo.acharFoto(LEITE);
+    expect(leite).toMatchObject({ origem: 'mercado', mercadoId: r.mercadoId });
+    expect(leite?.imagem).toMatch(/^data:image\/jpeg;base64,/);
+    // ARROZ já tinha: a colada fica só do mercado; a de todos não muda
+    expect(await repo.acharFoto(ARROZ)).toMatchObject({ origem: 'openfoodfacts', imagem: 'data:image/jpeg;base64,OFF' });
+    expect((await repo.acharFotoDoMercado(r.mercadoId, ARROZ))?.imagem).toMatch(/^data:image\/jpeg;base64,/);
+    // FEIJÃO: imagem fora da coluna Foto foi ignorada
+    expect(await repo.acharFoto(FEIJAO)).toBeNull();
+  });
+
+  it('imagem colada que não é imagem de verdade vira aviso no relatório; o produto entra do mesmo jeito', async () => {
+    const wb = new ExcelJS.Workbook();
+    const m = wb.addWorksheet('Mercado');
+    m.addRow(['Nome do mercado', 'Mercado Teste']);
+    m.addRow(['Endereço', 'Rua A, 1 – São Paulo – SP']);
+    const p = wb.addWorksheet('Produtos');
+    p.addRow(['Código de barras*', 'Produto*', 'Preço*', 'Quantidade', 'Categoria', 'Disponível', 'Foto']);
+    p.addRow([LEITE, 'Leite 1L', 5.99]);
+    const id = wb.addImage({ buffer: Buffer.from('isto não é uma imagem') as unknown as ExcelJS.Buffer, extension: 'png' });
+    p.addImage(id, { tl: { col: 6, row: 1 }, ext: { width: 40, height: 30 } });
+    const r = await importarPlanilha(repo, Buffer.from(await wb.xlsx.writeBuffer()), admin);
+    expect(r.importadas).toBe(1);
+    expect(r.erros).toEqual([{ linha: 2, motivo: 'Foto ignorada: não consegui ler a imagem colada nesta linha' }]);
+    expect(await repo.acharFoto(LEITE)).toBeNull();
   });
 
   it('reenviar a mesma planilha não refaz o download (link igual e já baixado)', async () => {

@@ -35,7 +35,7 @@ export const MODELO_CONFIG_EMAIL = JSON.stringify(
     seguro: true,
     usuario: 'PREENCHA: e-mail da conta que envia',
     senha: 'PREENCHA: senha da conta (ou senha de aplicativo)',
-    de: 'Bolso Certo <PREENCHA: e-mail da conta que envia>',
+    de: 'Compy <PREENCHA: e-mail da conta que envia>',
   },
   null,
   2,
@@ -96,7 +96,7 @@ export function emailsRecentes(): EmailGuardado[] {
 /** Manda uma mensagem de teste para conferir se o e-mail está funcionando. Nunca lança erro: devolve o resultado. */
 export async function enviarEmailDeTeste(para: string): Promise<{ ok: boolean; mensagem: string }> {
   try {
-    await enviarPeloSmtp(para, 'Bolso Certo - Mercado: teste de e-mail', 'Se você recebeu esta mensagem, o envio de e-mail está funcionando.');
+    await enviarPeloSmtp(para, 'Compy Mercado: teste de e-mail', 'Se você recebeu esta mensagem, o envio de e-mail está funcionando.');
     return { ok: true, mensagem: `E-mail de teste enviado para ${para}. Confira a caixa de entrada (e o spam).` };
   } catch (e) {
     return { ok: false, mensagem: e instanceof Error ? e.message : String(e) };

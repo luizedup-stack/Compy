@@ -1,4 +1,4 @@
-// Programa de computador "Bolso Certo - Mercado" (Electron).
+// Programa de computador "Compy Mercado" (Electron).
 //
 // O que ele faz, em ordem:
 //   1. abre uma janela de "carregando";
@@ -16,6 +16,10 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { normalizarUrlNuvem } = require('./nuvem.cjs');
+
+// A pasta de dados do programa (configurações, servidor na nuvem, dados salvos) continua a mesma de antes da troca de nome
+// (de "Bolso Certo - Mercado" para "Compy Mercado"): sem isto o Electron criaria uma pasta nova e quem já usava perderia tudo.
+app.setPath('userData', path.join(app.getPath('appData'), 'Bolso Certo - Mercado'));
 
 const PORTA_API = Number(process.env.BOLSO_PORTA_API) || 3000; // 3000 por padrão: o app do celular aponta para ela
 let portaPainel = 0; // qualquer porta livre (a 3001, por exemplo, pode estar em uso por outro programa)
@@ -192,13 +196,13 @@ function paginaDeCodigos() {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>Códigos de e-mail e celular</title>
 <style>body{font:15px Segoe UI,Arial,sans-serif;margin:24px;color:#1f2933}h1{color:#0f7d99;font-size:22px}h2{font-size:17px;margin-top:28px}
 article{border:1px solid #c8d6dc;border-radius:8px;padding:10px 14px;margin:10px 0}pre{white-space:pre-wrap;font:14px Consolas,monospace;margin:4px 0}h3{margin:6px 0}li{margin:4px 0}</style></head><body>
-<h1>Bolso Certo - Mercado</h1>
+<h1>Compy Mercado</h1>
 <h2>Login do desenvolvedor (vê todos os mercados)</h2>
 <p>E-mail: <b>${escapar(ADMIN_EMAIL)}</b><br>Senha: <b>${escapar(ADMIN_SENHA)}</b><br><small>Gerada só para este computador. Não passe para ninguém.</small></p>
 <h2>Endereço para o celular (Configurar servidor no app)</h2><ul>${rede}</ul>
 <p><small>O celular precisa estar na mesma rede Wi-Fi deste computador. Se o Windows perguntar sobre o firewall, permita em "Redes privadas".</small></p>
 <h2>Códigos de e-mail (a página atualiza sozinha)</h2>
-<p><small>Se os e-mails não chegam para as pessoas, o envio ainda não está configurado: use o menu <b>Bolso Certo → Configurar e-mail…</b>. Enquanto isso, o código de cada pessoa aparece aqui.</small></p>${itens}</body></html>`;
+<p><small>Se os e-mails não chegam para as pessoas, o envio ainda não está configurado: use o menu <b>Compy → Configurar e-mail…</b>. Enquanto isso, o código de cada pessoa aparece aqui.</small></p>${itens}</body></html>`;
 }
 
 /** Tela "Configurar e-mail": situação, botão para abrir o arquivo de configuração e envio de um e-mail de teste. */
@@ -353,7 +357,7 @@ function apagarSalvosERecomecar() {
     buttons: ['Cancelar', 'Apagar e recomeçar'],
     defaultId: 0,
     cancelId: 0,
-    title: 'Bolso Certo - Mercado',
+    title: 'Compy Mercado',
     message: 'Apagar tudo o que foi salvo?',
     detail: 'Contas de clientes e correções feitas à mão serão perdidas. O programa abre de novo com as planilhas originais.',
   });
@@ -486,7 +490,7 @@ function montarMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
-        label: 'Bolso Certo',
+        label: 'Compy',
         submenu: [
           ...(urlNuvem
             ? [{ label: `Usando o servidor na nuvem: ${urlNuvem}`, enabled: false }, { type: 'separator' }]
@@ -510,11 +514,11 @@ function montarMenu() {
 async function iniciar() {
   urlNuvem = lerUrlNuvem();
   montarMenu();
-  janela = new BrowserWindow({ width: 1200, height: 800, title: 'Bolso Certo - Mercado', icon: iconeDaJanela(), backgroundColor: '#f2f7f9' });
+  janela = new BrowserWindow({ width: 1200, height: 800, title: 'Compy Mercado', icon: iconeDaJanela(), backgroundColor: '#f2f7f9' });
   janela.loadURL(
     'data:text/html;charset=utf-8,' +
       encodeURIComponent(
-        '<body style="font:18px Segoe UI,Arial;display:flex;height:100vh;align-items:center;justify-content:center;color:#0f7d99;background:#f2f7f9">Iniciando o Bolso Certo - Mercado… (carregando as planilhas)</body>',
+        '<body style="font:18px Segoe UI,Arial;display:flex;height:100vh;align-items:center;justify-content:center;color:#0f7d99;background:#f2f7f9">Iniciando o Compy Mercado… (carregando as planilhas)</body>',
       ),
   );
   janela.on('closed', () => app.quit());
@@ -539,9 +543,9 @@ async function iniciar() {
   } catch (erro) {
     const emUso = erro && erro.code === 'EADDRINUSE';
     dialog.showErrorBox(
-      'Bolso Certo - Mercado',
+      'Compy Mercado',
       emUso
-        ? `A porta ${erro.port ?? ''} já está em uso. Feche o Bolso Certo - Mercado que já estiver aberto (ou as janelas do "npm run testar") e abra de novo.`
+        ? `A porta ${erro.port ?? ''} já está em uso. Feche o Compy Mercado que já estiver aberto (ou as janelas do "npm run testar") e abra de novo.`
         : `Não foi possível iniciar: ${erro && erro.message ? erro.message : erro}`,
     );
     app.exit(1);

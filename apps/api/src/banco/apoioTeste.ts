@@ -21,7 +21,7 @@ export async function abrirBancoDeTeste(): Promise<BancoDeTeste> {
     pool,
     async esvaziar() {
       await new sql.Request(pool).batch(`
-        DELETE FROM dbo.Buscas; DELETE FROM dbo.FotosProduto; DELETE FROM dbo.Configuracao WHERE chave <> N'instancia'; DELETE FROM dbo.Tokens; DELETE FROM dbo.Ofertas; DELETE FROM dbo.Mercados; DELETE FROM dbo.Usuarios;
+        DELETE FROM dbo.Buscas; DELETE FROM dbo.FotosDoMercado; DELETE FROM dbo.FotosProduto; DELETE FROM dbo.Configuracao WHERE chave <> N'instancia'; DELETE FROM dbo.Tokens; DELETE FROM dbo.Ofertas; DELETE FROM dbo.Mercados; DELETE FROM dbo.Usuarios;
         DBCC CHECKIDENT ('dbo.Usuarios', RESEED, 0) WITH NO_INFOMSGS;
         DBCC CHECKIDENT ('dbo.Mercados', RESEED, 0) WITH NO_INFOMSGS;
         DBCC CHECKIDENT ('dbo.Tokens', RESEED, 0) WITH NO_INFOMSGS;

@@ -1,4 +1,4 @@
-# Guia do código do Bolso Certo
+# Guia do código do Compy
 
 Este guia é um mapa: diz **onde fica cada coisa** e **onde mexer** para cada tipo de mudança. Todo arquivo de código
 tem comentários em português no topo (para que serve) e nos trechos menos óbvios.
@@ -9,7 +9,7 @@ tem comentários em português no topo (para que serve) e nos trechos menos óbv
 |---|---|---|
 | `apps/api` | O **servidor**: login, cadastro, produtos, busca. Guarda os dados num banco SQL Server (ou em memória, nos testes). Na hospedagem entrega também o painel. | As outras peças conversam com ele |
 | `apps/painel` | O site do **mercado** (cadastro do mercado, produtos, planilha). Roda dentro do programa de computador. | Mercado e desenvolvedor |
-| `apps/desktop` | O **programa de Windows** "Bolso Certo - Mercado": junta a API e o painel num `.exe`. | Mercado |
+| `apps/desktop` | O **programa de Windows** "Compy Mercado": junta a API e o painel num `.exe`. | Mercado |
 | `apps/mobile` | O **aplicativo do cliente** (Android): busca e compara preços, funciona sem internet. | Cliente |
 | `packages/shared` | Regras usadas por todos: quantidade, preço por unidade, **busca** e comparação. | Todos |
 | `marca/` | Logo e ícone (`.svg`). | |
@@ -112,7 +112,7 @@ fala com a API do mesmo endereço (`VITE_API_URL=` vazio, em `apps/painel/src/ap
 | `npm run carregar -w @mercado/api -- <pasta>` | manda as planilhas de uma pasta para o banco (`BANCO_URL`) |
 | `npm run construir:exe` | gera o programa de Windows em `programa/` |
 | `npm run testar` | modo de teste com 3 janelas (API, painel e app web) |
-| `npm run gerar-icones` | refaz os ícones a partir de `marca/icone-bolso-certo.svg` |
+| `npm run gerar-icones` | refaz os ícones a partir de `marca/icone-compy.svg` |
 
 O APK do celular é gerado como descrito em `apps/mobile/README.md` (seção "Gerar o APK").
 
@@ -135,4 +135,10 @@ si só é atualizado pela loja de aplicativos.
 - **Tirar acesso / Dar acesso novamente / Apagar** (Administração > Mercados, `apps/painel/src/admin/Mercados.tsx`): "Tirar acesso" põe o mercado em `status = 'removido'` e, se o prazo for temporário, guarda `removidoAte` (coluna da migração `006-acesso-temporario.sql`). Sem `removidoAte` o acesso é permanente. O servidor devolve o mercado sozinho quando o prazo acaba (`reativarMercadosVencidos`, a cada 5 min e ao listar). "Apagar" remove o mercado e as ofertas dele (`apagarMercado`). Rotas em `apps/api/src/rotas/admin.ts`.
 - **Mercado sem acesso some do aplicativo na hora**: o catálogo guardado em memória (`rotas/lembrar.ts`) é descartado a cada escrita bem-sucedida (contador "geração" em `app.ts`).
 - **Tema**: as cores ficam como variáveis no começo de `apps/painel/src/estilos.css` (claro = azul clarinho e branco; escuro por `prefers-color-scheme` ou pelo botão do cabeçalho). A escolha fica no navegador (`apps/painel/src/tema.ts`).
+
+## Fotos enviadas pelo mercado (planilha e painel) e a marca Compy
+
+- **Foto do mercado**: vale para todos só onde o produto não tem foto de verdade; onde já tem, a que existia continua para os outros e a do mercado fica guardada só para ele (`salvarFotosDoMercado` em `apps/api/src/repositorio.ts`, tabela `FotosDoMercado`, migração `007`). `GET /fotos/:codigo?mercadoId=N` entrega a própria quando existe; o painel e a lista de produtos do mercado no aplicativo usam esse endereço.
+- **Planilha**: a coluna **Foto** aceita o link (`https://...`) ou a imagem colada sobre a célula (lida em `apps/api/src/planilha/importar.ts`, `lerImagensDaPlanilha`; imagem fora da coluna Foto é ignorada). Links são baixados em segundo plano pelo gerenciador de fotos; imagens coladas já entram prontas. A aba "Instruções" do modelo e a tela "Enviar planilha" trazem a dica de pedir a uma IA para ajustar a planilha ao modelo.
+- **Marca Compy**: desenhos em `marca/*.svg`; `npm run gerar-icones` refaz os ícones do app, do programa e do painel; cores e fonte (Poppins) estão em `apps/painel/src/estilos.css` e `apps/mobile/src/tema.ts`. O nome visível é "Compy" (o programa de Windows, "Compy Mercado"); os identificadores internos (pacote `br.com.bolsocerto.app`, pasta de dados do programa, chaves do navegador) continuam os antigos para não perder dados nem a atualização por cima do app.
 

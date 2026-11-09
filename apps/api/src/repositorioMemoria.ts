@@ -8,6 +8,7 @@ import {
   type Repositorio,
   type TipoToken,
   type Usuario,
+  type FotoDoMercado,
 } from './repositorio';
 
 interface TokenArmazenado {
@@ -23,6 +24,8 @@ interface Dados {
   mercados: Map<number, Mercado>;
   ofertas: Map<string, OfertaArmazenada>;
   fotos: Map<string, FotoProduto>;
+  /** Fotos próprias de cada mercado (chave "mercadoId:codigoBarras"). */
+  fotosDosMercados: Map<string, FotoDoMercado>;
   configuracoes: Map<string, string>;
   buscas: BuscaRegistrada[];
   proximoUsuarioId: number;
@@ -36,6 +39,7 @@ function dadosVazios(): Dados {
     mercados: new Map(),
     ofertas: new Map(),
     fotos: new Map(),
+    fotosDosMercados: new Map(),
     configuracoes: new Map(),
     buscas: [],
     proximoUsuarioId: 1,
@@ -83,6 +87,7 @@ function deTexto(texto: string): Dados {
   // Estado salvo por uma versão anterior ao recurso de fotos: sem fotos.
   if (d && !(d.fotos instanceof Map)) d.fotos = new Map();
   if (d && !(d.configuracoes instanceof Map)) d.configuracoes = new Map();
+  if (d && !(d.fotosDosMercados instanceof Map)) d.fotosDosMercados = new Map();
   if (
     lido.versao !== 1 ||
     !d ||
@@ -227,6 +232,7 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
       if (!dados.mercados.delete(id)) return false;
       for (const [chave, o] of dados.ofertas) if (o.mercadoId === id) dados.ofertas.delete(chave);
       for (const f of dados.fotos.values()) if (f.mercadoId === id) f.mercadoId = null; // como o banco (ON DELETE SET NULL)
+      for (const [chave, f] of dados.fotosDosMercados) if (f.mercadoId === id) dados.fotosDosMercados.delete(chave); // como o banco (CASCADE)
       return true;
     },
 
@@ -260,12 +266,52 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async salvarFoto(f) {
       dados.fotos.set(f.codigoBarras, copia(f));
     },
-    async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
-      for (const [codigoBarras, url] of fotos) {
-        const atual = dados.fotos.get(codigoBarras);
-        if (atual?.origem === 'mercado' && atual.imagem !== null) continue;
-        if (atual?.origem === 'planilha' && atual.url === url) continue;
-        dados.fotos.set(codigoBarras, copia({ codigoBarras, origem: 'planilha', url, imagem: null, mercadoId, atualizadaEm }));
+    async salvarFotosDoMercado(mercadoId, itens, atualizadaEm) {
+      for (const { codigoBarras, url = null, imagem = null } of itens) {
+        const compartilhada = dados.fotos.get(codigoBarras);
+        const deVerdade = compartilhada !== undefined && compartilhada.origem !== 'ilustrativa' && (compartilhada.imagem !== null || compartilhada.url !== null);
+        const eDele = compartilhada?.mercadoId === mercadoId && (compartilhada.origem === 'mercado' || compartilhada.origem === 'planilha');
+        const chave = `${mercadoId}:${codigoBarras}`;
+        if (!deVerdade || eDele) {
+          // Vira a foto de todos (nenhuma de verdade ainda, ou a compartilhada já era deste mercado).
+          const enviadaAMao = eDele && compartilhada.origem === 'mercado' && compartilhada.imagem !== null;
+          const mesmoLink = eDele && compartilhada.origem === 'planilha' && url !== null && compartilhada.url === url;
+          if (imagem === null && (enviadaAMao || mesmoLink)) continue; // link não troca foto enviada à mão nem refaz link igual
+          dados.fotos.set(codigoBarras, copia({ codigoBarras, origem: imagem !== null ? 'mercado' : 'planilha', url, imagem, mercadoId, atualizadaEm } as FotoProduto));
+          dados.fotosDosMercados.delete(chave);
+        } else {
+          // Já existe foto de verdade de outro: a dele fica só para ele.
+          const propria = dados.fotosDosMercados.get(chave);
+          if (imagem === null && propria && (propria.imagem !== null || propria.url === url)) continue;
+          dados.fotosDosMercados.set(chave, copia({ mercadoId, codigoBarras, url, imagem, atualizadaEm }));
+        }
+      }
+    },
+    async acharFotoDoMercado(mercadoId, codigoBarras) {
+      const f = dados.fotosDosMercados.get(`${mercadoId}:${codigoBarras}`);
+      return f ? copia(f) : null;
+    },
+    async listarCodigosComFotoDoMercado(mercadoId, codigos) {
+      const quais = new Set(codigos);
+      return [...dados.fotosDosMercados.values()]
+        .filter((f) => f.mercadoId === mercadoId && quais.has(f.codigoBarras) && f.imagem !== null)
+        .map((f) => f.codigoBarras)
+        .sort();
+    },
+    async removerFotoDoMercado(mercadoId, codigoBarras) {
+      return dados.fotosDosMercados.delete(`${mercadoId}:${codigoBarras}`);
+    },
+    async listarFotosDoMercadoParaBaixar(limite) {
+      return [...dados.fotosDosMercados.values()]
+        .filter((f) => f.imagem === null && f.url !== null)
+        .slice(0, limite)
+        .map((f) => ({ mercadoId: f.mercadoId, codigoBarras: f.codigoBarras, url: f.url as string }));
+    },
+    async guardarImagemDaFotoDoMercado(mercadoId, codigoBarras, url, imagem, atualizadaEm) {
+      const f = dados.fotosDosMercados.get(`${mercadoId}:${codigoBarras}`);
+      if (f && f.url === url && f.imagem === null) {
+        f.imagem = imagem;
+        f.atualizadaEm = atualizadaEm;
       }
     },
     async acharFoto(codigoBarras) {

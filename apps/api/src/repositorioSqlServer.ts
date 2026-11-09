@@ -507,29 +507,92 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
         cache.delete('codigosComFoto');
         cache.delete('codigosIlustrativos');
       },
-      async salvarFotosDaPlanilha(fotos, mercadoId, atualizadaEm) {
-        for (let i = 0; i < fotos.length; i += 500) {
-          const json = JSON.stringify(fotos.slice(i, i + 500).map(([codigoBarras, url]) => ({ codigoBarras, url })));
+      async salvarFotosDoMercado(mercadoId, itens, atualizadaEm) {
+        // Lotes pequenos: a imagem vai junto, em texto (base64), e um lote grande demais estouraria o texto do comando.
+        const POR_LOTE = 20;
+        // Um código repetido no mesmo envio vale pela última vez que aparece (a tabela do lote tem o código como chave).
+        const unicos = [...new Map(itens.map((f) => [f.codigoBarras, f])).values()];
+        for (let i = 0; i < unicos.length; i += POR_LOTE) {
+          const json = JSON.stringify(unicos.slice(i, i + POR_LOTE).map((f) => ({ c: f.codigoBarras, u: f.url ?? null, i: f.imagem ?? null })));
           await q(
-            `DECLARE @f TABLE (codigoBarras varchar(32), url nvarchar(1000));
-             INSERT INTO @f SELECT codigoBarras, url FROM OPENJSON(@json) WITH (codigoBarras varchar(32) '$.codigoBarras', url nvarchar(1000) '$.url');
+            `DECLARE @f TABLE (codigoBarras varchar(32) PRIMARY KEY, url nvarchar(1000) NULL, imagem nvarchar(max) NULL);
+             INSERT INTO @f SELECT codigoBarras, url, imagem FROM OPENJSON(@json) WITH (codigoBarras varchar(32) '$.c', url nvarchar(1000) '$.u', imagem nvarchar(max) '$.i');
              BEGIN TRAN;
-             UPDATE t SET t.origem = 'planilha', t.url = s.url, t.imagem = NULL, t.mercadoId = @mercadoId, t.atualizadaEm = @atualizadaEm
+             -- 1) Vira a foto de TODOS: onde não há foto de verdade (nenhuma, "não achou" ou ilustrativa) ou a compartilhada já é deste mercado.
+             UPDATE t SET t.origem = CASE WHEN s.imagem IS NOT NULL THEN 'mercado' ELSE 'planilha' END, t.url = s.url, t.imagem = s.imagem, t.mercadoId = @mercadoId, t.atualizadaEm = @em
                FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) JOIN @f s ON s.codigoBarras = t.codigoBarras
-               WHERE NOT (t.origem = 'mercado' AND t.imagem IS NOT NULL) AND NOT (t.origem = 'planilha' AND t.url = s.url);
+               WHERE ((t.imagem IS NULL AND t.url IS NULL) OR t.origem = 'ilustrativa' OR (t.mercadoId = @mercadoId AND t.origem IN ('mercado', 'planilha')))
+                 AND NOT (s.imagem IS NULL AND t.mercadoId = @mercadoId AND t.origem = 'mercado' AND t.imagem IS NOT NULL)
+                 AND NOT (s.imagem IS NULL AND t.mercadoId = @mercadoId AND t.origem = 'planilha' AND t.url = s.url);
              INSERT INTO dbo.FotosProduto (codigoBarras, origem, url, imagem, mercadoId, atualizadaEm)
-               SELECT s.codigoBarras, 'planilha', s.url, NULL, @mercadoId, @atualizadaEm FROM @f s
+               SELECT s.codigoBarras, CASE WHEN s.imagem IS NOT NULL THEN 'mercado' ELSE 'planilha' END, s.url, s.imagem, @mercadoId, @em FROM @f s
                WHERE NOT EXISTS (SELECT 1 FROM dbo.FotosProduto t WITH (UPDLOCK, SERIALIZABLE) WHERE t.codigoBarras = s.codigoBarras);
+             -- 2) Onde já existe foto de verdade de outro: a deste mercado fica só para ele (link não troca imagem própria nem refaz link igual).
+             UPDATE o SET o.url = s.url, o.imagem = s.imagem, o.atualizadaEm = @em
+               FROM dbo.FotosDoMercado o WITH (UPDLOCK, SERIALIZABLE) JOIN @f s ON s.codigoBarras = o.codigoBarras
+               JOIN dbo.FotosProduto t ON t.codigoBarras = s.codigoBarras
+               WHERE o.mercadoId = @mercadoId AND NOT (t.mercadoId = @mercadoId AND t.origem IN ('mercado', 'planilha'))
+                 AND NOT (s.imagem IS NULL AND (o.imagem IS NOT NULL OR o.url = s.url));
+             INSERT INTO dbo.FotosDoMercado (mercadoId, codigoBarras, url, imagem, atualizadaEm)
+               SELECT @mercadoId, s.codigoBarras, s.url, s.imagem, @em FROM @f s JOIN dbo.FotosProduto t ON t.codigoBarras = s.codigoBarras
+               WHERE NOT (t.mercadoId = @mercadoId AND t.origem IN ('mercado', 'planilha'))
+                 AND NOT EXISTS (SELECT 1 FROM dbo.FotosDoMercado o WITH (UPDLOCK, SERIALIZABLE) WHERE o.mercadoId = @mercadoId AND o.codigoBarras = s.codigoBarras);
+             -- 3) Se a compartilhada passou a ser deste mercado, a própria não é mais necessária.
+             DELETE o FROM dbo.FotosDoMercado o JOIN dbo.FotosProduto t ON t.codigoBarras = o.codigoBarras JOIN @f s ON s.codigoBarras = o.codigoBarras
+               WHERE o.mercadoId = @mercadoId AND t.mercadoId = @mercadoId AND t.origem IN ('mercado', 'planilha');
              COMMIT;`,
             (r) => {
               r.input('json', sql.NVarChar(sql.MAX), json);
               r.input('mercadoId', sql.Int, mercadoId);
-              r.input('atualizadaEm', sql.DateTime2(3), atualizadaEm);
+              r.input('em', sql.DateTime2(3), atualizadaEm);
             },
           );
         }
         cache.delete('codigosComFoto');
         cache.delete('codigosIlustrativos');
+      },
+      async acharFotoDoMercado(mercadoId, codigoBarras) {
+        const l = await q('SELECT mercadoId, codigoBarras, url, imagem, atualizadaEm FROM dbo.FotosDoMercado WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras', (r) => {
+          r.input('mercadoId', sql.Int, mercadoId);
+          r.input('codigoBarras', sql.VarChar(32), codigoBarras);
+        });
+        const x = l[0];
+        return x
+          ? { mercadoId: x.mercadoId as number, codigoBarras: x.codigoBarras as string, url: (x.url as string | null) ?? null, imagem: (x.imagem as string | null) ?? null, atualizadaEm: x.atualizadaEm as Date }
+          : null;
+      },
+      async listarCodigosComFotoDoMercado(mercadoId, codigos) {
+        if (codigos.length === 0) return [];
+        const l = await q(
+          `SELECT codigoBarras FROM dbo.FotosDoMercado WHERE mercadoId = @mercadoId AND imagem IS NOT NULL AND codigoBarras IN (SELECT value FROM OPENJSON(@codigos)) ORDER BY codigoBarras`,
+          (r) => {
+            r.input('mercadoId', sql.Int, mercadoId);
+            r.input('codigos', sql.NVarChar(sql.MAX), JSON.stringify(codigos));
+          },
+        );
+        return l.map((x) => x.codigoBarras as string);
+      },
+      async removerFotoDoMercado(mercadoId, codigoBarras) {
+        const l = await q('DELETE FROM dbo.FotosDoMercado OUTPUT deleted.codigoBarras WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras', (r) => {
+          r.input('mercadoId', sql.Int, mercadoId);
+          r.input('codigoBarras', sql.VarChar(32), codigoBarras);
+        });
+        return l.length > 0;
+      },
+      async listarFotosDoMercadoParaBaixar(limite) {
+        const l = await q('SELECT TOP (@limite) mercadoId, codigoBarras, url FROM dbo.FotosDoMercado WHERE imagem IS NULL AND url IS NOT NULL ORDER BY atualizadaEm, mercadoId, codigoBarras', (r) =>
+          r.input('limite', sql.Int, limite),
+        );
+        return l.map((x) => ({ mercadoId: x.mercadoId as number, codigoBarras: x.codigoBarras as string, url: x.url as string }));
+      },
+      async guardarImagemDaFotoDoMercado(mercadoId, codigoBarras, url, imagem, atualizadaEm) {
+        await q('UPDATE dbo.FotosDoMercado SET imagem = @imagem, atualizadaEm = @em WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras AND url = @url AND imagem IS NULL', (r) => {
+          r.input('mercadoId', sql.Int, mercadoId);
+          r.input('codigoBarras', sql.VarChar(32), codigoBarras);
+          r.input('url', sql.NVarChar(1000), url);
+          r.input('imagem', sql.NVarChar(sql.MAX), imagem);
+          r.input('em', sql.DateTime2(3), atualizadaEm);
+        });
       },
       async acharFoto(codigoBarras) {
         const l = await q('SELECT * FROM dbo.FotosProduto WHERE codigoBarras = @codigoBarras', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));

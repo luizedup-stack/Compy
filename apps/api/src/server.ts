@@ -48,7 +48,7 @@ async function main(): Promise<void> {
     console.log(`Administrador de desenvolvimento: ${ADMIN_DEV_EMAIL} / senha: ${config.adminSenha} (nova a cada início)`);
   }
   await app.listen({ port: config.porta, host: config.host });
-  console.log(`Bolso Certo API em http://localhost:${config.porta}`);
+  console.log(`Compy API em http://localhost:${config.porta}`);
   // Mercados sem acesso por prazo (acesso temporário) voltam sozinhos quando o prazo acaba.
   const devolverAcessos = () =>
     void repo

@@ -34,6 +34,7 @@ Criadas por `apps/api/src/banco/migracoes/001-criar-tabelas.sql` e `002-configur
 | `Ofertas` | Produto + preço de cada mercado | Chave: (`mercadoId`, `codigoBarras`). `seq` é a ordem de entrada. |
 | `Buscas` | Cada busca feita no app | Sem ligação com a pessoa depois que ela exclui a conta. `feitaEm` (UTC) mede o uso do piloto. |
 | `FotosProduto` | Foto de cada produto, pelo **código de barras** (vale para todos os mercados) | `imagem` = o JPEG pequeno guardado no banco. `origem` = `mercado` (enviada pelo painel), `planilha` (link da coluna "Foto", baixado pelo servidor), `openfoodfacts` (achada sozinha) ou `ilustrativa` (a foto do tipo de produto, quando não há a específica; é trocada sozinha quando esta aparece). `url` = o link de origem. Linha com `url` e sem `imagem` = na fila para baixar; sem `url` e sem `imagem` = "procurou e não achou" (procura de novo depois de 30 dias). |
+| `FotosDoMercado` | Foto PRÓPRIA de um mercado para um produto (`url` = link da planilha ainda não baixado; `imagem` = o JPEG pequeno) | Só existe quando o produto já tinha foto de verdade de outro mercado ou do banco aberto: a foto compartilhada (`FotosProduto`) continua para os outros e a do mercado fica só para ele. Se o produto não tinha foto, a do mercado vira a de todos e esta tabela não é usada. |
 | `Configuracao` | `instancia`: identifica **este banco** | Entra nas sessões (logins). Apagar e recriar o banco muda o valor e desloga todos, de propósito. |
 | `SchemaVersao` | Quais arquivos de migração já foram aplicados | |
 

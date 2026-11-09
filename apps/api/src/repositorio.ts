@@ -31,6 +31,15 @@ export interface Mercado {
   removidoAte?: Date | null;
 }
 
+/** Foto própria de um mercado para um produto (veja `salvarFotosDoMercado`). */
+export interface FotoDoMercado {
+  mercadoId: number;
+  codigoBarras: string;
+  url: string | null;
+  imagem: string | null;
+  atualizadaEm: Date;
+}
+
 export interface OfertaArmazenada {
   mercadoId: number;
   codigoBarras: string;
@@ -141,10 +150,26 @@ export interface Repositorio {
   /** Grava a foto do produto (uma só por código de barras: a nova substitui a anterior). */
   salvarFoto(f: FotoProduto): Promise<void>;
   /**
-   * Registra, de uma vez, os links de foto vindos de uma planilha (origem "planilha", ainda sem imagem). Não troca a foto que um mercado
-   * enviou à mão (com imagem) nem refaz um link igual ao já indicado.
+   * Fotos que um mercado enviou (imagem pronta, do painel ou colada na planilha) ou indicou por link (planilha), de uma vez.
+   * Regra: a foto do mercado vira a foto de TODOS só onde não há foto de verdade (nenhuma, "não achou" ou ilustrativa) ou onde a foto
+   * compartilhada já é dele. Onde já existe uma foto de verdade de outro mercado ou do banco aberto, ela continua para os outros e a do
+   * mercado fica guardada só para ele (FotosDoMercado). Link não troca uma foto que o próprio mercado enviou à mão, nem refaz link igual.
    */
-  salvarFotosDaPlanilha(fotos: [codigoBarras: string, url: string][], mercadoId: number, atualizadaEm: Date): Promise<void>;
+  salvarFotosDoMercado(
+    mercadoId: number,
+    itens: { codigoBarras: string; url?: string | null; imagem?: string | null }[],
+    atualizadaEm: Date,
+  ): Promise<void>;
+  /** A foto própria do mercado para o produto (com imagem ou só o link ainda não baixado), ou null. */
+  acharFotoDoMercado(mercadoId: number, codigoBarras: string): Promise<FotoDoMercado | null>;
+  /** Dos códigos dados, os que o mercado tem foto própria COM imagem. */
+  listarCodigosComFotoDoMercado(mercadoId: number, codigos: string[]): Promise<string[]>;
+  /** Apaga a foto própria do mercado. Devolve false se não havia. */
+  removerFotoDoMercado(mercadoId: number, codigoBarras: string): Promise<boolean>;
+  /** Fotos próprias com o link indicado mas ainda sem a imagem (para o servidor baixar). */
+  listarFotosDoMercadoParaBaixar(limite: number): Promise<{ mercadoId: number; codigoBarras: string; url: string }[]>;
+  /** Guarda a imagem baixada de um link, só se o link ainda for o mesmo. */
+  guardarImagemDaFotoDoMercado(mercadoId: number, codigoBarras: string, url: string, imagem: string, atualizadaEm: Date): Promise<void>;
   acharFoto(codigoBarras: string): Promise<FotoProduto | null>;
   /** Apaga a foto do produto (também o registro de "não achou"). Devolve false se não havia. */
   removerFoto(codigoBarras: string): Promise<boolean>;
