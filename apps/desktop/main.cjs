@@ -347,6 +347,26 @@ function iconeDaJanela() {
   return fs.existsSync(arquivo) ? arquivo : undefined;
 }
 
+/** Menu "Atualizar produtos com as planilhas": importa de novo as planilhas que vêm com o programa. */
+async function atualizarProdutosAgora() {
+  if (!api) {
+    dialog.showMessageBoxSync(janela, { type: 'info', title: 'Bolso Certo - Mercado', message: 'Este modo não tem planilhas embutidas.' });
+    return;
+  }
+  try {
+    const r = await api.atualizarProdutos();
+    dialog.showMessageBoxSync(janela, {
+      type: 'info',
+      title: 'Bolso Certo - Mercado',
+      message: 'Produtos atualizados.',
+      detail: `${r.produtos} produtos de ${r.planilhas} planilhas foram importados (os preços das planilhas substituem os atuais). Recarregue a tela para ver.`,
+    });
+    janela?.reload();
+  } catch (erro) {
+    dialog.showErrorBox('Bolso Certo - Mercado', `Não foi possível atualizar: ${erro && erro.message ? erro.message : erro}`);
+  }
+}
+
 function apagarSalvosERecomecar() {
   const resposta = dialog.showMessageBoxSync(janela, {
     type: 'warning',
@@ -492,7 +512,8 @@ function montarMenu() {
             ? [{ label: `Usando o servidor na nuvem: ${urlNuvem}`, enabled: false }, { type: 'separator' }]
             : [
                 { label: 'Códigos de e-mail e endereço do celular', accelerator: 'CmdOrCtrl+E', click: abrirCodigos },
-                { label: 'Configurar e-mail…', click: abrirConfigEmail },
+                { label: 'Atualizar produtos com as planilhas do programa', click: atualizarProdutosAgora },
+          { label: 'Configurar e-mail…', click: abrirConfigEmail },
                 { label: 'Acesso pela internet (túnel)…', click: abrirInternet },
               ]),
           { label: 'Servidor na nuvem…', click: abrirConfigNuvem },

@@ -4,7 +4,7 @@
 //   Em qualquer caso ficam também numa lista que o programa mostra (menu "Códigos de e-mail"), com a situação de cada um.
 // - Os dados (contas, mercados, produtos, correções) são guardados em um arquivo na pasta do usuário a cada
 //   poucos segundos e ao fechar, e voltam quando o programa abre de novo. É um quebra-galho até existir o banco.
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
@@ -12,6 +12,7 @@ import { sincronizarSenhaDoAdmin } from '../api/src/auth/admin';
 import { lerConfig } from '../api/src/config';
 import { criarEmailSmtp, problemaNaConfigSmtp, type ConfigSmtp, type EmailSender } from '../api/src/email';
 import { criarRepositorioMemoria } from '../api/src/repositorioMemoria';
+import { seed } from '../api/src/scripts/seed';
 import { completarAdminDeDesenvolvimento, montarServidor } from '../api/src/servidor';
 
 export interface EmailGuardado {
@@ -120,6 +121,8 @@ export interface ApiEmbutida {
   /** true se esta abertura restaurou dados salvos (em vez de carregar as planilhas). */
   restaurou: boolean;
   salvarAgora(): Promise<void>;
+  /** Importa de novo as planilhas que vêm com o programa (os preços delas substituem os atuais). */
+  atualizarProdutos(): Promise<{ planilhas: number; produtos: number }>;
   /** Para de salvar e apaga o que foi salvo; na próxima abertura volta ao começo. */
   apagarSalvos(): void;
 }
@@ -135,6 +138,22 @@ function lerOuCriarSegredo(arquivo: string, bytes = 32): string {
   const novo = randomBytes(bytes).toString('hex');
   fs.writeFileSync(arquivo, novo, 'utf8');
   return novo;
+}
+
+/**
+ * "Assinatura" das planilhas que vêm com o programa (nomes e tamanhos). Quando muda (versão nova do programa com planilhas
+ * novas), os produtos são atualizados sozinhos na próxima abertura.
+ */
+function assinaturaDaPasta(pasta: string): string {
+  let nomes: string[] = [];
+  try {
+    nomes = fs.readdirSync(pasta).filter((n) => n.toLowerCase().endsWith('.xlsx') && !n.startsWith('~$')).sort();
+  } catch {
+    // Sem a pasta: assinatura vazia.
+  }
+  const hash = createHash('sha1');
+  for (const n of nomes) hash.update(`${n}:${fs.statSync(path.join(pasta, n)).size};`);
+  return hash.digest('hex');
 }
 
 /** Sobe a API e devolve o servidor para poder fechá-lo. */
@@ -172,6 +191,29 @@ export async function iniciarApi(op: OpcoesApi): Promise<ApiEmbutida> {
   await sincronizarSenhaDoAdmin(repo, op.adminEmail, op.adminSenha);
   await app.listen({ port: config.porta, host: config.host });
 
+  /** Importa as planilhas da pasta no repositório (cada uma vai para o mercado dela; preços novos substituem os antigos). */
+  const atualizarProdutos = async (): Promise<{ planilhas: number; produtos: number }> => {
+    const relatorios = await seed(repo, op.pastaDados);
+    return { planilhas: relatorios.length, produtos: relatorios.reduce((soma, r) => soma + r.importadas, 0) };
+  };
+  // Versão nova do programa com planilhas novas: atualiza os produtos sozinho (contas e correções feitas à mão continuam).
+  const arquivoVersao = path.join(op.pastaSalvos, 'dados-versao.txt');
+  const versaoAtual = assinaturaDaPasta(op.pastaDados);
+  let versaoSalva = '';
+  try {
+    versaoSalva = fs.readFileSync(arquivoVersao, 'utf8').trim();
+  } catch {
+    // Primeira vez (ou versão antiga do programa): sem versão guardada.
+  }
+  if (restaurou && versaoSalva !== versaoAtual) {
+    try {
+      await atualizarProdutos();
+    } catch (e) {
+      console.error('Não foi possível atualizar os produtos com as planilhas:', e instanceof Error ? e.message : e);
+    }
+  }
+  fs.writeFileSync(arquivoVersao, versaoAtual, 'utf8');
+
   let ultimo = '';
   let ativo = true;
   const salvarAgora = async (): Promise<void> => {
@@ -191,6 +233,7 @@ export async function iniciarApi(op: OpcoesApi): Promise<ApiEmbutida> {
     app,
     restaurou,
     salvarAgora,
+    atualizarProdutos,
     apagarSalvos() {
       ativo = false;
       clearInterval(relogio);

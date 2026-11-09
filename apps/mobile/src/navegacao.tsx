@@ -62,7 +62,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
   // 1) Ao abrir o app, renova a cópia dos produtos guardada no celular, em segundo plano (a consulta é pública).
   // 2) Sempre que o app volta para a tela (o usuário saiu dele e voltou, por exemplo depois de recuperar o sinal),
   //    tenta renovar de novo; sem internet a tentativa falha em silêncio e continua valendo a cópia guardada.
-  //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 10 minutos.)
+  //    (renovarCopiaDosProdutos já evita repetir a tentativa em menos de 3 horas.)
   // Espera a leitura do endereço do servidor guardado (carregando) para não consultar o endereço errado.
   useEffect(() => {
     if (carregando) return;

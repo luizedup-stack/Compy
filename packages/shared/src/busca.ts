@@ -261,14 +261,43 @@ export function listarProdutosNoCatalogo(
   catalogo: Catalogo,
   { ordem, pagina = 1, agora = new Date() }: { ordem: OrdemBusca; pagina?: number; agora?: Date },
 ): { grupos: GrupoProduto[]; total: number } {
-  const todos = agrupar(catalogo, null, ordem, agora).sort(
+  // Com dezenas de milhares de ofertas, montar o grupo completo de TODOS os produtos só para mostrar 30 seria lento
+  // (segundos). Por isso: 1) um resumo leve por código (quantos mercados vendem e qual o nome do grupo); 2) a ordenação
+  // da lista com esse resumo; 3) só então a montagem completa dos grupos da página pedida.
+  const mercadosExistentes = new Set(catalogo.mercados.map((m) => m.id));
+  const resumo = new Map<string, { n: number; nome: string; nomeMercadoId: number }>();
+  for (const o of catalogo.ofertas) {
+    if (!mercadosExistentes.has(o.mercadoId)) continue;
+    const r = resumo.get(o.codigoBarras);
+    if (!r) {
+      resumo.set(o.codigoBarras, { n: 1, nome: o.nome, nomeMercadoId: o.mercadoId });
+      continue;
+    }
+    r.n += 1;
+    // Mesma regra do nome do grupo em agrupar(): o mais comprido; em empate, o do mercado de menor id.
+    const maisComprido = o.nome.length > r.nome.length;
+    const empateMenorId = o.nome.length === r.nome.length && o.mercadoId < r.nomeMercadoId;
+    if (maisComprido || empateMenorId) {
+      r.nome = o.nome;
+      r.nomeMercadoId = o.mercadoId;
+    }
+  }
+  const lista = [...resumo].map(([codigo, r]) => ({ codigo, n: r.n, nome: r.nome, chaveNome: normalizarTexto(r.nome) }));
+  lista.sort(
     (a, b) =>
-      b.entradas.length - a.entradas.length || // mais mercados primeiro (os de 1 só ficam no fim)
-      compararNomes(a.nome, b.nome) ||
-      comparar(a.codigoBarras, b.codigoBarras),
+      b.n - a.n || // mais mercados primeiro (os de 1 só ficam no fim)
+      comparar(a.chaveNome, b.chaveNome) ||
+      comparar(a.nome, b.nome) ||
+      comparar(a.codigo, b.codigo),
   );
+
   const inicio = (Math.max(1, pagina) - 1) * PRODUTOS_POR_PAGINA_INICIO;
-  return { grupos: todos.slice(inicio, inicio + PRODUTOS_POR_PAGINA_INICIO).map((g) => aGrupoProduto(g, catalogo)), total: todos.length };
+  const daPagina = lista.slice(inicio, inicio + PRODUTOS_POR_PAGINA_INICIO);
+  const grupos = new Map(agrupar(catalogo, new Set(daPagina.map((c) => c.codigo)), ordem, agora).map((g) => [g.codigoBarras, g]));
+  return {
+    grupos: daPagina.map((c) => grupos.get(c.codigo)).filter((g): g is GrupoOrdenado => g !== undefined).map((g) => aGrupoProduto(g, catalogo)),
+    total: lista.length,
+  };
 }
 
 /** Mercados em ordem alfabética (pt-BR), cada um com o total de produtos disponíveis. */
