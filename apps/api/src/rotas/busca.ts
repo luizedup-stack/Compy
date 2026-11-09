@@ -1,35 +1,30 @@
-import { listarProdutosNoCatalogo, type GrupoProduto } from '@mercado/shared';
+import { listarProdutosNoCatalogo, type Catalogo, type GrupoProduto } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { usuarioOpcional } from '../auth/guardas';
 import { buscar, limitarCatalogo, montarCatalogo } from '../busca/buscar';
 import type { FotosEmbutidas } from '../fotos/embutidas';
+import { lembrar } from './lembrar';
 import type { Repositorio } from '../repositorio';
-
-/** Guarda o resultado de `fabrica` por `ms` milissegundos (falha não é guardada). Com `ms` 0, não guarda nada. */
-function lembrar<T>(fabrica: () => Promise<T>, ms: number): () => Promise<T> {
-  let guardado: { ate: number; valor: Promise<T> } | null = null;
-  return () => {
-    if (ms <= 0) return fabrica();
-    const agora = Date.now();
-    if (guardado && guardado.ate > agora) return guardado.valor;
-    const valor = fabrica();
-    const novo = { ate: agora + ms, valor };
-    guardado = novo;
-    valor.catch(() => {
-      if (guardado === novo) guardado = null;
-    });
-    return valor;
-  };
-}
 
 /**
  * `cacheMs`: por quanto tempo a lista montada (catálogo e páginas da tela inicial) pode ser reaproveitada. Com milhares de produtos,
  * montar e agrupar tudo a cada pedido pesa no servidor gratuito; em produção vale 20 s (um envio de planilha aparece em até 20 s).
  * Nos testes é 0: tudo fresco.
  */
-export function rotasBusca({ repo, embutidas, cacheMs = 0 }: { repo: Repositorio; embutidas?: FotosEmbutidas; cacheMs?: number }): FastifyPluginAsync {
+export function rotasBusca({
+  repo,
+  embutidas,
+  cacheMs = 0,
+  catalogo: catalogoDeFora,
+}: {
+  repo: Repositorio;
+  embutidas?: FotosEmbutidas;
+  cacheMs?: number;
+  /** O catálogo montado, compartilhado com as outras rotas (para montar uma vez só). */
+  catalogo?: () => Promise<Catalogo>;
+}): FastifyPluginAsync {
   return async (app) => {
-    const catalogo = lembrar(() => montarCatalogo(repo, embutidas), cacheMs);
+    const catalogo = catalogoDeFora ?? lembrar(() => montarCatalogo(repo, embutidas), cacheMs);
     const paginas = new Map<string, () => Promise<{ grupos: GrupoProduto[]; total: number }>>();
     // Rotas PÚBLICAS: o app funciona sem login. Se a pessoa entrou (cliente), a busca fica ligada à conta dela;
     // senão, é registrada de forma anônima.
