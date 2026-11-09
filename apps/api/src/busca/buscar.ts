@@ -57,8 +57,13 @@ export async function montarCatalogo(repo: Repositorio, embutidas?: FotosEmbutid
   return { geradoEm: new Date().toISOString(), mercados: [...mercados.values()], ofertas, comFoto: [...comFoto], fotosIlustrativas: [...fotosIlustrativas] };
 }
 
-/** Quantas ofertas, no máximo, vão na cópia que o app guarda no celular (GET /catalogo). A busca no servidor não tem esse limite. */
-export const LIMITE_OFERTAS_COPIA = 8000;
+/**
+ * Quantas ofertas, no máximo, vão na cópia que o app guarda no celular (GET /catalogo). A busca no servidor não tem esse limite.
+ * Com o limite antigo (8.000) a cópia deixava de fora a maior parte de cada mercado grande (o Mambo, por exemplo, tinha 14 mil produtos no
+ * painel e só ~3 mil no app quando ele usava a cópia). Agora cabe tudo o que temos hoje (~52 mil ofertas): a resposta sai compactada (gzip, ~1,7 MB)
+ * e o app guarda a cópia compactada. Passou disso, ficam os produtos vendidos em mais mercados (veja limitarCatalogo).
+ */
+export const LIMITE_OFERTAS_COPIA = 60_000;
 
 /**
  * Reduz o catálogo à cópia do celular quando ele é grande demais (com todos os produtos das redes passaria de 10 MB): ficam os produtos
