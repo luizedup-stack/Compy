@@ -14,7 +14,18 @@ Preços e códigos de barras copiados de páginas e de uma API **públicas** dos
 - **Assaí e Max Atacadista não foram coletados.** O Assaí bloqueia robôs (proteção anti-bot) e o Max Atacadista só publica encartes (imagens/folhetos), sem catálogo online nem código de barras.
 - Os dados envelhecem: preços só valem na data da coleta.
 
-## Como refazer
+## Coleta completa (todos os produtos que o site mostra)
+
+```bash
+node ferramentas/coleta/coletar-atacadao-tudo.mjs     # catálogo inteiro, categoria por categoria (~1 h)
+node ferramentas/coleta/coletar-carrefour-tudo.mjs    # ~42 mil páginas do sitemap (horas); pode parar e continuar depois
+node ferramentas/coleta/gerar-planilhas.mjs           # gera as planilhas, já divididas em partes de até 4.900 produtos
+```
+
+Os dois coletores guardam o progresso (`*.progresso.json`): se você interromper, rode de novo que eles continuam. Se o site recusar (erro 403/429), o coletor para e avisa; não tente contornar.
+O envio aceita **até 5.000 produtos por planilha**, por isso `gerar-planilhas.mjs` cria `mercado-atacadao-1.xlsx`, `-2.xlsx`... Envie todas as partes do mesmo mercado (a aba `Mercado` é igual): enviar de novo só atualiza e acrescenta.
+
+## Como refazer (coleta resumida, a de antes)
 
 ```bash
 node ferramentas/coleta/coletar-atacadao.mjs

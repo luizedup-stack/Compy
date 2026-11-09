@@ -261,19 +261,47 @@ export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
   return renovando;
 }
 
-/** Faz a consulta no servidor; se ele não responder (status 0), refaz na cópia do celular, se houver. */
+/**
+ * Quanto o app espera o servidor antes de mostrar a cópia guardada no celular (só se houver cópia). O servidor gratuito dorme sem uso e
+ * a primeira resposta do dia demora quase 1 minuto: com a cópia, a pessoa vê os produtos na hora e o servidor acorda por baixo dos panos.
+ */
+let prazoRespostaMs = 4000;
+export function definirPrazoResposta(ms: number): void {
+  prazoRespostaMs = ms;
+}
+
+/** Faz a consulta no servidor; se ele não responder (status 0) ou demorar demais, refaz na cópia do celular, se houver. */
 async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo: Catalogo) => T): Promise<T> {
   try {
-    const resultado = await noServidor();
+    const local = await lerCatalogoLocal();
+    const servidor = noServidor();
+    let resultado: T;
+    if (local) {
+      const demorou = Symbol('demorou');
+      let relogio: ReturnType<typeof setTimeout> | undefined;
+      const prazo = new Promise<typeof demorou>((resolve) => {
+        relogio = setTimeout(() => resolve(demorou), prazoRespostaMs);
+      });
+      const primeiro = await Promise.race([servidor, prazo]).finally(() => clearTimeout(relogio));
+      if (primeiro === demorou) {
+        // Segue esperando o servidor em segundo plano (é a consulta que o acorda) e, quando ele responder, renova a cópia.
+        servidor.then(() => renovarCopiaDosProdutos(), () => undefined);
+        marcarSemConexao(local.baixadoEm);
+        return naCopia(local.catalogo);
+      }
+      resultado = primeiro as T;
+    } else {
+      resultado = await servidor;
+    }
     marcarComConexao();
     void renovarCopiaDosProdutos();
     return resultado;
   } catch (e) {
     if (!(e instanceof ErroApi) || !servidorIndisponivel(e)) throw e;
-    const local = await lerCatalogoLocal();
-    if (!local) throw e;
-    marcarSemConexao(local.baixadoEm);
-    return naCopia(local.catalogo);
+    const copia = await lerCatalogoLocal();
+    if (!copia) throw e;
+    marcarSemConexao(copia.baixadoEm);
+    return naCopia(copia.catalogo);
   }
 }
 
