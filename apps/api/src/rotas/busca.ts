@@ -16,15 +16,18 @@ export function rotasBusca({
   embutidas,
   cacheMs = 0,
   catalogo: catalogoDeFora,
+  geracao = () => 0,
 }: {
   repo: Repositorio;
   embutidas?: FotosEmbutidas;
   cacheMs?: number;
   /** O catálogo montado, compartilhado com as outras rotas (para montar uma vez só). */
   catalogo?: () => Promise<Catalogo>;
+  /** Sobe a cada escrita no sistema: as páginas guardadas de outra geração são descartadas. */
+  geracao?: () => number;
 }): FastifyPluginAsync {
   return async (app) => {
-    const catalogo = catalogoDeFora ?? lembrar(() => montarCatalogo(repo, embutidas), cacheMs);
+    const catalogo = catalogoDeFora ?? lembrar(() => montarCatalogo(repo, embutidas), cacheMs, geracao);
     const paginas = new Map<string, () => Promise<{ grupos: GrupoProduto[]; total: number }>>();
     // Rotas PÚBLICAS: o app funciona sem login. Se a pessoa entrou (cliente), a busca fica ligada à conta dela;
     // senão, é registrada de forma anônima.
@@ -46,7 +49,7 @@ export function rotasBusca({
       const chave = `${ordem}:${pagina}`;
       let pagina_ = paginas.get(chave);
       if (!pagina_) {
-        pagina_ = lembrar(async () => listarProdutosNoCatalogo(await catalogo(), { ordem, pagina }), cacheMs);
+        pagina_ = lembrar(async () => listarProdutosNoCatalogo(await catalogo(), { ordem, pagina }), cacheMs, geracao);
         if (cacheMs > 0 && paginas.size < 200) paginas.set(chave, pagina_);
       }
       return pagina_();

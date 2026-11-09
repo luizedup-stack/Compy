@@ -237,6 +237,24 @@ describe('a foto aparece onde o app olha', () => {
     expect(catalogo.fotosIlustrativas).toEqual([LEITE]);
   });
 
+  it('confirmar o preço (ou editar) devolve o produto COM a foto: ela não some da tela', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'mercado', url: null, imagem: FOTO_JPEG, mercadoId: mercadoA.id }));
+    const confirmar = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${LEITE}`, headers: comToken(tokenA), payload: { preco: 5.99 } });
+    expect(confirmar.statusCode).toBe(200);
+    expect(confirmar.json()).toMatchObject({ codigoBarras: LEITE, foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    const editar = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${LEITE}`, headers: comToken(tokenA), payload: { nome: 'Leite Integral 1L' } });
+    expect(editar.json()).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    const semFoto = await amb.app.inject({ method: 'PATCH', url: `/painel/produtos/${ARROZ}`, headers: comToken(tokenA), payload: { preco: 7 } });
+    expect(semFoto.json()).toMatchObject({ foto: null, fotoOrigem: null }); // sem foto continua sem foto
+  });
+
+  it('produto novo cadastrado à mão com um código que já tem foto (de outro mercado) já vem com a foto', async () => {
+    await amb.repo.salvarFoto(foto({ codigoBarras: '7891000300305', origem: 'mercado', url: null, imagem: FOTO_JPEG, mercadoId: mercadoB.id }));
+    const res = await amb.app.inject({ method: 'POST', url: '/painel/produtos', headers: comToken(tokenA), payload: { codigoBarras: '7891000300305', nome: 'Feijão 1kg', preco: 8.5 } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ foto: '/fotos/7891000300305', fotoOrigem: 'mercado' });
+  });
+
   it('o painel mostra a origem "ilustrativa" para o dono do mercado trocar pela foto certa', async () => {
     await amb.repo.salvarFoto(foto({ origem: 'ilustrativa', url: null, imagem: FOTO_JPEG }));
     const lista = (await amb.app.inject({ method: 'GET', url: '/painel/produtos', headers: comToken(tokenA) })).json() as { itens: ProdutoPainel[] };

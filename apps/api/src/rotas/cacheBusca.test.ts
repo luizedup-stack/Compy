@@ -66,3 +66,29 @@ describe('lista de mercados com o catálogo reaproveitado', () => {
     expect(await dados(60_000)).toEqual(direto);
   });
 });
+
+describe('mercado sem acesso some na hora do aplicativo (com cache), junto com os produtos; ao voltar, os produtos voltam', () => {
+  it('tirar acesso e dar acesso novamente refletem imediatamente em /produtos, /busca, /catalogo e /mercados', async () => {
+    const amb = await criarAmbiente({ cacheRespostasMs: 60_000 });
+    const admin = await amb.criarComPapel('admin');
+    const m = await amb.repo.criarMercado({ nome: 'Beta', endereco: 'Rua 2', nomeNorm: 'beta', enderecoNorm: 'rua 2', status: 'ativo', contaSituacao: 'gratuita', usuarioId: null });
+    await amb.repo.salvarOferta({
+      mercadoId: m.id, codigoBarras: '7891000100103', nome: 'Leite Integral', nomeNorm: 'leite integral', preco: 5, quantidadeTexto: null, quantidadeValor: null,
+      quantidadeUnidade: null, categoria: null, disponivel: true, precoAtualizadoEm: new Date(), promocaoPreco: null, promocaoInicio: null, promocaoFim: null,
+    });
+    const ver = async () => ({
+      produtos: ((await amb.app.inject({ method: 'GET', url: '/produtos' })).json() as { total: number }).total,
+      busca: ((await amb.app.inject({ method: 'GET', url: '/busca?q=leite' })).json() as unknown[]).length,
+      catalogo: ((await amb.app.inject({ method: 'GET', url: '/catalogo' })).json() as { ofertas: unknown[] }).ofertas.length,
+      mercados: ((await amb.app.inject({ method: 'GET', url: '/mercados' })).json() as { totalProdutos: number }[])[0]?.totalProdutos ?? null,
+    });
+    expect(await ver()).toEqual({ produtos: 1, busca: 1, catalogo: 1, mercados: 1 }); // enche os caches
+    const headers = { authorization: `Bearer ${admin.token}` };
+    await amb.app.inject({ method: 'POST', url: `/admin/mercados/${m.id}/remover`, headers, payload: { tipo: 'permanente' } });
+    expect(await ver()).toEqual({ produtos: 0, busca: 0, catalogo: 0, mercados: null });
+    await amb.app.inject({ method: 'POST', url: `/admin/mercados/${m.id}/reativar`, headers });
+    expect(await ver()).toEqual({ produtos: 1, busca: 1, catalogo: 1, mercados: 1 });
+    amb.app.limparCatalogo; // existe para a volta automática (fora da API)
+    expect(typeof amb.app.limparCatalogo).toBe('function');
+  });
+});

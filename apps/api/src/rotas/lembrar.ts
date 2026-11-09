@@ -3,15 +3,15 @@
 /**
  * Guarda o resultado de `fabrica` por `ms` milissegundos (falha não é guardada). Passado o prazo, o valor antigo ainda é entregue na
  * hora (por até 10 minutos) enquanto um novo é montado por trás: assim ninguém espera a montagem, que no servidor gratuito leva
- * vários segundos. Com `ms` 0, não guarda nada.
+ * vários segundos. `geracao` sobe a cada escrita: valor de outra geração nunca é entregue. Com `ms` 0, não guarda nada.
  */
-export function lembrar<T>(fabrica: () => Promise<T>, ms: number): () => Promise<T> {
+export function lembrar<T>(fabrica: () => Promise<T>, ms: number, geracao: () => number = () => 0): () => Promise<T> {
   const VELHO_DEMAIS_MS = 10 * 60 * 1000;
-  let guardado: { montadoEm: number; valor: Promise<T> } | null = null;
+  let guardado: { montadoEm: number; valor: Promise<T>; geracao: number } | null = null;
   let atualizando = false;
   const montar = (): Promise<T> => {
     const valor = fabrica();
-    const novo = { montadoEm: Date.now(), valor };
+    const novo = { montadoEm: Date.now(), valor, geracao: geracao() };
     guardado = novo;
     valor.catch(() => {
       if (guardado === novo) guardado = null;
@@ -20,7 +20,8 @@ export function lembrar<T>(fabrica: () => Promise<T>, ms: number): () => Promise
   };
   return () => {
     if (ms <= 0) return fabrica();
-    if (!guardado) return montar();
+    // Houve uma escrita (mercado sem acesso, planilha, edição...) depois de montado: o valor guardado já não vale, nem como "antigo".
+    if (!guardado || guardado.geracao !== geracao()) return montar();
     const idade = Date.now() - guardado.montadoEm;
     if (idade < ms) return guardado.valor;
     if (idade >= VELHO_DEMAIS_MS) return montar();

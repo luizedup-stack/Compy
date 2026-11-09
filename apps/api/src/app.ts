@@ -161,11 +161,21 @@ export async function construirApp({
   await app.register(rotasAuth({ repo, email }));
   const aoMudarProdutos = () => fotos?.agendarPendentes();
   // Em produção, o catálogo montado é montado uma vez e reaproveitado por busca, lista inicial, cópia do celular e lista de mercados.
-  const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs) : undefined;
+  // Toda escrita bem-sucedida (qualquer POST/PUT/PATCH/DELETE) sobe a "geração": o que estava guardado deixa de valer e a próxima
+  // consulta já vem atualizada (um mercado sem acesso some na hora, junto com os produtos dele, e volta na hora quando recebe o acesso).
+  let geracao = 0;
+  app.addHook('onSend', async (req, reply, payload) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && reply.statusCode < 400) geracao += 1;
+    return payload;
+  });
+  app.decorate('limparCatalogo', () => {
+    geracao += 1; // para escritas que não passam pela API (a volta automática de acessos temporários)
+  });
+  const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs, () => geracao) : undefined;
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
-  await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
+  await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, geracao: () => geracao, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));
   await app.register(rotasMercados({ repo, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasMeusMercados({ repo }));

@@ -212,6 +212,23 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async listarMercados() {
       return [...dados.mercados.values()].map(copia);
     },
+    async reativarMercadosVencidos(agora) {
+      let n = 0;
+      for (const m of dados.mercados.values()) {
+        if (m.status === 'removido' && m.removidoAte && m.removidoAte.getTime() <= agora.getTime()) {
+          m.status = 'ativo';
+          m.removidoAte = null;
+          n++;
+        }
+      }
+      return n;
+    },
+    async apagarMercado(id) {
+      if (!dados.mercados.delete(id)) return false;
+      for (const [chave, o] of dados.ofertas) if (o.mercadoId === id) dados.ofertas.delete(chave);
+      for (const f of dados.fotos.values()) if (f.mercadoId === id) f.mercadoId = null; // como o banco (ON DELETE SET NULL)
+      return true;
+    },
 
     async salvarOferta(o) {
       dados.ofertas.set(chaveOferta(o.mercadoId, o.codigoBarras), copia(o));
