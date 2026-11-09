@@ -203,6 +203,8 @@ Nesse tempo ele responde "ainda ligando" (502/503/504), e o **app espera e tenta
 
 Para o teste de hoje não ter espera nenhuma, **acorde tudo antes**: abra no navegador `https://bolso-certo.onrender.com/saude/banco` e espere aparecer `{"status":"ok"}`.
 
+**Já vem pronto:** `.github/workflows/manter-servidor-acordado.yml` abre `/saude` a cada 5 minutos pelo GitHub Actions (grátis, sem conta nova; só roda depois de estar no ramo `main`; o GitHub pode desligá-lo se o repositório ficar 60 dias sem nenhuma atividade, e é só reativar na aba Actions). Isso mantém o **Render** acordado; o **banco do Azure** continua dormindo quando ninguém usa (a primeira busca depois de um tempo ainda leva até ~1 minuto). Mantê-lo ligado 24 horas por dia gastaria a cota gratuita do mês e exigiria um plano pago do Azure. Sem esse recurso, ou para algo mais confiável:
+
 Para o servidor do Render **não dormir** enquanto os testers usam, um serviço gratuito de monitoramento (por exemplo o UptimeRobot, com conta própria) pode abrir
 `https://bolso-certo.onrender.com/saude` a cada 5 minutos. Essa rota **não toca no banco**, então o banco do Azure continua dormindo quando ninguém usa (e não gasta a cota gratuita).
 O banco acorda sozinho na primeira busca de verdade. Não use `/saude/banco` no monitoramento: ela acordaria o banco o tempo todo e gastaria a cota do mês.

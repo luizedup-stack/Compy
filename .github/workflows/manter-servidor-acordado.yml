@@ -1,0 +1,32 @@
+# Mantém o servidor gratuito do Render acordado: abre /saude a cada 5 minutos.
+# O Render gratuito dorme depois de ~15 minutos sem nenhum acesso; com este "toque" periódico ele não chega a dormir.
+# - /saude NÃO usa o banco: o banco gratuito do Azure continua dormindo quando ninguém usa o app (e não gasta a cota do mês).
+# - Custo: zero (repositório público = minutos do GitHub Actions sem limite). Uma instância ligada o mês todo cabe nas 750 horas
+#   gratuitas do Render, desde que seja o único serviço gratuito da conta.
+# - Só funciona depois de estar no ramo main (o GitHub só roda rotinas agendadas do ramo principal).
+# - O GitHub pode atrasar uma execução em alguns minutos e DESLIGA rotinas agendadas de repositório público sem nenhuma atividade
+#   por 60 dias (é só reativar na aba Actions). Se isso incomodar, use um serviço de monitoramento (veja docs/HOSPEDAGEM.md).
+# - Para testar agora: aba Actions > "Manter servidor acordado" > "Run workflow".
+name: Manter servidor acordado
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Uma execução por vez: se uma demorar (servidor acordando), a próxima espera.
+concurrency:
+  group: manter-servidor-acordado
+  cancel-in-progress: false
+
+jobs:
+  tocar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Abrir /saude
+        run: |
+          # Qualquer resposta (até 502/503 enquanto o servidor liga) já conta como acesso e o acorda. Não falha a execução por isso,
+          # para o GitHub não mandar e-mail de "falhou" a cada 5 minutos.
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 --retry 2 --retry-delay 10 https://bolso-certo.onrender.com/saude || echo "sem-resposta")
+          echo "Resposta de /saude: $codigo"
