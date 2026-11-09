@@ -103,7 +103,7 @@ describe('PUT /painel/produtos/:codigo/foto', () => {
   it('o mercado envia a foto do produto que vende: fica guardada, é servida e aparece na lista do painel', async () => {
     const res = await colocarFoto(tokenA, LEITE, FOTO_JPEG);
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
+    expect(res.json()).toEqual({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado', fotoSoDoMercado: false });
     expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', imagem: FOTO_JPEG, url: null, mercadoId: mercadoA.id });
     expect((await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` })).statusCode).toBe(200);
 
@@ -118,10 +118,64 @@ describe('PUT /painel/produtos/:codigo/foto', () => {
     expect(lista.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado' });
   });
 
-  it('a foto enviada passa na frente da achada sozinha', async () => {
+  it('produto que JÁ tem foto (achada sozinha): a do mercado fica só para ele e a de todos continua valendo', async () => {
     await amb.repo.salvarFoto(foto());
-    expect((await colocarFoto(tokenA, LEITE, FOTO_JPEG)).statusCode).toBe(200);
-    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', url: null });
+    const res = await colocarFoto(tokenA, LEITE, FOTO_JPEG);
+    expect(res.statusCode).toBe(200);
+    const corpo = res.json() as { foto: string; fotoOrigem: string; fotoSoDoMercado: boolean };
+    expect(corpo).toMatchObject({ fotoOrigem: 'mercado', fotoSoDoMercado: true });
+    expect(corpo.foto).toMatch(new RegExp(`^/fotos/${LEITE}\\?mercado=${mercadoA.id}&v=\\d+$`));
+    // a foto de todos não mudou
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'openfoodfacts', url: IMG_OFF, imagem: null });
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toMatchObject({ imagem: FOTO_JPEG });
+
+    // quem pede a foto "de todos" continua sendo levado à imagem achada; quem pede a do mercado A recebe a enviada por ele
+    expect((await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}` })).statusCode).toBe(302);
+    const doMercado = await amb.app.inject({ method: 'GET', url: corpo.foto });
+    expect(doMercado.statusCode).toBe(200);
+    expect(doMercado.headers['content-type']).toBe('image/jpeg');
+    // outro mercado pedindo "a do mercado A" não é afetado por quem pede: pedir a do mercado B (que não tem) devolve a de todos
+    expect((await amb.app.inject({ method: 'GET', url: `/fotos/${LEITE}?mercado=${mercadoB.id}` })).statusCode).toBe(302);
+
+    // painel: o mercado A vê a dele; o mercado B vê a de todos
+    const listaA = (await amb.app.inject({ method: 'GET', url: '/painel/produtos', headers: comToken(tokenA) })).json() as { itens: ProdutoPainel[] };
+    expect(listaA.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: corpo.foto, fotoOrigem: 'mercado', fotoSoDoMercado: true });
+    const listaB = (await amb.app.inject({ method: 'GET', url: '/painel/produtos', headers: comToken(tokenB) })).json() as { itens: ProdutoPainel[] };
+    expect(listaB.itens.find((i) => i.codigoBarras === LEITE)).toMatchObject({ foto: `/fotos/${LEITE}`, fotoOrigem: 'automatica' });
+    expect(listaB.itens.find((i) => i.codigoBarras === LEITE)?.fotoSoDoMercado).toBeUndefined();
+
+    // na lista de produtos do mercado (o que o app mostra), a foto própria aparece só no mercado A
+    const prodA = (await amb.app.inject({ method: 'GET', url: `/mercados/${mercadoA.id}/produtos` })).json() as { itens: { codigoBarras: string; foto: string | null }[] };
+    expect(prodA.itens.find((i) => i.codigoBarras === LEITE)?.foto).toBe(corpo.foto);
+    const prodB = (await amb.app.inject({ method: 'GET', url: `/mercados/${mercadoB.id}/produtos` })).json() as { itens: { codigoBarras: string; foto: string | null }[] };
+    expect(prodB.itens.find((i) => i.codigoBarras === LEITE)?.foto).toBe(`/fotos/${LEITE}`);
+  });
+
+  it('a primeira foto enviada por um mercado vale para todos; a de outro mercado depois fica só dele', async () => {
+    await colocarFoto(tokenA, LEITE, FOTO_JPEG); // o leite não tinha foto: vira a de todos
+    const outra = dataUrl('image/png', PNG);
+    const res = await colocarFoto(tokenB, LEITE, outra);
+    expect(res.json()).toMatchObject({ fotoSoDoMercado: true });
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ mercadoId: mercadoA.id, imagem: FOTO_JPEG }); // a de todos segue sendo a do A
+    expect(await amb.repo.acharFotoDoMercado(mercadoB.id, LEITE)).toMatchObject({ imagem: outra });
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toBeNull();
+  });
+
+  it('o mercado dono da foto de todos a substitui; e uma foto própria antiga dele some', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'mercado', url: null, imagem: FOTO_JPEG, mercadoId: mercadoA.id }));
+    await amb.repo.salvarFotoDoMercado({ codigoBarras: LEITE, mercadoId: mercadoA.id, imagem: FOTO_JPEG, atualizadaEm: new Date() });
+    const nova = dataUrl('image/png', PNG);
+    const res = await colocarFoto(tokenA, LEITE, nova);
+    expect(res.json()).toEqual({ foto: `/fotos/${LEITE}`, fotoOrigem: 'mercado', fotoSoDoMercado: false });
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ imagem: nova, mercadoId: mercadoA.id });
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toBeNull();
+  });
+
+  it('a foto ilustrativa (do tipo) não conta como foto: a do mercado vira a de todos', async () => {
+    await amb.repo.salvarFoto(foto({ origem: 'ilustrativa', url: null, imagem: FOTO_JPEG }));
+    const res = await colocarFoto(tokenA, LEITE, dataUrl('image/png', PNG));
+    expect(res.json()).toMatchObject({ fotoSoDoMercado: false });
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'mercado', mercadoId: mercadoA.id });
   });
 
   it('aceita PNG e WebP, e rejeita o que não é imagem permitida (SVG, texto, base64 solto)', async () => {
@@ -198,6 +252,23 @@ describe('DELETE /painel/produtos/:codigo/foto', () => {
     const admin = await amb.criarComPapel('admin', 'admin@exemplo.com');
     expect((await removerFotoDoPainel(admin.token, LEITE, `?mercadoId=${mercadoB.id}`)).statusCode).toBe(204);
     expect(await amb.repo.acharFoto(LEITE)).toBeNull();
+  });
+
+  it('remover a foto que vale só para o mercado devolve a de todos (200) e não mexe nela', async () => {
+    await amb.repo.salvarFoto(foto());
+    await colocarFoto(tokenA, LEITE, FOTO_JPEG);
+    const res = await removerFotoDoPainel(tokenA, LEITE);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ foto: `/fotos/${LEITE}`, fotoOrigem: 'automatica' });
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toBeNull();
+    expect(await amb.repo.acharFoto(LEITE)).toMatchObject({ origem: 'openfoodfacts' });
+  });
+
+  it('apagar o mercado apaga também as fotos que valiam só para ele', async () => {
+    await amb.repo.salvarFoto(foto());
+    await colocarFoto(tokenA, LEITE, FOTO_JPEG);
+    await amb.repo.apagarMercado(mercadoA.id);
+    expect(await amb.repo.acharFotoDoMercado(mercadoA.id, LEITE)).toBeNull();
   });
 
   it('sem foto: 404; produto que o mercado não vende: 404', async () => {

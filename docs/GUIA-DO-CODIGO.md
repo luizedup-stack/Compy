@@ -88,7 +88,7 @@ cabeçalho `X-Forwarded-For` só vindo deste computador (`trustProxy` em `apps/a
 
 **Colocar planilhas reais no banco em lote** → `apps/api/src/scripts/carregar.ts` (`npm run carregar -w @mercado/api -- <pasta>`).
 
-**Fotos dos produtos** → a foto é do código de barras.
+**Fotos dos produtos** → a foto é do código de barras. **Regra da foto enviada por um mercado** (`PUT /painel/produtos/:codigo/foto`, em `apps/api/src/rotas/painel.ts`): se o produto ainda não tem foto, a do mercado vira a de todos (tabela `FotosProduto`); se já tem, fica só para o mercado que a enviou (tabela `FotosProdutoMercado`, migração `007-fotos-do-mercado.sql`, métodos `*FotoDoMercado` do repositório), e a entrega usa `GET /fotos/:codigo?mercado=ID`. O mercado dono da foto de todos a substitui. Testes em `apps/api/src/rotas/fotos.test.ts`.
 - busca automática no Open Food Facts: `apps/api/src/fotos/openFoodFacts.ts` (consulta e validação da resposta) e `apps/api/src/fotos/gerenciador.ts` (fila devagar, em segundo plano; não procura o mesmo produto duas vezes);
 - envio pelo mercado: `apps/api/src/rotas/painel.ts` (`PUT/DELETE /painel/produtos/:codigo/foto`), conferência da imagem em `apps/api/src/fotos/imagem.ts`, tela em `apps/painel/src/Produtos.tsx` e redução da imagem em `apps/painel/src/foto.ts`;
 - entrega da foto: `apps/api/src/rotas/fotos.ts` (`GET /fotos/:codigo`); no app, `apps/mobile/src/componentes/FotoDoProduto.tsx`;

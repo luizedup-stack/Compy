@@ -8,13 +8,16 @@ const CODIGO = /^\d{8,14}$/;
 /**
  * Foto de um produto, pelo código de barras (rota PÚBLICA: o app a usa sem login). Foto enviada por um mercado é entregue
  * daqui mesmo; foto achada no banco aberto de produtos leva (redirecionamento) para a imagem lá. Sem foto: 404.
+ * Com `?mercado=ID`, a foto que esse mercado enviou só para ele (quando o produto já tinha outra) vem na frente da foto de todos.
  */
 export function rotasFotos({ repo, embutidas }: { repo: Repositorio; embutidas?: FotosEmbutidas }): FastifyPluginAsync {
   return async (app) => {
-    app.get<{ Params: { codigo: string } }>('/fotos/:codigo', async (req, reply) => {
+    app.get<{ Params: { codigo: string }; Querystring: { mercado?: string } }>('/fotos/:codigo', async (req, reply) => {
       const { codigo } = req.params;
       if (!CODIGO.test(codigo)) return reply.code(404).send({ erro: 'Sem foto' });
-      const foto = await repo.acharFoto(codigo);
+      const mercadoId = typeof req.query.mercado === 'string' && /^\d{1,9}$/.test(req.query.mercado) ? Number(req.query.mercado) : null;
+      const propria = mercadoId !== null ? await repo.acharFotoDoMercado(mercadoId, codigo) : null;
+      const foto = propria ? null : await repo.acharFoto(codigo);
       const entregar = (imagem: string) => {
         const lida = lerImagem(imagem);
         if (!lida.ok) return reply.code(404).send({ erro: 'Sem foto' });
@@ -22,6 +25,7 @@ export function rotasFotos({ repo, embutidas }: { repo: Repositorio; embutidas?:
       };
 
       reply.header('Cache-Control', 'public, max-age=86400');
+      if (propria) return entregar(propria.imagem);
       if (foto?.imagem) return entregar(foto.imagem);
       // Sem foto guardada (nem link do banco aberto a seguir): a ilustrativa do tipo, do banco de fotos do sistema.
       if (embutidas && !(foto?.url && foto.origem === 'openfoodfacts')) {

@@ -68,6 +68,18 @@ export interface FotoProduto {
   atualizadaEm: Date;
 }
 
+/**
+ * Foto de um produto que vale SÓ para o mercado que a enviou (o produto já tinha uma foto de todos, então a do mercado não a
+ * substituiu). Sem foto de todos, a enviada pelo mercado vira a foto do código de barras (FotoProduto).
+ */
+export interface FotoDoMercado {
+  codigoBarras: string;
+  mercadoId: number;
+  /** A imagem pequena como texto "data:image/jpeg;base64,...". */
+  imagem: string;
+  atualizadaEm: Date;
+}
+
 export type TipoToken = 'verificar_email' | 'redefinir_senha';
 
 export interface BuscaRegistrada {
@@ -140,6 +152,13 @@ export interface Repositorio {
   listarOfertasParaBusca(): Promise<{ oferta: OfertaArmazenada; mercado: Mercado }[]>;
   /** Grava a foto do produto (uma só por código de barras: a nova substitui a anterior). */
   salvarFoto(f: FotoProduto): Promise<void>;
+  /** Grava a foto que vale só para um mercado (uma por mercado e código de barras: a nova substitui a anterior). */
+  salvarFotoDoMercado(f: FotoDoMercado): Promise<void>;
+  acharFotoDoMercado(mercadoId: number, codigoBarras: string): Promise<FotoDoMercado | null>;
+  /** Apaga a foto própria do mercado. Devolve false se não havia. */
+  removerFotoDoMercado(mercadoId: number, codigoBarras: string): Promise<boolean>;
+  /** Dos `codigos`, quais têm foto própria neste mercado e de quando é (sem trazer a imagem, para listas). */
+  listarFotosDoMercado(mercadoId: number, codigos: string[]): Promise<{ codigoBarras: string; atualizadaEm: Date }[]>;
   /**
    * Registra, de uma vez, os links de foto vindos de uma planilha (origem "planilha", ainda sem imagem). Não troca a foto que um mercado
    * enviou à mão (com imagem) nem refaz um link igual ao já indicado.

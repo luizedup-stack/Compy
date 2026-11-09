@@ -31,7 +31,7 @@ export function MercadoDetalhe({ navigation, route }: Props) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable accessibilityRole="link" accessibilityLabel="Como chegar ao mercado" onPress={() => perguntarSeQuerIr({ nome, endereco })}>
-          <Text style={{ color: cores.marca, fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
         </Pressable>
       ),
     });

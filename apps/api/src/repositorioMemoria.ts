@@ -2,6 +2,7 @@ import {
   ErroEmailJaExiste,
   ErroMercadoDuplicado,
   type BuscaRegistrada,
+  type FotoDoMercado,
   type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
@@ -23,6 +24,8 @@ interface Dados {
   mercados: Map<number, Mercado>;
   ofertas: Map<string, OfertaArmazenada>;
   fotos: Map<string, FotoProduto>;
+  /** Fotos que valem só para um mercado; a chave é "mercadoId:codigoBarras". */
+  fotosDoMercado: Map<string, FotoDoMercado>;
   configuracoes: Map<string, string>;
   buscas: BuscaRegistrada[];
   proximoUsuarioId: number;
@@ -36,6 +39,7 @@ function dadosVazios(): Dados {
     mercados: new Map(),
     ofertas: new Map(),
     fotos: new Map(),
+    fotosDoMercado: new Map(),
     configuracoes: new Map(),
     buscas: [],
     proximoUsuarioId: 1,
@@ -82,6 +86,7 @@ function deTexto(texto: string): Dados {
   const d = lido.dados;
   // Estado salvo por uma versão anterior ao recurso de fotos: sem fotos.
   if (d && !(d.fotos instanceof Map)) d.fotos = new Map();
+  if (d && !(d.fotosDoMercado instanceof Map)) d.fotosDoMercado = new Map();
   if (d && !(d.configuracoes instanceof Map)) d.configuracoes = new Map();
   if (
     lido.versao !== 1 ||
@@ -227,6 +232,7 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
       if (!dados.mercados.delete(id)) return false;
       for (const [chave, o] of dados.ofertas) if (o.mercadoId === id) dados.ofertas.delete(chave);
       for (const f of dados.fotos.values()) if (f.mercadoId === id) f.mercadoId = null; // como o banco (ON DELETE SET NULL)
+      for (const [chave, f] of dados.fotosDoMercado) if (f.mercadoId === id) dados.fotosDoMercado.delete(chave); // como o banco (ON DELETE CASCADE)
       return true;
     },
 
@@ -271,6 +277,24 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async acharFoto(codigoBarras) {
       const f = dados.fotos.get(codigoBarras);
       return f ? copia(f) : null;
+    },
+    async salvarFotoDoMercado(f) {
+      dados.fotosDoMercado.set(chaveOferta(f.mercadoId, f.codigoBarras), copia(f));
+    },
+    async acharFotoDoMercado(mercadoId, codigoBarras) {
+      const f = dados.fotosDoMercado.get(chaveOferta(mercadoId, codigoBarras));
+      return f ? copia(f) : null;
+    },
+    async removerFotoDoMercado(mercadoId, codigoBarras) {
+      return dados.fotosDoMercado.delete(chaveOferta(mercadoId, codigoBarras));
+    },
+    async listarFotosDoMercado(mercadoId, codigos) {
+      const lista: { codigoBarras: string; atualizadaEm: Date }[] = [];
+      for (const c of new Set(codigos)) {
+        const f = dados.fotosDoMercado.get(chaveOferta(mercadoId, c));
+        if (f) lista.push({ codigoBarras: c, atualizadaEm: new Date(f.atualizadaEm) });
+      }
+      return lista;
     },
     async removerFoto(codigoBarras) {
       return dados.fotos.delete(codigoBarras);

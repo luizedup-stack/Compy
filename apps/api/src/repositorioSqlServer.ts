@@ -531,6 +531,57 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
         cache.delete('codigosComFoto');
         cache.delete('codigosIlustrativos');
       },
+      async salvarFotoDoMercado(f) {
+        await q(
+          `BEGIN TRAN;
+           UPDATE dbo.FotosProdutoMercado WITH (UPDLOCK, SERIALIZABLE)
+             SET imagem = @imagem, atualizadaEm = @atualizadaEm
+             WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras;
+           IF @@ROWCOUNT = 0
+             INSERT INTO dbo.FotosProdutoMercado (mercadoId, codigoBarras, imagem, atualizadaEm)
+             VALUES (@mercadoId, @codigoBarras, @imagem, @atualizadaEm);
+           COMMIT;`,
+          (r) => {
+            r.input('mercadoId', sql.Int, f.mercadoId);
+            r.input('codigoBarras', sql.VarChar(32), f.codigoBarras);
+            r.input('imagem', sql.NVarChar(sql.MAX), f.imagem);
+            r.input('atualizadaEm', sql.DateTime2(3), f.atualizadaEm);
+          },
+        );
+      },
+      async acharFotoDoMercado(mercadoId, codigoBarras) {
+        const l = await q('SELECT * FROM dbo.FotosProdutoMercado WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras', (r) => {
+          r.input('mercadoId', sql.Int, mercadoId);
+          r.input('codigoBarras', sql.VarChar(32), codigoBarras);
+        });
+        return l[0]
+          ? { codigoBarras: l[0].codigoBarras as string, mercadoId: l[0].mercadoId as number, imagem: l[0].imagem as string, atualizadaEm: new Date(l[0].atualizadaEm as Date) }
+          : null;
+      },
+      async removerFotoDoMercado(mercadoId, codigoBarras) {
+        const l = await q(
+          'DELETE FROM dbo.FotosProdutoMercado OUTPUT deleted.codigoBarras WHERE mercadoId = @mercadoId AND codigoBarras = @codigoBarras',
+          (r) => {
+            r.input('mercadoId', sql.Int, mercadoId);
+            r.input('codigoBarras', sql.VarChar(32), codigoBarras);
+          },
+        );
+        return l.length > 0;
+      },
+      async listarFotosDoMercado(mercadoId, codigos) {
+        if (codigos.length === 0) return [];
+        const l = await q(
+          `SELECT f.codigoBarras, f.atualizadaEm
+           FROM dbo.FotosProdutoMercado f
+           JOIN OPENJSON(@codigos) WITH (c varchar(32) '$') j ON j.c = f.codigoBarras
+           WHERE f.mercadoId = @mercadoId`,
+          (r) => {
+            r.input('mercadoId', sql.Int, mercadoId);
+            r.input('codigos', sql.NVarChar(sql.MAX), JSON.stringify(codigos));
+          },
+        );
+        return l.map((x) => ({ codigoBarras: x.codigoBarras as string, atualizadaEm: new Date(x.atualizadaEm as Date) }));
+      },
       async acharFoto(codigoBarras) {
         const l = await q('SELECT * FROM dbo.FotosProduto WHERE codigoBarras = @codigoBarras', (r) => r.input('codigoBarras', sql.VarChar(32), codigoBarras));
         return l[0] ? linhaParaFoto(l[0]) : null;
