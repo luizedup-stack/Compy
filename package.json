@@ -10,7 +10,7 @@
     "test": "npm test --workspaces --if-present",
     "testar": "powershell -ExecutionPolicy Bypass -File iniciar-teste.ps1",
     "construir:exe": "node apps/desktop/construir.mjs",
-    "gerar-icones": "electron apps/desktop/gerar-icones.cjs"
+    "gerar-icones": "node marca/gerar-icones.cjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

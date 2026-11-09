@@ -1,14 +1,14 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 /**
- * Título do cabeçalho: a logo do app (o bolso com o "visto" e a moeda) ao lado do nome. O fundo da imagem tem o mesmo azul do
- * cabeçalho, por isso ela se mistura com a barra.
+ * Título do cabeçalho: o ícone do Compy (o "C" com a etiqueta laranja) ao lado do nome em letras brancas. O cabeçalho é azul-marinho,
+ * como o fundo do ícone, por isso ele se mistura com a barra.
  */
 export function TituloComLogo() {
   return (
-    <View style={estilos.linha} accessibilityRole="header">
-      <Image source={require('../../assets/icon.png')} style={estilos.logo} accessibilityLabel="Logo do Bolso Certo" />
-      <Text style={estilos.nome}>Bolso Certo</Text>
+    <View style={estilos.linha} accessibilityRole="header" accessibilityLabel="Compy">
+      <Image source={require('../../assets/icon.png')} style={estilos.logo} accessibilityLabel="Logo do Compy" />
+      <Image source={require('../../assets/marca-compy-branca.png')} style={estilos.nome} resizeMode="contain" accessibilityLabel="Compy" />
     </View>
   );
 }
@@ -16,5 +16,5 @@ export function TituloComLogo() {
 const estilos = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logo: { width: 32, height: 32, borderRadius: 8 },
-  nome: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  nome: { width: 92, height: 36 },
 });

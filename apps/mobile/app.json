@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Bolso Certo",
+    "name": "Compy",
     "slug": "bolso-certo",
     "scheme": "bolsocerto",
-    "version": "1.1.6",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,13 +13,13 @@
     "android": {
       "package": "br.com.bolsocerto.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B1F5B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 8
+      "versionCode": 9
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,7 +29,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O Bolso Certo usa suas fotos só para você escolher a foto do seu perfil."
+          "photosPermission": "O Compy usa suas fotos só para você escolher a foto do seu perfil."
         }
       ],
       [

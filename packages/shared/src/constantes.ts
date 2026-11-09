@@ -66,6 +66,8 @@ export interface RelatorioImportacao {
   mercadoCriado: boolean;
   importadas: number;
   erros: { linha: number; motivo: string }[];
+  /** Quantas imagens coladas na coluna Foto foram recebidas (links não entram: o servidor baixa depois). */
+  fotosColadas?: number;
 }
 
 /** Produto como o painel do mercado o vê (resposta de /painel/produtos). */

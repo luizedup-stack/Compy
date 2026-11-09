@@ -17,7 +17,7 @@ import { EsqueciSenha } from './telas/EsqueciSenha';
 import { Entrar } from './telas/Entrar';
 import { MercadoDetalhe } from './telas/MercadoDetalhe';
 import { Mercados } from './telas/Mercados';
-import { cores } from './tema';
+import { cores, fontes } from './tema';
 
 export type { RootStackParamList, RotaInicial } from './rotas';
 
@@ -28,7 +28,7 @@ const Abas = createBottomTabNavigator<AbasParamList>();
 const opcoesComuns = {
   headerStyle: { backgroundColor: cores.marca },
   headerTintColor: '#FFFFFF',
-  headerTitleStyle: { color: '#FFFFFF' },
+  headerTitleStyle: { color: '#FFFFFF', fontFamily: fontes.negrito },
   contentStyle: { backgroundColor: cores.fundo },
 };
 
@@ -40,7 +40,7 @@ function iconeDaAba(emoji: string) {
   return ({ focused }: { focused: boolean }) => <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
-/** Área principal: as abas Buscar, Mercados e Conta (para todos, com ou sem login). O cabeçalho fica por conta da pilha ("Bolso Certo"). */
+/** Área principal: as abas Buscar, Mercados e Conta (para todos, com ou sem login). O cabeçalho fica por conta da pilha ("Compy"). */
 function Principal() {
   return (
     <Abas.Navigator
@@ -48,8 +48,9 @@ function Principal() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: cores.marca,
+        tabBarActiveBackgroundColor: cores.fundoSuave,
         tabBarInactiveTintColor: cores.textoSuave,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 12, fontFamily: fontes.semi },
       }}
     >
       <Abas.Screen name="Busca" component={Busca} options={{ title: 'Buscar', tabBarIcon: iconeDaAba('🔍') }} />
@@ -96,7 +97,7 @@ export function Navegacao({ rotaInicial }: { rotaInicial?: RotaInicial }) {
             </View>
           )}
         >
-          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Bolso Certo', headerTitle: () => <TituloComLogo />, headerRight: () => <BotaoAtualizar /> }} />
+          <Stack.Screen name="Principal" component={Principal} options={{ title: 'Compy', headerTitle: () => <TituloComLogo />, headerRight: () => <BotaoAtualizar /> }} />
           <Stack.Screen
             name="MercadoDetalhe"
             component={MercadoDetalhe}

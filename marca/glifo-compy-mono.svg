@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="t d">
+  <title id="t">Compy</title>
+  <desc id="d">Um C branco grosso com uma etiqueta de preço laranja dentro.</desc>
+  <defs><mask id="m"><rect width="1024" height="1024" fill="#fff"/><circle cx="128" cy="0" r="30" fill="#000" transform="translate(690 572) rotate(35)"/></mask></defs>
+  <g transform="translate(512 512) scale(0.62) translate(-512 -512)" mask="url(#m)">
+    <path d="M726.5 350.6 A262 262 0 1 0 658.8 734.2" fill="none" stroke="#000" stroke-width="192"/>
+    <g transform="translate(690 572) rotate(35)"><polygon points="-190,0 -95,-118 190,-118 190,118 -95,118" fill="#000" stroke="#000" stroke-width="44" stroke-linejoin="round"/></g>
+  </g>
+</svg>

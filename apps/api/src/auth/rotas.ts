@@ -56,16 +56,16 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     const token = await emitirToken(usuario.id, 'verificar_email');
     await email.enviar(
       usuario.email,
-      'Bolso Certo: confirme seu e-mail',
+      'Compy: confirme seu e-mail',
       [
         'Olá!',
         '',
-        'Para confirmar seu e-mail, copie o código abaixo. Use este código no aplicativo ou no painel do Bolso Certo.',
+        'Para confirmar seu e-mail, copie o código abaixo. Use este código no aplicativo ou no painel do Compy.',
         'Ele vale por 24 horas.',
         '',
         token,
         '',
-        'Se você não criou uma conta no Bolso Certo, ignore esta mensagem.',
+        'Se você não criou uma conta no Compy, ignore esta mensagem.',
         '',
       ].join('\n'),
     );
@@ -75,12 +75,12 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
     const token = await emitirToken(usuario.id, 'redefinir_senha');
     await email.enviar(
       usuario.email,
-      'Bolso Certo: redefinição de senha',
+      'Compy: redefinição de senha',
       [
         'Olá!',
         '',
-        'Recebemos um pedido para redefinir a senha da sua conta no Bolso Certo.',
-        'Copie o código abaixo. Use este código no aplicativo ou no painel do Bolso Certo.',
+        'Recebemos um pedido para redefinir a senha da sua conta no Compy.',
+        'Copie o código abaixo. Use este código no aplicativo ou no painel do Compy.',
         'Ele vale por 1 hora.',
         '',
         token,
@@ -111,7 +111,7 @@ export function rotasAuth({ repo, email }: { repo: Repositorio; email: EmailSend
       return reply.code(201).send({ id: usuario.id, email: usuario.email, papel: usuario.papel });
     });
 
-    // O próprio mercado cria a conta (software "Bolso Certo - Mercado"): SÓ e-mail e senha.
+    // O próprio mercado cria a conta (software "Compy Mercado"): SÓ e-mail e senha.
     // O mercado em si (nome, endereço completo, telefone) é cadastrado depois, na tela "Meu mercado"
     // (POST /painel/meus-mercados, em rotas/meusMercados.ts). Um usuário pode ter vários mercados.
     app.post('/auth/cadastro-mercado', async (req, reply) => {

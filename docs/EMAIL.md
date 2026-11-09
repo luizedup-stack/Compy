@@ -4,14 +4,14 @@
 > necessário para **"Esqueci minha senha"** (o código de redefinição). Se ninguém precisar recuperar senha por enquanto, dá para
 > deixar o envio sem configurar.
 
-O Bolso Certo manda e-mails com um **código** para redefinir a senha (e, se a confirmação de e-mail voltar um dia, para confirmar a conta).
+O Compy manda e-mails com um **código** para redefinir a senha (e, se a confirmação de e-mail voltar um dia, para confirmar a conta).
 Para esses e-mails chegarem na caixa de entrada das pessoas, o programa precisa de uma **conta de e-mail para enviar**.
 Enquanto isso não estiver configurado, **nenhum e-mail sai**: o código fica visível no menu do programa
-(**Bolso Certo → Códigos de e-mail e endereço do celular**), com a situação "NÃO ENVIADO".
+(**Compy → Códigos de e-mail e endereço do celular**), com a situação "NÃO ENVIADO".
 
-## Passo a passo (programa de Windows "Bolso Certo - Mercado")
+## Passo a passo (programa de Windows "Compy Mercado")
 
-1. Abra o programa e use o menu **Bolso Certo → Configurar e-mail…**.
+1. Abra o programa e use o menu **Compy → Configurar e-mail…**.
 2. Clique em **Abrir arquivo de configuração**. Abre o arquivo `configuracao-email.json` no Bloco de Notas.
 3. Preencha os campos e salve (não precisa fechar o programa):
 
@@ -21,7 +21,7 @@ Enquanto isso não estiver configurado, **nenhum e-mail sai**: o código fica vi
    | `porta` | `465` (e `seguro: true`) ou `587` (e `seguro: false`) |
    | `usuario` | o e-mail da conta que vai enviar |
    | `senha` | a senha da conta, ou melhor, uma **senha de aplicativo** (veja abaixo) |
-   | `de` | como o remetente aparece, por exemplo `Bolso Certo <conta@gmail.com>` |
+   | `de` | como o remetente aparece, por exemplo `Compy <conta@gmail.com>` |
 
 4. Na mesma tela, digite o seu e-mail e clique em **Enviar teste**. Se aparecer "OK", confira a caixa de entrada (e o spam).
    Se aparecer "FALHOU", a mensagem diz o motivo (senha errada, servidor errado...).
