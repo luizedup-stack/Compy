@@ -265,7 +265,7 @@ export function renovarCopiaDosProdutos(forcar = false): Promise<void> {
  * Quanto o app espera o servidor antes de mostrar a cópia guardada no celular (só se houver cópia). O servidor gratuito dorme sem uso e
  * a primeira resposta do dia demora quase 1 minuto: com a cópia, a pessoa vê os produtos na hora e o servidor acorda por baixo dos panos.
  */
-let prazoRespostaMs = 4000;
+let prazoRespostaMs = 6000;
 export function definirPrazoResposta(ms: number): void {
   prazoRespostaMs = ms;
 }
@@ -285,8 +285,15 @@ async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo
       const primeiro = await Promise.race([servidor, prazo]).finally(() => clearTimeout(relogio));
       if (primeiro === demorou) {
         // Segue esperando o servidor em segundo plano (é a consulta que o acorda) e, quando ele responder, renova a cópia.
-        servidor.then(() => renovarCopiaDosProdutos(), () => undefined);
-        marcarSemConexao(local.baixadoEm);
+        // Quando o servidor responder, o aviso some (os dados da tela são os da cópia até a próxima consulta).
+        servidor.then(
+          () => {
+            marcarComConexao();
+            return renovarCopiaDosProdutos();
+          },
+          () => undefined,
+        );
+        marcarSemConexao(local.baixadoEm, true);
         return naCopia(local.catalogo);
       }
       resultado = primeiro as T;

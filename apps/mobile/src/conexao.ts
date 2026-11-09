@@ -11,20 +11,43 @@ function mudou(): void {
   for (const ouvinte of ouvintes) ouvinte();
 }
 
-export function marcarSemConexao(dadosDe: number): void {
-  if (semConexaoDesde === dadosDe) return;
+/** true quando o servidor existe mas demorou demais para responder (acordando/lento), em vez de não ter conexão nenhuma. */
+let servidorLento = false;
+
+/** `lento`: o servidor não caiu, só demorou: o aviso diz isso em vez de "sem conexão". */
+export function marcarSemConexao(dadosDe: number, lento = false): void {
+  if (semConexaoDesde === dadosDe && servidorLento === lento) return;
   semConexaoDesde = dadosDe;
+  servidorLento = lento;
   mudou();
 }
 
 export function marcarComConexao(): void {
   if (semConexaoDesde === null) return;
   semConexaoDesde = null;
+  servidorLento = false;
   mudou();
+}
+
+/** O aviso atual é de servidor lento (não de falta de conexão)? */
+export function useServidorLento(): boolean {
+  return useSyncExternalStore(
+    (ouvinte) => {
+      ouvintes.add(ouvinte);
+      return () => ouvintes.delete(ouvinte);
+    },
+    () => servidorLento,
+    () => servidorLento,
+  );
 }
 
 export function estaSemConexao(): boolean {
   return semConexaoDesde !== null;
+}
+
+/** O aviso atual é de servidor lento (não de falta de conexão)? Sem React, para quem não é tela. */
+export function servidorEstaLento(): boolean {
+  return servidorLento;
 }
 
 /** De quando são os dados que estão na tela, se vieram da cópia salva; senão null. */
