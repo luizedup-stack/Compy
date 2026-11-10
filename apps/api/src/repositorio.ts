@@ -80,6 +80,27 @@ export interface FotoDoMercado {
   atualizadaEm: Date;
 }
 
+export type SituacaoPedido = 'aguardando' | 'pago' | 'cancelado';
+
+/**
+ * Pedido de promoções de um comércio: a planilha com a aba Descontos fica retida até o pagamento (Pix manual) ser confirmado.
+ * O valor por promoção é gravado aqui na hora do pedido (mudar o preço depois não altera pedidos antigos).
+ */
+export interface PedidoPromocao {
+  id: number;
+  mercadoId: number;
+  criadoEm: Date;
+  situacao: SituacaoPedido;
+  quantidade: number;
+  valorUnitarioCentavos: number;
+  totalCentavos: number;
+  /** Quando o comércio tocou em "Já paguei" (só avisa a dona; quem libera é ela). */
+  avisouPagamentoEm: Date | null;
+  pagoEm: Date | null;
+  /** A planilha já lida, em JSON (veja promocoes/pedidos.ts). Vazio depois de paga ou cancelada. */
+  planilha: string;
+}
+
 export type TipoToken = 'verificar_email' | 'redefinir_senha';
 
 export interface BuscaRegistrada {
@@ -150,6 +171,11 @@ export interface Repositorio {
   removerOferta(mercadoId: number, codigoBarras: string): Promise<boolean>;
   listarOfertasDoMercado(mercadoId: number): Promise<OfertaArmazenada[]>;
   listarOfertasParaBusca(): Promise<{ oferta: OfertaArmazenada; mercado: Mercado }[]>;
+  criarPedidoPromocao(p: Omit<PedidoPromocao, 'id'>): Promise<PedidoPromocao>;
+  acharPedidoPromocao(id: number): Promise<PedidoPromocao | null>;
+  /** Pedidos do mais novo para o mais antigo, SEM a planilha (que é pesada). Com `mercadoId`, só os desse comércio. */
+  listarPedidosPromocao(filtro?: { mercadoId?: number }): Promise<Omit<PedidoPromocao, 'planilha'>[]>;
+  atualizarPedidoPromocao(id: number, parcial: Partial<Pick<PedidoPromocao, 'situacao' | 'avisouPagamentoEm' | 'pagoEm' | 'planilha'>>): Promise<void>;
   /** Grava a foto do produto (uma só por código de barras: a nova substitui a anterior). */
   salvarFoto(f: FotoProduto): Promise<void>;
   /** Grava a foto que vale só para um mercado (uma por mercado e código de barras: a nova substitui a anterior). */

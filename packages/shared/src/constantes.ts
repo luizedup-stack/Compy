@@ -1,5 +1,7 @@
 export const ABA_MERCADO = 'Mercado';
 export const ABA_PRODUTOS = 'Produtos';
+/** Aba opcional da planilha: cada linha é uma promoção (COBRADA). */
+export const ABA_DESCONTOS = 'Descontos';
 
 export const COLUNAS_PRODUTOS = [
   'Código de barras',
@@ -9,6 +11,12 @@ export const COLUNAS_PRODUTOS = [
   'Categoria',
   'Disponível',
 ] as const;
+
+/** Colunas da aba Descontos (as com * são obrigatórias): o produto, o preço promocional e o período. */
+export const COLUNAS_DESCONTOS = ['Código de barras', 'Preço promocional', 'Válido de', 'Válido até'] as const;
+
+/** Valor padrão de cada promoção, em centavos (R$ 5,00). A dona muda na administração. */
+export const VALOR_PADRAO_PROMOCAO_CENTAVOS = 500;
 
 export const LIMITE_LINHAS = 5000;
 export const LIMITE_BYTES = 5 * 1024 * 1024;
@@ -74,6 +82,14 @@ export interface RelatorioImportacao {
   mercadoCriado: boolean;
   importadas: number;
   erros: { linha: number; motivo: string }[];
+  /** Quantas promoções (linhas da aba Descontos) foram aplicadas na hora (só quando quem envia é o administrador). */
+  promocoes?: number;
+  /**
+   * true quando a planilha tem promoções e foi RETIDA até o pagamento: nada foi salvo ainda (`importadas` fica 0) e `pedido` diz
+   * quanto pagar. Quando a dona confirma o pagamento, a planilha é aplicada.
+   */
+  retida?: boolean;
+  pedido?: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number };
 }
 
 /** Produto como o painel do mercado o vê (resposta de /painel/produtos). */

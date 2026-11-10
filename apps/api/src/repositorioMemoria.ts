@@ -3,6 +3,7 @@ import {
   ErroMercadoDuplicado,
   type BuscaRegistrada,
   type FotoDoMercado,
+  type PedidoPromocao,
   type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
@@ -27,9 +28,11 @@ interface Dados {
   /** Fotos que valem só para um mercado; a chave é "mercadoId:codigoBarras". */
   fotosDoMercado: Map<string, FotoDoMercado>;
   configuracoes: Map<string, string>;
+  pedidos: Map<number, PedidoPromocao>;
   buscas: BuscaRegistrada[];
   proximoUsuarioId: number;
   proximoMercadoId: number;
+  proximoPedidoId: number;
 }
 
 function dadosVazios(): Dados {
@@ -41,9 +44,11 @@ function dadosVazios(): Dados {
     fotos: new Map(),
     fotosDoMercado: new Map(),
     configuracoes: new Map(),
+    pedidos: new Map(),
     buscas: [],
     proximoUsuarioId: 1,
     proximoMercadoId: 1,
+    proximoPedidoId: 1,
   };
 }
 
@@ -87,6 +92,8 @@ function deTexto(texto: string): Dados {
   // Estado salvo por uma versão anterior ao recurso de fotos: sem fotos.
   if (d && !(d.fotos instanceof Map)) d.fotos = new Map();
   if (d && !(d.fotosDoMercado instanceof Map)) d.fotosDoMercado = new Map();
+  if (d && !(d.pedidos instanceof Map)) d.pedidos = new Map();
+  if (d && typeof d.proximoPedidoId !== 'number') d.proximoPedidoId = 1;
   if (d && !(d.configuracoes instanceof Map)) d.configuracoes = new Map();
   if (
     lido.versao !== 1 ||
@@ -233,6 +240,7 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
       for (const [chave, o] of dados.ofertas) if (o.mercadoId === id) dados.ofertas.delete(chave);
       for (const f of dados.fotos.values()) if (f.mercadoId === id) f.mercadoId = null; // como o banco (ON DELETE SET NULL)
       for (const [chave, f] of dados.fotosDoMercado) if (f.mercadoId === id) dados.fotosDoMercado.delete(chave); // como o banco (ON DELETE CASCADE)
+      for (const [chave, p] of dados.pedidos) if (p.mercadoId === id) dados.pedidos.delete(chave); // idem
       return true;
     },
 
@@ -277,6 +285,25 @@ export function criarRepositorioMemoria(): RepositorioMemoria {
     async acharFoto(codigoBarras) {
       const f = dados.fotos.get(codigoBarras);
       return f ? copia(f) : null;
+    },
+    async criarPedidoPromocao(p) {
+      const pedido: PedidoPromocao = { ...copia(p), id: dados.proximoPedidoId++ };
+      dados.pedidos.set(pedido.id, pedido);
+      return copia(pedido);
+    },
+    async acharPedidoPromocao(id) {
+      const p = dados.pedidos.get(id);
+      return p ? copia(p) : null;
+    },
+    async listarPedidosPromocao(filtro) {
+      return [...dados.pedidos.values()]
+        .filter((p) => filtro?.mercadoId === undefined || p.mercadoId === filtro.mercadoId)
+        .sort((a, b) => b.id - a.id)
+        .map(({ planilha: _planilha, ...resto }) => copia(resto));
+    },
+    async atualizarPedidoPromocao(id, parcial) {
+      const p = dados.pedidos.get(id);
+      if (p) Object.assign(p, copia(parcial));
     },
     async salvarFotoDoMercado(f) {
       dados.fotosDoMercado.set(chaveOferta(f.mercadoId, f.codigoBarras), copia(f));

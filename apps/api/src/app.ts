@@ -21,6 +21,7 @@ import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
+import { rotasPromocoes } from './rotas/promocoes';
 import { rotasPrivacidade } from './rotas/privacidade';
 
 export interface OpcoesApp {
@@ -178,6 +179,7 @@ export async function construirApp({
   const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs, () => geracao) : undefined;
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
+  await app.register(rotasPromocoes({ repo, aoMudarProdutos }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
   await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, geracao: () => geracao, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));
