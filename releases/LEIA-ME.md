@@ -7,12 +7,14 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 | Arquivo | `bolso-certo.apk` (24.4 MB) |
 | Gerado em | 2026-11-09 (botão Atualizar, topo azul com a logo, ícones nas abas, lista inicial rápida e cópia compactada) |
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
-| Pacote / versão | `br.com.bolsocerto.app`, versão **1.1.6 (código 8)** |
+| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.0 (código 9)** |
 | Android mínimo | 7.0 (API 24), celulares de 64 bits (arm64) |
-| SHA-256 do arquivo | `3547d5e93d78f519d269b4d301a57a4320ab6a2ed1b71c65a834e156453cb19c` |
+| SHA-256 do arquivo | `aa5c6bf321757ae4900c56ac7c73266f2eb9b41955e03c92088fe6a3f01050f7` |
 | Certificado de assinatura (SHA-256) | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` (Android Debug) |
 
 ## O que esta versão tem
+
+- **1.2.0:** ordenar (relevância, menor/maior preço, recentes) e filtros (preço, quantidade, comércio, só promoções, só comparáveis); produtos em promoção aparecem com selo laranja; abas "Estabelecimentos".
 
 - **1.1.6:** o app só baixa a cópia dos produtos de novo depois de 30 minutos (trava para não gastar o plano gratuito; o botão Atualizar força na hora). Veja `docs/TRAVAS-DE-CUSTO.md`.
 - **Botão "Atualizar"** no topo (perto do nome do app): refaz a consulta da tela e renova a cópia dos produtos, sem fechar o app.
