@@ -1,0 +1,37 @@
+# Publica o site de divulgação (pasta site/) no GitHub Pages — grátis, para sempre, sem servidor nenhum.
+# Roda sozinho a cada envio ao ramo main que mude algo em site/; também dá para rodar na mão (aba Actions > "Publicar site" > Run workflow).
+#
+# ANTES DE FUNCIONAR A PRIMEIRA VEZ, PRECISA LIGAR UMA VEZ (1 clique, de graça):
+#   No GitHub: Settings > Pages > "Build and deployment" > Source: escolha "GitHub Actions". Salvar.
+# Depois disso o site fica em: https://luizedup-stack.github.io/bolso-certo/
+name: Publicar site
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**']
+  workflow_dispatch:
+
+# Só esta rotina pode publicar o site por vez (evita duas publicações pisando uma na outra).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.site.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: site
+        uses: actions/deploy-pages@v4
