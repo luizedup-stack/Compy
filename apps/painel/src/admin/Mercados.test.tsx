@@ -86,15 +86,15 @@ describe('acesso à tela e navegação', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('admin vê Produtos, Enviar planilha e Administração, com os endereços certos', async () => {
+  it('admin vê Produtos, Enviar planilha, Administração e Promoções, com os endereços certos', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração']);
-    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/admin/mercados']);
+    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração', 'Promoções']);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/admin/mercados', '/admin/promocoes']);
     expect(within(nav).getByRole('link', { name: 'Administração' })).toHaveAttribute('aria-current', 'page');
   });
 

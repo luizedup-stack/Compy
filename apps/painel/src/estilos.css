@@ -691,3 +691,10 @@ input:disabled {
 .botao-tema:hover {
   background: var(--botao-sec-hover);
 }
+
+/* Promoções (administração e cobrança do comércio) */
+.cartoes-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
+.resumo-item { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px solid var(--borda, #cbd2d9); background: var(--fundo-cartao, #f5f9fa); }
+.resumo-numero { font-size: 1.6rem; font-weight: 700; color: #b85c00; }
+.formulario-promocao { display: grid; gap: 8px; max-width: 420px; margin-bottom: 16px; }
+.cobranca-pix { padding: 10px 12px; border-left: 4px solid #f28c28; background: rgba(242, 140, 40, 0.12); border-radius: 6px; }

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Mercados from './admin/Mercados';
+import PromocoesAdmin from './admin/Promocoes';
 import {
   EVENTO_LISTA_ATUALIZADA,
   EVENTO_MERCADOS_MUDARAM,
@@ -62,6 +63,7 @@ const ITENS_ADMIN = [
   { para: '/produtos', texto: 'Produtos' },
   { para: '/planilha', texto: 'Enviar planilha' },
   { para: '/admin/mercados', texto: 'Administração' },
+  { para: '/admin/promocoes', texto: 'Promoções' },
 ];
 
 /**
@@ -215,6 +217,14 @@ export default function App() {
             element={
               <RotaProtegida papel="admin">
                 <Mercados />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/admin/promocoes"
+            element={
+              <RotaProtegida papel="admin">
+                <PromocoesAdmin />
               </RotaProtegida>
             }
           />
