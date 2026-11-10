@@ -98,7 +98,7 @@ quando o Render mostrar os endereços dele — o guia lembra). Por ora, siga par
 ## Passo 2 — Servidor no Render (grátis)
 
 1. Crie a conta em <https://render.com> (pode entrar com o GitHub). Pelo que o Render informa, o plano gratuito não exige cartão; se ele pedir, confira que o serviço está marcado como **Free**.
-2. No painel: **New +** → **Blueprint** → conecte sua conta do GitHub e escolha o repositório `luizedup-stack/bolso-certo`.
+2. No painel: **New +** → **Blueprint** → conecte sua conta do GitHub e escolha o repositório `luizedup-stack/Compy`.
    O Render lê o arquivo `render.yaml` do projeto e já sabe tudo (como montar, como iniciar, quais variáveis existem).
 3. Ele pede os valores das variáveis marcadas como secretas. Preencha:
 

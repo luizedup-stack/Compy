@@ -3,7 +3,7 @@
 #
 # ANTES DE FUNCIONAR A PRIMEIRA VEZ, PRECISA LIGAR UMA VEZ (1 clique, de graça):
 #   No GitHub: Settings > Pages > "Build and deployment" > Source: escolha "GitHub Actions". Salvar.
-# Depois disso o site fica em: https://luizedup-stack.github.io/compy/
+# Depois disso o site fica em: https://luizedup-stack.github.io/Compy/
 name: Publicar site
 
 on:

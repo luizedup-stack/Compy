@@ -80,7 +80,7 @@ describe('baixarFoto', () => {
     expect(texto.startsWith('data:image/jpeg;base64,')).toBe(true);
     const [, init] = (fetchFn as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]!;
     expect((init.headers as Record<string, string>).Accept).toBe('image/*');
-    expect((init.headers as Record<string, string>)['User-Agent']).toContain('BolsoCerto');
+    expect((init.headers as Record<string, string>)['User-Agent']).toContain('Compy');
     expect(init.redirect).toBe('manual');
   });
 

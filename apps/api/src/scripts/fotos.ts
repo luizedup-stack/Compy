@@ -24,12 +24,12 @@ async function main(): Promise<void> {
     console.log(`Produtos para procurar: ${antes}`);
     const gerenciador = criarGerenciadorDeFotos({
       repo,
-      buscador: criarBuscadorOpenFoodFacts({ userAgent: 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }),
+      buscador: criarBuscadorOpenFoodFacts({ userAgent: 'Compy/1.0 (https://github.com/luizedup-stack/Compy)' }),
       // Com FOTOS_ILUSTRATIVAS=0 não usa a foto do tipo de produto quando não acha a específica.
       ...(process.env.FOTOS_ILUSTRATIVAS !== '0' ? { ilustrativas: carregarBancoIlustrativo(), categorias: carregarCategorias() } : {}),
       // Com FOTOS_POR_NOME=0 só procura pelo código de barras; senão também pelo nome (mais devagar: o serviço limita essas buscas).
       ...(process.env.FOTOS_ILUSTRATIVAS !== '0' || process.env.FOTOS_POR_NOME === '1'
-        ? { buscadorPorNome: criarBuscadorPorNomeOpenFoodFacts({ userAgent: 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }), procurarProdutoPorNome: process.env.FOTOS_POR_NOME === '1' }
+        ? { buscadorPorNome: criarBuscadorPorNomeOpenFoodFacts({ userAgent: 'Compy/1.0 (https://github.com/luizedup-stack/Compy)' }), procurarProdutoPorNome: process.env.FOTOS_POR_NOME === '1' }
         : {}),
       log: (m) => console.log(m),
     });

@@ -14,7 +14,7 @@ import { baixarFoto } from '../fotos/baixar';
 import { criarBuscadorPorNomeOpenFoodFacts, ErroTemporario } from '../fotos/openFoodFacts';
 
 const PASTA = path.resolve(__dirname, '../../dados/fotos-ilustrativas');
-const AGENTE = 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)';
+const AGENTE = 'Compy/1.0 (https://github.com/luizedup-stack/Compy)';
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const fetchViaCurl = (async (url: string, init?: RequestInit) => {

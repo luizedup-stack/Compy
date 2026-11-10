@@ -23,10 +23,11 @@ Se você mudar o valor da promoção na administração, troque também o **R$ 5
 Já existe uma rotina pronta (`.github/workflows/publicar-site.yml`) que publica esta pasta sozinha, toda vez que ela mudar no ramo `main`.
 Faltam duas coisas, de graça, no site do GitHub (a conta é sua; eu não mexo em configurações de conta):
 
-1. **Renomear o repositório para "compy"** (deixa o endereço do site com o nome certo, em vez de "bolso-certo"): no repositório, **Settings > General > Repository name**, troque para `compy` e salve. O GitHub redireciona sozinho quem ainda usa o nome antigo por um tempo.
-2. **Ligar o GitHub Pages**: ainda em Settings, agora em **Pages > Build and deployment > Source**, escolha **GitHub Actions** (não "Deploy from a branch"). Salvar.
-3. Abra a aba **Actions > Publicar site > Run workflow** uma vez (ou espere o próximo envio ao `main`).
-4. Em 1 a 2 minutos o site fica em `https://luizedup-stack.github.io/compy/`. **Antes desses passos, esse endereço dá 404 — é esperado, não é erro.**
+1. ~~Renomear o repositório para "Compy"~~ — **já feito** (o repositório já se chama `luizedup-stack/Compy`).
+2. **Ligar o GitHub Pages**: no repositório, **Settings > Pages > Build and deployment > Source**, escolha **GitHub Actions** (não "Deploy from a branch"). Salvar.
+3. **Juntar o ramo `construcao-inicial` no `main`** (o pedido #20): sem isso, a rotina de publicar nem existe no `main` ainda.
+4. Abra a aba **Actions > Publicar site > Run workflow** uma vez (ou espere o próximo envio ao `main`).
+5. Em 1 a 2 minutos o site fica em `https://luizedup-stack.github.io/Compy/`. **Antes desses passos, esse endereço dá 404 — é esperado, não é erro.**
 
 Não há custo: o GitHub Pages e o GitHub Actions são grátis para repositórios públicos, sem limite de tempo. Eu **não ligo** essa opção
 sozinho (é uma configuração da sua conta): isso é com a sua autorização, no passo 2 acima.
