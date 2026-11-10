@@ -6,6 +6,7 @@ import NovoProduto from './NovoProduto';
 import {
   ErroApi,
   MSG_SEM_MERCADO,
+  colocarEmPromocao,
   editarProduto,
   enviarFotoDoProduto,
   guardarMercadoEscolhido,
@@ -75,18 +76,27 @@ interface LinhaProps {
   produto: ProdutoPainel;
   aoAtualizar: (p: ProdutoPainel) => void;
   aoRemover: (codigo: string) => void;
+  /** Chamado depois de um pedido de promoção, com a mensagem para mostrar na tela. */
+  aoPromover: (mensagem: string) => void;
   aoSessaoRecusada: () => void;
 }
 
-function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps) {
-  const [modo, setModo] = useState<'ver' | 'editar' | 'remover'>('ver');
+function Linha({ produto, aoAtualizar, aoRemover, aoPromover, aoSessaoRecusada }: LinhaProps) {
+  const [modo, setModo] = useState<'ver' | 'editar' | 'remover' | 'promocao'>('ver');
   const [rascunho, setRascunho] = useState<Rascunho>(() => rascunhoDe(produto));
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const botaoEditar = useRef<HTMLButtonElement>(null);
   const botaoRemover = useRef<HTMLButtonElement>(null);
+  const botaoPromocao = useRef<HTMLButtonElement>(null);
   const campoNome = useRef<HTMLInputElement>(null);
   const botaoCancelarRemocao = useRef<HTMLButtonElement>(null);
+  const campoPrecoPromocional = useRef<HTMLInputElement>(null);
+  // Promoção (sem planilha): preço promocional e validade; a cobrança e a aprovação seguem a mesma regra de sempre.
+  const [precoPromocional, setPrecoPromocional] = useState('');
+  const [validoAte, setValidoAte] = useState('');
+  const [erroPromocao, setErroPromocao] = useState<string | null>(null);
+  const [enviandoPromocao, setEnviandoPromocao] = useState(false);
   const entradaFoto = useRef<HTMLInputElement>(null);
   // Muda quando a foto é trocada: o navegador guarda a imagem antiga pelo endereço, então o endereço ganha um sufixo novo.
   const [versaoFoto, setVersaoFoto] = useState(0);
@@ -127,6 +137,45 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
     setErro(null);
     focoPendente.current = botaoRemover;
     setModo('ver');
+  }
+
+  function iniciarPromocao() {
+    setPrecoPromocional('');
+    setValidoAte('');
+    setErroPromocao(null);
+    focoPendente.current = campoPrecoPromocional;
+    setModo('promocao');
+  }
+
+  function cancelarPromocao() {
+    setErroPromocao(null);
+    focoPendente.current = botaoPromocao;
+    setModo('ver');
+  }
+
+  async function enviarPromocao(e: React.FormEvent) {
+    e.preventDefault();
+    if (precoPromocional.trim() === '' || validoAte.trim() === '') {
+      setErroPromocao('Preencha o preço promocional e a data de validade');
+      return;
+    }
+    setErroPromocao(null);
+    setEnviandoPromocao(true);
+    try {
+      const resultado = await colocarEmPromocao(produto.codigoBarras, { precoPromocional: precoPromocional.trim(), validoAte: validoAte.trim() });
+      focoPendente.current = botaoPromocao;
+      setModo('ver');
+      aoPromover(
+        resultado.retida
+          ? `${produto.nome}: promoção enviada, fica em destaque depois que a administração aprovar o pagamento.`
+          : `${produto.nome}: promoção aplicada, já está em destaque.`,
+      );
+    } catch (e2) {
+      if (sessaoRecusada(e2)) aoSessaoRecusada();
+      else setErroPromocao(mensagemDoErro(e2));
+    } finally {
+      setEnviandoPromocao(false);
+    }
   }
 
   async function salvar() {
@@ -368,7 +417,58 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
             >
               Remover
             </button>
+            <button
+              ref={botaoPromocao}
+              type="button"
+              className="botao botao-secundario botao-pequeno"
+              aria-describedby={idNome}
+              disabled={ocupado}
+              onClick={iniciarPromocao}
+            >
+              Colocar em promoção
+            </button>
           </div>
+        )}
+        {modo === 'promocao' && (
+          <form aria-label={`Colocar ${produto.nome} em promoção`} onSubmit={(e) => void enviarPromocao(e)}>
+            <label htmlFor={`promo-preco-${produto.codigoBarras}`}>Preço promocional</label>
+            <input
+              id={`promo-preco-${produto.codigoBarras}`}
+              ref={campoPrecoPromocional}
+              type="text"
+              inputMode="decimal"
+              placeholder="12,90"
+              value={precoPromocional}
+              onChange={(e) => setPrecoPromocional(e.target.value)}
+            />
+            <label htmlFor={`promo-validoate-${produto.codigoBarras}`}>Válido até</label>
+            <input
+              id={`promo-validoate-${produto.codigoBarras}`}
+              type="text"
+              inputMode="numeric"
+              placeholder="dd/mm/aaaa"
+              value={validoAte}
+              onChange={(e) => setValidoAte(e.target.value)}
+            />
+            {erroPromocao && (
+              <p role="alert" className="aviso aviso-erro">
+                {erroPromocao}
+              </p>
+            )}
+            <div className="acoes-botoes">
+              <button type="submit" className="botao botao-pequeno" disabled={enviandoPromocao}>
+                {enviandoPromocao ? 'Enviando…' : 'Confirmar promoção'}
+              </button>
+              <button
+                type="button"
+                className="botao botao-secundario botao-pequeno"
+                disabled={enviandoPromocao}
+                onClick={cancelarPromocao}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         )}
         {editando && (
           <div className="acoes-botoes">
@@ -536,9 +636,9 @@ export default function Produtos() {
     setMensagem('Produto atualizado');
   }
 
-  function aoCriar(p: ProdutoPainel) {
+  function aoCriar(p: ProdutoPainel, avisoPromocao?: string) {
     // O produto novo entra na ordem alfabética: recarrega a primeira página, sem busca, para ele aparecer.
-    setMensagem(`Produto cadastrado: ${p.nome}`);
+    setMensagem(`Produto cadastrado: ${p.nome}${avisoPromocao ? ` — ${avisoPromocao}` : ''}`);
     setTextoBusca('');
     setBusca('');
     setPagina(1);
@@ -554,6 +654,8 @@ export default function Produtos() {
   }
 
   const aoSessaoRecusada = () => navigate('/entrar', { replace: true });
+
+  const aoPromover = (texto: string) => setMensagem(texto);
 
   return (
     <section className="cartao cartao-largo">
@@ -680,6 +782,7 @@ export default function Produtos() {
                     produto={p}
                     aoAtualizar={aoAtualizar}
                     aoRemover={aoRemover}
+                    aoPromover={aoPromover}
                     aoSessaoRecusada={aoSessaoRecusada}
                   />
                 ))}

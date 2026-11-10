@@ -7,6 +7,7 @@ import {
   mensagemDoErro,
   obterCobranca,
   reais,
+  salvarAvisoPromocao,
   sessaoRecusada,
   type Cobranca as DadosCobranca,
   type ConfigPromocao,
@@ -34,8 +35,10 @@ export default function Cobranca() {
   const [dados, setDados] = useState<DadosCobranca | null>(null);
   const [config, setConfig] = useState<ConfigPromocao | null>(null);
   const [pedidos, setPedidos] = useState<PedidoPromocao[]>([]);
+  const [avisarPorEmail, setAvisarPorEmail] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<number | null>(null);
+  const [salvandoAviso, setSalvandoAviso] = useState(false);
 
   function tratar(e: unknown) {
     if (sessaoRecusada(e)) navigate('/entrar', { replace: true });
@@ -50,6 +53,7 @@ export default function Cobranca() {
         setDados(d);
         setConfig(p.config);
         setPedidos(p.pedidos);
+        setAvisarPorEmail(p.avisarPorEmail !== false);
       },
       (e: unknown) => {
         if (ativo) tratar(e);
@@ -74,6 +78,19 @@ export default function Cobranca() {
     }
   }
 
+  async function mudarAviso(avisar: boolean) {
+    setErro(null);
+    setSalvandoAviso(true);
+    try {
+      const resultado = await salvarAvisoPromocao(avisar);
+      setAvisarPorEmail(resultado.avisarPorEmail);
+    } catch (e) {
+      tratar(e);
+    } finally {
+      setSalvandoAviso(false);
+    }
+  }
+
   return (
     <section className="cartao">
       <h1>Cobrança</h1>
@@ -92,9 +109,21 @@ export default function Cobranca() {
 
           <h2>Promoções</h2>
           <p>
-            Cada produto em promoção (cada linha da aba <strong>Descontos</strong> da planilha) custa{' '}
-            <strong>{config ? reais(config.valorCentavos) : '—'}</strong>. Quando você envia uma planilha com promoções, ela fica guardada
-            e só vai ao ar depois que o pagamento é confirmado.
+            Cada produto em promoção custa <strong>{config ? reais(config.valorCentavos) : '—'}</strong>. Isso vale tanto para uma
+            promoção enviada pela aba <strong>Descontos</strong> da planilha quanto para uma colocada direto na tela de{' '}
+            <strong>Produtos</strong> (ao cadastrar um produto novo ou editar um já existente). Nos dois casos, a promoção fica
+            guardada e só vai ao ar (em destaque no app) depois que o pagamento é confirmado.
+          </p>
+          <p className="linha-marcar">
+            <label>
+              <input
+                type="checkbox"
+                checked={avisarPorEmail}
+                disabled={salvandoAviso}
+                onChange={(e) => void mudarAviso(e.target.checked)}
+              />{' '}
+              Avisar por e-mail quando uma promoção minha for aprovada
+            </label>
           </p>
           {config && (
             <p className="cobranca-pix">

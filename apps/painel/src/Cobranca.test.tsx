@@ -95,4 +95,36 @@ describe('Cobrança', () => {
     expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
     expect(localStorage.length).toBe(0);
   });
+
+  it('o aviso por e-mail começa ligado (padrão do servidor) e desligar chama o servidor', async () => {
+    api('gratuita', 'ok');
+    abrir('/cobranca');
+    const aviso = await screen.findByRole('checkbox', { name: 'Avisar por e-mail quando uma promoção minha for aprovada' });
+    expect(aviso).toBeChecked();
+
+    const chamadas = simularApi((c) =>
+      c.caminho === '/painel/promocoes/aviso' && c.metodo === 'PUT'
+        ? resposta({ avisarPorEmail: false })
+        : resposta({ erro: 'não esperado' }, 500),
+    );
+    await userEvent.setup().click(aviso);
+
+    await waitFor(() => expect(aviso).not.toBeChecked());
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0].corpo).toEqual({ avisar: false });
+  });
+
+  it('respeita "avisarPorEmail: false" vindo do servidor', async () => {
+    simularApi((c) => {
+      if (c.caminho.startsWith('/painel/cobranca')) return resposta({ situacao: 'gratuita', mensagem: 'ok' });
+      if (c.caminho.startsWith('/painel/promocoes') && c.metodo === 'GET') {
+        return resposta({ config: { valorCentavos: 500, pixChave: null }, avisarPorEmail: false, pedidos: [] });
+      }
+      return resposta({ erro: 'não esperado' }, 500);
+    });
+    abrir('/cobranca');
+
+    const aviso = await screen.findByRole('checkbox', { name: 'Avisar por e-mail quando uma promoção minha for aprovada' });
+    expect(aviso).not.toBeChecked();
+  });
 });

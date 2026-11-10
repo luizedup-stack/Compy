@@ -65,6 +65,7 @@ function linhaParaMercado(l: Linha): Mercado {
     status: l.status as Mercado['status'],
     contaSituacao: l.contaSituacao as Mercado['contaSituacao'],
     usuarioId: (l.usuarioId as number | null) ?? null,
+    avisarPromocaoEmail: l.avisarPromocaoEmail === null || l.avisarPromocaoEmail === undefined ? true : Boolean(l.avisarPromocaoEmail),
   };
   if (l.detalhes !== null && l.detalhes !== undefined) m.detalhes = JSON.parse(l.detalhes as string) as Mercado['detalhes'];
   if (l.telefone !== null && l.telefone !== undefined) m.telefone = l.telefone as string;
@@ -102,7 +103,7 @@ function linhaParaOferta(l: Linha): OfertaArmazenada {
   };
 }
 
-const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone, removidoAte';
+const COLUNAS_MERCADO = 'id, nome, endereco, nomeNorm, enderecoNorm, status, contaSituacao, usuarioId, detalhes, telefone, removidoAte, avisarPromocaoEmail';
 const COLUNAS_OFERTA =
   'mercadoId, codigoBarras, nome, nomeNorm, preco, quantidadeTexto, quantidadeValor, quantidadeUnidade, categoria, disponivel, precoAtualizadoEm, promocaoPreco, promocaoInicio, promocaoFim';
 
@@ -179,6 +180,10 @@ function colunasDoMercado(parcial: Partial<Omit<Mercado, 'id'>>, r: sql.Request)
   if (parcial.telefone !== undefined) {
     sets.push('telefone = @telefone');
     r.input('telefone', sql.VarChar(20), parcial.telefone);
+  }
+  if (parcial.avisarPromocaoEmail !== undefined) {
+    sets.push('avisarPromocaoEmail = @avisarPromocaoEmail');
+    r.input('avisarPromocaoEmail', sql.Bit, parcial.avisarPromocaoEmail);
   }
   return sets;
 }

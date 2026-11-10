@@ -5,6 +5,7 @@
 // A regra completa está em promocoes/pedidos.ts e em docs/superpowers/specs/2026-11-10-produtos-descontos-design.md.
 import type { FastifyPluginAsync } from 'fastify';
 import { exigirPapel } from '../auth/guardas';
+import type { EmailSender } from '../email';
 import { mercadoEscolhidoDoUsuario } from '../painel/mercadoEscolhido';
 import {
   CHAVE_PIX,
@@ -12,6 +13,8 @@ import {
   aplicarPlanilha,
   chavePix,
   lerChavePix,
+  lerLinhaDeDesconto,
+  reais,
   valorPorPromocaoCentavos,
   type PlanilhaRetida,
 } from '../promocoes/pedidos';
@@ -19,6 +22,7 @@ import type { PedidoPromocao, Repositorio } from '../repositorio';
 
 const MSG_NAO_ACHOU = 'Pedido não encontrado';
 const MSG_JA_FECHADO = 'Este pedido já foi pago ou cancelado';
+const MSG_PRODUTO_NAO_ACHOU = 'Produto não encontrado';
 /** Teto do valor por promoção (R$ 10.000,00): só para um erro de digitação não virar um valor absurdo. */
 const MAX_VALOR_CENTAVOS = 1_000_000;
 
@@ -42,7 +46,16 @@ const paraTela = (p: PedidoLeve, mercadoNome?: string) => ({
 
 const semPlanilha = ({ planilha: _planilha, ...resto }: PedidoPromocao): PedidoLeve => resto;
 
-export function rotasPromocoes({ repo, aoMudarProdutos }: { repo: Repositorio; aoMudarProdutos?: () => void }): FastifyPluginAsync {
+export function rotasPromocoes({
+  repo,
+  aoMudarProdutos,
+  email,
+}: {
+  repo: Repositorio;
+  aoMudarProdutos?: () => void;
+  /** Avisa por e-mail o dono do comércio quando a promoção dele é aprovada. Sem isso, só a tela mostra a situação. */
+  email?: EmailSender;
+}): FastifyPluginAsync {
   return async (app) => {
     // -------------------------------------------------------------------------------------------------------------
     // Comércio
@@ -58,8 +71,19 @@ export function rotasPromocoes({ repo, aoMudarProdutos }: { repo: Repositorio; a
       const pedidos = await repo.listarPedidosPromocao({ mercadoId: escolha.mercado.id });
       return {
         config: { valorCentavos: await valorPorPromocaoCentavos(repo), pixChave: await chavePix(repo) },
+        avisarPorEmail: escolha.mercado.avisarPromocaoEmail !== false,
         pedidos: pedidos.map((p) => paraTela(p)),
       };
+    });
+
+    // Liga/desliga o aviso por e-mail de quando uma promoção é aprovada (o comércio escolhe; o padrão é avisar).
+    app.put('/painel/promocoes/aviso', { preHandler: exigirPapel('mercado') }, async (req, reply) => {
+      const escolha = await comercioDoUsuario(req);
+      if (!escolha.ok) return reply.code(escolha.status).send({ erro: escolha.erro });
+      const corpo = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as { avisar?: unknown };
+      if (typeof corpo.avisar !== 'boolean') return reply.code(400).send({ erro: 'Informe "avisar" como verdadeiro ou falso' });
+      await repo.atualizarMercado(escolha.mercado.id, { avisarPromocaoEmail: corpo.avisar });
+      return { avisarPorEmail: corpo.avisar };
     });
 
     /** Acha o pedido PENDENTE do comércio do usuário, ou responde o erro. */
@@ -97,8 +121,84 @@ export function rotasPromocoes({ repo, aoMudarProdutos }: { repo: Repositorio; a
       return paraTela(semPlanilha({ ...pedido, situacao: 'cancelado', planilha: '' }));
     });
 
+    // Colocar (ou trocar) a promoção de UM produto já cadastrado, direto no painel — sem precisar de planilha.
+    // Mesma regra de sempre: o preço promocional só vale de verdade depois que a administração aprova o pagamento
+    // (ou na hora, se o valor por promoção estiver em R$ 0). Funciona tanto para um produto que acabou de ser
+    // cadastrado (POST /painel/produtos) quanto para um já existente: o painel chama esta rota logo em seguida.
+    app.post<{ Params: { codigo: string } }>('/painel/produtos/:codigo/promocao', { preHandler: exigirPapel('mercado') }, async (req, reply) => {
+      const escolha = await comercioDoUsuario(req);
+      if (!escolha.ok) return reply.code(escolha.status).send({ erro: escolha.erro });
+      const mercadoId = escolha.mercado.id;
+
+      const oferta = await repo.acharOferta(mercadoId, req.params.codigo);
+      if (!oferta) return reply.code(404).send({ erro: MSG_PRODUTO_NAO_ACHOU });
+
+      const corpo = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as {
+        precoPromocional?: unknown;
+        validoDe?: unknown;
+        validoAte?: unknown;
+      };
+      const comoPrimitivo = (v: unknown): string | number | null => (typeof v === 'string' || typeof v === 'number' ? v : null);
+      const lida = lerLinhaDeDesconto(
+        1,
+        { codigo: oferta.codigoBarras, preco: comoPrimitivo(corpo.precoPromocional), de: comoPrimitivo(corpo.validoDe), ate: comoPrimitivo(corpo.validoAte) },
+        new Date(),
+      );
+      if (!lida.ok) return reply.code(400).send({ erro: lida.motivo });
+      if (!(lida.desconto.precoPromocional < oferta.preco)) {
+        return reply.code(400).send({ erro: `O preço promocional precisa ser menor que o preço normal (${oferta.preco})` });
+      }
+
+      const planilha: PlanilhaRetida = { ofertas: [], fotos: [], imagens: [], descontos: [lida.desconto] };
+      const valorUnitario = await valorPorPromocaoCentavos(repo);
+      if (valorUnitario === 0) {
+        // Sem custo: aplica na hora, como se fosse a administração.
+        const aplicada = await repo.transacao((r) => aplicarPlanilha(r, mercadoId, planilha, new Date()));
+        return { retida: false, ...aplicada };
+      }
+      const pedido = await repo.criarPedidoPromocao({
+        mercadoId,
+        criadoEm: new Date(),
+        situacao: 'aguardando',
+        quantidade: 1,
+        valorUnitarioCentavos: valorUnitario,
+        totalCentavos: valorUnitario,
+        avisouPagamentoEm: null,
+        pagoEm: null,
+        planilha: JSON.stringify(planilha),
+      });
+      return reply.code(202).send({
+        retida: true,
+        pedido: { id: pedido.id, quantidade: pedido.quantidade, valorUnitarioCentavos: pedido.valorUnitarioCentavos, totalCentavos: pedido.totalCentavos },
+      });
+    });
+
     // -------------------------------------------------------------------------------------------------------------
     // Administração (a dona)
+
+    /**
+     * Avisa por e-mail o dono do comércio que a promoção foi aprovada. Nunca derruba a rota: se o e-mail não sair
+     * (sem `email`, mercado sem dono, provedor fora do ar), a aprovação já aconteceu de qualquer jeito.
+     */
+    async function avisarPorEmail(pedido: PedidoLeve): Promise<void> {
+      if (!email) return;
+      try {
+        const mercado = await repo.acharMercado(pedido.mercadoId);
+        if (!mercado?.usuarioId) return;
+        if (mercado.avisarPromocaoEmail === false) return; // o comércio desligou o aviso em "Meu comércio"
+        const usuario = await repo.acharUsuario(mercado.usuarioId);
+        if (!usuario) return;
+        await email.enviar(
+          usuario.email,
+          'Sua promoção foi aprovada',
+          `Boas notícias! O pagamento da sua promoção em "${mercado.nome}" foi confirmado.\n\n` +
+            `${pedido.quantidade} ${pedido.quantidade === 1 ? 'produto já está' : 'produtos já estão'} em destaque no app, com o preço promocional, até a data de cada um.\n\n` +
+            `Valor pago: ${reais(pedido.totalCentavos)}.`,
+        );
+      } catch {
+        // Falha de envio não desfaz a aprovação; a tela de Promoções já mostra "Pago" normalmente.
+      }
+    }
 
     const admin = { preHandler: exigirPapel('admin') };
 
@@ -151,6 +251,7 @@ export function rotasPromocoes({ repo, aoMudarProdutos }: { repo: Repositorio; a
       });
       if (resultado.status !== 200) return reply.code(resultado.status).send({ erro: resultado.erro });
       aoMudarProdutos?.(); // produtos novos: procura a foto deles
+      await avisarPorEmail(resultado.pedido);
       return { pedido: paraTela(resultado.pedido), ...resultado.aplicada };
     });
 

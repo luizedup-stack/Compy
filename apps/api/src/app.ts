@@ -207,7 +207,7 @@ export async function construirApp({
   const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs, () => geracao) : undefined;
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
-  await app.register(rotasPromocoes({ repo, aoMudarProdutos }));
+  await app.register(rotasPromocoes({ repo, aoMudarProdutos, email }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
   await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, geracao: () => geracao, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));

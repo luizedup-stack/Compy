@@ -130,6 +130,15 @@ No app: seletor "Ordenar por" e botão "Filtros" em `apps/mobile/src/telas/Busca
 - Preço que vale agora: `promocaoAtiva` em `packages/shared/src/busca.ts` (promoção dentro do período e menor que o preço normal; vencida some sozinha, sem rotina agendada). No app, o selo laranja está em `componentes/CartaoOferta.tsx` e `LinhaProduto.tsx`.
 - Valor padrão: R$ 5,00 (`VALOR_PADRAO_PROMOCAO_CENTAVOS`), guardado em centavos; o valor fica gravado em cada pedido (mudar o preço não altera pedidos antigos).
 
+**Promoção direto no painel (sem planilha)** → o comércio também pode colocar/trocar a promoção de um produto já cadastrado na tela **Produtos**
+(ao cadastrar um produto novo, em `NovoProduto.tsx`, ou editando um já existente, botão "Colocar em promoção" na linha, em `Produtos.tsx`). Mesma regra de
+sempre por trás: `POST /painel/produtos/:codigo/promocao` (em `promocoes.ts`) reaproveita `lerLinhaDeDesconto` e `aplicarPlanilha` de `promocoes/pedidos.ts`
+como se fosse uma planilha de uma linha só — fica retido até a aprovação (ou aplica na hora, com o valor por promoção em R$ 0).
+- Aviso por e-mail: o comércio liga/desliga em um botão na tela Cobrança (`PUT /painel/promocoes/aviso`, campo `avisarPromocaoEmail` no `Mercado`,
+  migração `009-aviso-promocao.sql`; padrão é avisar). Quando a administração aprova um pedido (`/admin/promocoes/:id/pagar`), a função
+  `avisarPorEmail` em `promocoes.ts` manda o e-mail (se o comércio não desligou o aviso). Por decisão da dona, por enquanto só e-mail — avisar
+  também por WhatsApp é um próximo passo, ainda sem provedor escolhido (geraria custo) e sem implementação.
+
 **Divulgação (site e Instagram)** → `site/` (uma página HTML, veja `site/LEIA-ME.md`), `divulgacao/gerar-posts.cjs` (gera as imagens com o Electron do projeto), `divulgacao/legendas.md` e `divulgacao/perfil.md`.
 
 **App sem login e "Como chegar"** → o app abre sempre nas abas (`apps/mobile/src/navegacao.tsx`); Entrar e Cadastrar abrem por cima, a partir da aba Conta (`telas/Conta.tsx`). As rotas de leitura da API são públicas (`usuarioOpcional` em `apps/api/src/auth/guardas.ts`). A pergunta "Ir até o mercado?" e os links do Google Maps e do Waze estão em `apps/mobile/src/rota.ts`.

@@ -27,6 +27,8 @@ export interface Mercado {
   detalhes?: EnderecoMercado | null;
   /** Telefone com DDD, só dígitos. Ausente/null enquanto o mercado não preencher. */
   telefone?: string | null;
+  /** Avisar por e-mail quando uma promoção dele é aprovada. Ausente = sim (padrão); o comércio pode desligar em "Meu comércio". */
+  avisarPromocaoEmail?: boolean;
   /** Só com status 'removido': até quando o mercado fica sem acesso (volta sozinho). Vazio = sem acesso até alguém dar o acesso de novo. */
   removidoAte?: Date | null;
 }

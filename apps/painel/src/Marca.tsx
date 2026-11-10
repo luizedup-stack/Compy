@@ -1,5 +1,5 @@
-// A marca Compy no painel: ícone (o "C" com a etiqueta laranja) + nome em Poppins, com o acento laranja do "y", e a palavra "Mercado".
-// O acento é só enfeite (aria-hidden); o leitor de tela lê "Compy Mercado".
+// A marca Compy no painel: ícone (o "C" com a etiqueta laranja) + nome em Poppins, com o acento laranja do "y", e a palavra "Estabelecimento".
+// O acento é só enfeite (aria-hidden); o leitor de tela lê "Compy Estabelecimento".
 export default function Marca({ comProduto = true }: { comProduto?: boolean }) {
   return (
     <span className="marca-compy">
@@ -9,7 +9,7 @@ export default function Marca({ comProduto = true }: { comProduto?: boolean }) {
         <span aria-hidden="true">Compy</span>
         <i className="acento" aria-hidden="true" />
       </span>
-      {comProduto && <span className="produto-compy">Mercado</span>}
+      {comProduto && <span className="produto-compy">Estabelecimento</span>}
     </span>
   );
 }
