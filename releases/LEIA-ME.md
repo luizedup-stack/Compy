@@ -4,7 +4,7 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 
 | | |
 |---|---|
-| Arquivo | `bolso-certo.apk` (25.0 MB) |
+| Arquivo | `compy.apk` (25.0 MB) |
 | Gerado em | 2026-11-10 (nova marca Compy: nome, ícone, cores e fonte Poppins; mantém o botão Atualizar, a lista inicial rápida e as fotos do mercado) |
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
 | Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.2 (código 11)** |
@@ -32,7 +32,7 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 
 ## Instalar (primeira vez)
 
-1. Baixe o `bolso-certo.apk` (botão **Download** nesta página do GitHub) e envie para o celular.
+1. Baixe o `compy.apk` (botão **Download** nesta página do GitHub) e envie para o celular.
 2. Abra o arquivo; o Android pede para permitir "instalar apps desconhecidos"; instale.
 
 ## Atualizar quem já tem o app (sem desinstalar)
@@ -45,7 +45,7 @@ A primeira consulta depois de um tempo parado pode levar até ~1 minuto: o servi
 
 ## Conferir que o arquivo não foi alterado
 
-PowerShell: `Get-FileHash .\bolso-certo.apk -Algorithm SHA256` e compare com o valor da tabela.
+PowerShell: `Get-FileHash .\compy.apk -Algorithm SHA256` e compare com o valor da tabela.
 
 ## Gerar de novo
 

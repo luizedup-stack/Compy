@@ -159,14 +159,14 @@ Na primeira tela do app, toque em **Configurar servidor** e digite o endereço (
 Não precisa gerar o APK de novo. Para entregar a outras pessoas um **APK que já nasce apontando para o servidor** (ninguém precisa configurar nada),
 use o gerador do GitHub (abaixo).
 
-> Uma **cópia salva do APK atual** (já apontando para `https://bolso-certo.onrender.com`) fica no repositório, em `releases/bolso-certo.apk`, com os detalhes em `releases/LEIA-ME.md`.
+> Uma **cópia salva do APK atual** (já apontando para `https://bolso-certo.onrender.com`) fica no repositório, em `releases/compy.apk`, com os detalhes em `releases/LEIA-ME.md`.
 
 #### APK pronto para as pessoas testarem (gerado pelo GitHub, sem instalar nada no seu PC)
 
 1. No GitHub, abra o repositório → aba **Actions** → à esquerda, **Gerar APK** → botão **Run workflow** (campo "servidor" já vem com
    `https://bolso-certo.onrender.com`; confirme e clique no botão verde **Run workflow**).
 2. Espere de 15 a 25 minutos (o círculo amarelo vira ✔ verde). Se ficar ❌, abra a execução e me mande o texto do erro.
-3. Abra a execução concluída, role até **Artifacts** e baixe **`bolso-certo-apk`**. É um `.zip`; dentro dele está o **`bolso-certo.apk`**.
+3. Abra a execução concluída, role até **Artifacts** e baixe **`bolso-certo-apk`**. É um `.zip`; dentro dele está o **`compy.apk`**.
 4. Mande o `.apk` para o pessoal (WhatsApp, Drive...). No celular: abrir o arquivo → o Android pede para permitir "instalar apps desconhecidos" → instalar.
 
 O app já abre usando o servidor. A primeira consulta depois de um tempo parado pode levar até ~1 minuto (servidor e banco acordando). O APK usa a chave de

@@ -29,7 +29,7 @@ Aplicativo / Compras e varejo.
 ## Link da bio
 Use o endereço do site depois que ele estiver publicado (veja `site/LEIA-ME.md`). Enquanto não estiver, use o link do app:
 ```
-https://luizedup-stack.github.io/Compy/bolso-certo.apk
+https://luizedup-stack.github.io/Compy/compy.apk
 ```
 
 ## Botões de contato
