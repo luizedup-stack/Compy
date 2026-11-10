@@ -11,7 +11,7 @@ import { useSessao } from '../sessao';
 import type { RootStackParamList } from '../rotas';
 import { cores, estilos as comuns } from '../tema';
 
-// Endereço do site do Bolso Certo (veja site/LEIA-ME.md): o botão "Fale conosco" leva até a seção de Contato de lá.
+// Endereço do site do Compy (veja site/LEIA-ME.md): o botão "Fale conosco" leva até a seção de Contato de lá.
 // Troque aqui se o site for publicado noutro endereço.
 export const URL_SITE = 'https://luizedup-stack.github.io/compy/';
 export const AVISO_CONTA_EXCLUIDA = 'Conta excluída.';

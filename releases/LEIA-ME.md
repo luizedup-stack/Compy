@@ -9,10 +9,12 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
 | Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.2 (código 11)** |
 | Android mínimo | 7.0 (API 24), celulares de 64 bits (arm64) |
-| SHA-256 do arquivo | (gerado ao compilar esta versão; confira com `Get-FileHash`) |
+| SHA-256 do arquivo | `eed96e089ca737373d5760e02553a2d6643fe860e78e11fbe37dd27a40e32029` |
 | Certificado de assinatura (SHA-256) | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` (Android Debug) |
 
 ## O que esta versão tem
+
+- **1.2.2:** junta a marca **Compy** (ícone, cores, fonte Poppins) com tudo das versões abaixo (promoções, segurança, ordenar/filtrar). Mesmo pacote e assinatura das versões anteriores: atualiza por cima sem perder a conta.
 
 - **1.2.1:** "Ordenar por" virou um listbox (toque no botão para ver as opções, antes ficavam sempre visíveis); botão "Fale conosco" na aba Conta, abrindo a seção de Contato do site.
 
