@@ -7,12 +7,14 @@ Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa 
 | Arquivo | `bolso-certo.apk` (24.4 MB) |
 | Gerado em | 2026-11-09 (botão Atualizar, topo azul com a logo, ícones nas abas, lista inicial rápida e cópia compactada) |
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
-| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.0 (código 9)** |
+| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.1 (código 10)** |
 | Android mínimo | 7.0 (API 24), celulares de 64 bits (arm64) |
-| SHA-256 do arquivo | `aa5c6bf321757ae4900c56ac7c73266f2eb9b41955e03c92088fe6a3f01050f7` |
+| SHA-256 do arquivo | `97aff8975d282421ade3609a983c25edff2ef29409e1a88be13330e00d9d8811` |
 | Certificado de assinatura (SHA-256) | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` (Android Debug) |
 
 ## O que esta versão tem
+
+- **1.2.1:** "Ordenar por" virou um listbox (toque no botão para ver as opções, antes ficavam sempre visíveis); botão "Fale conosco" na aba Conta, abrindo a seção de Contato do site.
 
 - **1.2.0:** ordenar (relevância, menor/maior preço, recentes) e filtros (preço, quantidade, comércio, só promoções, só comparáveis); produtos em promoção aparecem com selo laranja; abas "Estabelecimentos".
 
