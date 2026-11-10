@@ -1,4 +1,4 @@
-// Testes da tela "Meu mercado": cadastrar o mercado (endereço completo + telefone), editar, e adicionar outro mercado.
+// Testes da tela "Meu comércio": cadastrar o mercado (endereço completo + telefone), editar, e adicionar outro mercado.
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,7 +38,7 @@ function servidor({ lista = [resumo()], mercado: m = mercado(), patch, post }: R
       if (c.caminho.startsWith('/painel/meus-mercados')) {
         if (c.metodo === 'POST') {
           const r = post ? post(c) : resposta(resumo({ id: 2, nome: 'Novo' }), 201);
-          // Mercado criado: passa a constar na lista da conta (como o servidor de verdade faz).
+          // Comércio criado: passa a constar na lista da conta (como o servidor de verdade faz).
           if (r.status === 201) listaAtual = [...listaAtual, (await r.clone().json()) as ReturnType<typeof resumo>];
           return r;
         }
@@ -66,7 +66,7 @@ async function preencher(usuario: ReturnType<typeof userEvent.setup>, dentro: HT
   const base = within(dentro ?? document.body);
   const { uf = 'SP', ...camposDeTexto } = extra;
   const valores: Record<string, string> = {
-    'Nome do mercado': 'Mercado Novo',
+    'Nome do comércio': 'Mercado Novo',
     CEP: '05501-000',
     'Rua ou avenida': 'Rua Nova',
     Número: '55',
@@ -88,7 +88,7 @@ describe('mostrar o mercado em uso', () => {
     servidor({ mercado: mercado({ totalProdutos: 1 }) });
     abrir('/meu-mercado');
 
-    expect(await screen.findByLabelText('Nome do mercado')).toHaveValue('Mercado Central');
+    expect(await screen.findByLabelText('Nome do comércio')).toHaveValue('Mercado Central');
     expect(screen.getByLabelText('CEP')).toHaveValue('05501-000');
     expect(screen.getByLabelText('Rua ou avenida')).toHaveValue('Rua das Flores');
     expect(screen.getByLabelText('Número')).toHaveValue('100');
@@ -103,7 +103,7 @@ describe('mostrar o mercado em uso', () => {
   it('mercado que veio só de planilha (sem endereço por partes) pede para completar', async () => {
     servidor({ mercado: mercado({ detalhes: null, telefone: null, perfilCompleto: false }) });
     abrir('/meu-mercado');
-    expect(await screen.findByText('Complete o endereço e o telefone do seu mercado e salve.')).toBeInTheDocument();
+    expect(await screen.findByText('Complete o endereço e o telefone do seu comércio e salve.')).toBeInTheDocument();
     expect(screen.getByLabelText('Rua ou avenida')).toHaveValue('');
   });
 });
@@ -135,7 +135,7 @@ describe('editar o mercado', () => {
     const chamadas = servidor({ patch: () => resposta(mercado({ nome: 'Mercado Central Novo' })) });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    const nome = await screen.findByLabelText('Nome do mercado');
+    const nome = await screen.findByLabelText('Nome do comércio');
     await usuario.clear(nome);
     await usuario.type(nome, 'Mercado Central Novo');
     await usuario.click(screen.getByRole('button', { name: 'Salvar' }));
@@ -170,35 +170,35 @@ describe('editar o mercado', () => {
     servidor({ patch: () => resposta({ erro: 'Já existe um mercado com esse nome e endereço' }, 409) });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    const nome = await screen.findByLabelText('Nome do mercado');
+    const nome = await screen.findByLabelText('Nome do comércio');
     await usuario.clear(nome);
     await usuario.type(nome, 'Outro');
     await usuario.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Já existe um mercado com esse nome e endereço');
     expect(screen.queryByText('Dados atualizados')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Nome do mercado')).toHaveValue('Outro');
+    expect(screen.getByLabelText('Nome do comércio')).toHaveValue('Outro');
   });
 });
 
 describe('cadastrar o primeiro mercado (conta nova)', () => {
-  it('sem nenhum mercado, mostra o formulário "Cadastre o seu mercado"', async () => {
+  it('sem nenhum mercado, mostra o formulário "Cadastre o seu comércio"', async () => {
     servidor({ lista: [] });
     abrir('/meu-mercado');
-    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cadastrar mercado' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Adicionar outro mercado' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cadastrar comércio' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Adicionar outro comércio' })).not.toBeInTheDocument();
   });
 
   it('envia o endereço completo e o telefone, passa a trabalhar no mercado novo e avisa', async () => {
     const chamadas = servidor({ lista: [], post: () => resposta(resumo({ id: 7, nome: 'Mercado Novo' }), 201) });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' });
+    await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' });
     await preencher(usuario, null, { uf: 'SP' });
-    await usuario.click(screen.getByRole('button', { name: 'Cadastrar mercado' }));
+    await usuario.click(screen.getByRole('button', { name: 'Cadastrar comércio' }));
 
-    expect(await screen.findByText(/Mercado cadastrado: Mercado Novo/)).toBeInTheDocument();
+    expect(await screen.findByText(/Comércio cadastrado: Mercado Novo/)).toBeInTheDocument();
     const post = chamadas.find((c) => c.metodo === 'POST')!;
     expect(post.caminho).toBe('/painel/meus-mercados');
     expect(post.corpo).toEqual({
@@ -219,35 +219,35 @@ describe('cadastrar o primeiro mercado (conta nova)', () => {
     servidor({ lista: [], post: () => resposta({ erro: 'Já existe um mercado com esse nome e endereço' }, 409) });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' });
+    await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' });
     await preencher(usuario, null);
-    await usuario.click(screen.getByRole('button', { name: 'Cadastrar mercado' }));
+    await usuario.click(screen.getByRole('button', { name: 'Cadastrar comércio' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Já existe um mercado com esse nome e endereço');
     expect(localStorage.getItem('bolso-certo:mercado-escolhido')).toBeNull();
   });
 });
 
 describe('adicionar outro mercado', () => {
-  it('lista os mercados da conta, marca o que está em uso e tem o botão "Adicionar outro mercado"', async () => {
+  it('lista os mercados da conta, marca o que está em uso e tem o botão "Adicionar outro comércio"', async () => {
     servidor({ lista: [resumo(), resumo({ id: 2, nome: 'Mercado Dois', endereco: 'Av. Dois, 2' })] });
     abrir('/meu-mercado');
-    const lista = await screen.findByRole('list', { name: 'Meus mercados' });
+    const lista = await screen.findByRole('list', { name: 'Meus comércios' });
     expect(within(lista).getByText('Mercado Central')).toBeInTheDocument();
     expect(within(lista).getByText('Mercado Dois')).toBeInTheDocument();
     expect(within(lista).getByText('em uso')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Adicionar outro mercado' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Adicionar outro comércio' })).toBeInTheDocument();
   });
 
   it('o botão abre o formulário; cadastrar cria o mercado e passa a trabalhar nele', async () => {
     const chamadas = servidor({ post: () => resposta(resumo({ id: 9, nome: 'Filial Norte' }), 201) });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    await usuario.click(await screen.findByRole('button', { name: 'Adicionar outro mercado' }));
-    const grupo = screen.getByRole('group', { name: 'Adicionar outro mercado' });
-    await preencher(usuario, grupo, { 'Nome do mercado': 'Filial Norte', uf: 'SP' });
-    await usuario.click(within(grupo).getByRole('button', { name: 'Cadastrar mercado' }));
+    await usuario.click(await screen.findByRole('button', { name: 'Adicionar outro comércio' }));
+    const grupo = screen.getByRole('group', { name: 'Adicionar outro comércio' });
+    await preencher(usuario, grupo, { 'Nome do comércio': 'Filial Norte', uf: 'SP' });
+    await usuario.click(within(grupo).getByRole('button', { name: 'Cadastrar comércio' }));
 
-    expect(await screen.findByText(/Mercado cadastrado: Filial Norte/)).toBeInTheDocument();
+    expect(await screen.findByText(/Comércio cadastrado: Filial Norte/)).toBeInTheDocument();
     expect(chamadas.find((c) => c.metodo === 'POST')!.corpo).toMatchObject({ nome: 'Filial Norte' });
     expect(localStorage.getItem('bolso-certo:mercado-escolhido')).toBe('9');
   });
@@ -256,9 +256,9 @@ describe('adicionar outro mercado', () => {
     const chamadas = servidor();
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    await usuario.click(await screen.findByRole('button', { name: 'Adicionar outro mercado' }));
-    await usuario.click(within(screen.getByRole('group', { name: 'Adicionar outro mercado' })).getByRole('button', { name: 'Cancelar' }));
-    expect(screen.queryByRole('group', { name: 'Adicionar outro mercado' })).not.toBeInTheDocument();
+    await usuario.click(await screen.findByRole('button', { name: 'Adicionar outro comércio' }));
+    await usuario.click(within(screen.getByRole('group', { name: 'Adicionar outro comércio' })).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('group', { name: 'Adicionar outro comércio' })).not.toBeInTheDocument();
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
   });
 });
@@ -270,12 +270,12 @@ describe('seletor de mercado no topo (conta com mais de um mercado)', () => {
     const chamadas = servidor({ lista: [resumo(), resumo({ id: 2, nome: 'Mercado Dois' })] });
     abrir('/meu-mercado');
     const usuario = userEvent.setup();
-    const seletor = await screen.findByLabelText('Mercado:');
+    const seletor = await screen.findByLabelText('Comércio:');
     expect(seletor).toHaveValue('1');
     await usuario.selectOptions(seletor, '2');
 
     expect(localStorage.getItem('bolso-certo:mercado-escolhido')).toBe('2');
-    await screen.findByLabelText('Nome do mercado'); // a tela recarregou
+    await screen.findByLabelText('Nome do comércio'); // a tela recarregou
     const ultimo = [...chamadas].reverse().find((c) => c.caminho.startsWith('/painel/mercado'))!;
     expect(ultimo.caminho).toBe('/painel/mercado?mercadoId=2');
   });
@@ -284,8 +284,8 @@ describe('seletor de mercado no topo (conta com mais de um mercado)', () => {
     localStorage.setItem('bolso-certo:meus-mercados', JSON.stringify([resumo()]));
     servidor();
     abrir('/meu-mercado');
-    await screen.findByLabelText('Nome do mercado');
-    expect(screen.queryByLabelText('Mercado:')).not.toBeInTheDocument();
+    await screen.findByLabelText('Nome do comércio');
+    expect(screen.queryByLabelText('Comércio:')).not.toBeInTheDocument();
   });
 });
 
@@ -294,7 +294,7 @@ describe('erros ao carregar', () => {
     simularApi(() => resposta({ erro: 'Erro interno' }, 500), { meusMercados: 'responder' });
     abrir('/meu-mercado');
     expect(await screen.findByRole('alert')).toHaveTextContent('Erro interno');
-    expect(screen.queryByLabelText('Nome do mercado')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Nome do comércio')).not.toBeInTheDocument();
   });
 
   it('sessão recusada (401) leva para /entrar', async () => {

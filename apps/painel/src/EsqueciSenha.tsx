@@ -92,7 +92,7 @@ export default function EsqueciSenha() {
         <h1 ref={titulo} tabIndex={-1}>
           Esqueci minha senha
         </h1>
-        <p>Informe o e-mail da conta do seu mercado e enviaremos um código para criar uma nova senha.</p>
+        <p>Informe o e-mail da conta do seu comércio e enviaremos um código para criar uma nova senha.</p>
         <form onSubmit={enviarCodigo}>
           <label htmlFor="email-recuperacao">E-mail</label>
           <input

@@ -12,7 +12,7 @@ import { criarRepositorioSqlServer } from './repositorioSqlServer';
 import { ADMIN_DEV_EMAIL, completarAdminDeDesenvolvimento, montarServidor } from './servidor';
 
 const aviso = (mensagem: string) => console.log(`[banco] ${mensagem}`);
-const AGENTE_FOTOS = 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)';
+const AGENTE_FOTOS = 'Compy/1.0 (https://github.com/luizedup-stack/Compy)';
 
 async function main(): Promise<void> {
   const { config, senhaGerada } = completarAdminDeDesenvolvimento(lerConfig(process.env));

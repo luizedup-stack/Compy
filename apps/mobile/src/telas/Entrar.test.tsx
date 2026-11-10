@@ -35,7 +35,7 @@ describe('Entrar', () => {
     await preencher(user, 'loja@exemplo.com', '12345678');
     await user.press(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByText('Esta área é para clientes. Mercados usam o painel na web.')).toBeOnTheScreen();
+    expect(await screen.findByText('Esta área é para clientes. Comércios usam o painel na web.')).toBeOnTheScreen();
     expect(lerCofre().size).toBe(0);
     expect(screen.queryByLabelText('Buscar produto')).not.toBeOnTheScreen();
   });

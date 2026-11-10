@@ -52,7 +52,7 @@ describe('app sem internet', () => {
     simularApi({});
     await abrirApp();
 
-    await fireEvent.press(aba('Mercados'));
+    await fireEvent.press(aba('Estabelecimentos'));
     expect(await screen.findByText('Atacarejo Econômico')).toBeOnTheScreen();
     expect(screen.getByText('2 produtos')).toBeOnTheScreen();
 
@@ -64,7 +64,7 @@ describe('app sem internet', () => {
   it('sem internet e sem nenhuma cópia guardada, mostra o erro de sempre', async () => {
     simularApi({});
     await abrirApp();
-    await fireEvent.press(aba('Mercados'));
+    await fireEvent.press(aba('Estabelecimentos'));
     expect(await screen.findByText('Não foi possível falar com o servidor')).toBeOnTheScreen();
     expect(screen.queryByText(/Mostrando os dados salvos/)).not.toBeOnTheScreen();
   });

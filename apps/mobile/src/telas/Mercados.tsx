@@ -67,7 +67,7 @@ export function Mercados() {
       <View style={estilos.tela}>
         <View style={estilos.carregando} accessibilityLiveRegion="polite">
           <ActivityIndicator color={cores.marca} />
-          <Text style={estilos.textoCarregando}>Carregando mercados…</Text>
+          <Text style={estilos.textoCarregando}>Carregando estabelecimentos…</Text>
         </View>
       </View>
     );
@@ -110,7 +110,7 @@ export function Mercados() {
             <Text style={estilos.total}>{textoTotal(item.totalProdutos)}</Text>
           </Pressable>
         )}
-        ListEmptyComponent={<Text style={estilos.mensagem}>Nenhum mercado disponível ainda.</Text>}
+        ListEmptyComponent={<Text style={estilos.mensagem}>Nenhum estabelecimento disponível ainda.</Text>}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => void carregar(true)} colors={[cores.marca]} tintColor={cores.marca} />}
         contentContainerStyle={estilos.lista}
       />

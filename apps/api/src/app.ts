@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import compress from '@fastify/compress';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -21,6 +22,7 @@ import { rotasMercados } from './rotas/mercados';
 import { rotasMeusMercados } from './rotas/meusMercados';
 import { rotasPainel } from './rotas/painel';
 import { rotasPlanilhas } from './rotas/planilhas';
+import { rotasPromocoes } from './rotas/promocoes';
 import { rotasPrivacidade } from './rotas/privacidade';
 
 export interface OpcoesApp {
@@ -125,6 +127,33 @@ export async function construirApp({
       : false,
   });
 
+  // Cabeçalhos de segurança do navegador (grátis, sem custo nenhum): bloqueiam que a página do painel seja aberta dentro de
+  // outro site (clique-sequestro), que o navegador "adivinhe" o tipo de um arquivo e que scripts de fora rodem na página.
+  // Vale para TODAS as respostas, inclusive o painel (/painel-web/) e as fotos.
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // O painel (React) não usa <script> de fora nem "eval": só o próprio código dele.
+        scriptSrc: ["'self'"],
+        // React escreve "style" em alguns elementos; sem isso o painel ficaria sem estilo nenhum.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // Fotos podem vir de fora (ex.: Open Food Facts) ou ser "data:" (ilustrativas). Nunca de http:// sem criptografia.
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        // Nenhum site pode colocar o painel dentro de um <iframe> (evita "clickjacking").
+        frameAncestors: ["'none'"],
+      },
+    },
+    // Fotos vindas de outro site (via redirecionamento) não podem ser bloqueadas por esta proteção extra.
+    crossOriginEmbedderPolicy: false,
+    // Nem o próprio site pode colocar o painel num <iframe> (o padrão do helmet permite "do mesmo site"; aqui não permite nenhum).
+    frameguard: { action: 'deny' },
+  });
+
   // Liberado para qualquer origem: serve ao desenvolvimento (painel web e app mobile).
   await app.register(cors, {
     origin: true,
@@ -178,6 +207,7 @@ export async function construirApp({
   const catalogoCompartilhado = cacheRespostasMs > 0 ? lembrar(() => montarCatalogo(repo, fotosEmbutidas), cacheRespostasMs, () => geracao) : undefined;
   await app.register(rotasPlanilhas({ repo, aoMudarProdutos }));
   await app.register(rotasAdmin({ repo }));
+  await app.register(rotasPromocoes({ repo, aoMudarProdutos }));
   await app.register(rotasPainel({ repo, aoMudarProdutos }));
   await app.register(rotasBusca({ repo, cacheMs: cacheRespostasMs, geracao: () => geracao, ...(catalogoCompartilhado ? { catalogo: catalogoCompartilhado } : {}), ...(fotosEmbutidas ? { embutidas: fotosEmbutidas } : {}) }));
   await app.register(rotasConta({ repo }));

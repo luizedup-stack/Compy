@@ -1,7 +1,9 @@
 import ExcelJS from 'exceljs';
 import {
+  ABA_DESCONTOS,
   ABA_MERCADO,
   ABA_PRODUTOS,
+  COLUNAS_DESCONTOS,
   COLUNAS_PRODUTOS,
   LIMITE_BYTES,
   LIMITE_LINHAS,
@@ -13,6 +15,7 @@ import {
 } from '@mercado/shared';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
 import { ImagemInvalida, reduzirParaJpeg } from '../fotos/baixar';
+import { aplicarPlanilha, conferirDescontos, lerLinhaDeDesconto, valorPorPromocaoCentavos, type Desconto, type PlanilhaRetida } from '../promocoes/pedidos';
 import { conferirZip } from './conferirZip';
 import { ErroPlanilha } from './erroPlanilha';
 
@@ -217,6 +220,48 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
   return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros, linhas, colunaFoto };
 }
 
+/**
+ * Lê a aba opcional "Descontos": uma promoção por linha (Código de barras*, Preço promocional*, Válido de, Válido até*). Só confere o
+ * formato de cada linha; se o produto existe e o preço promocional é menor que o normal é conferido depois (conferirDescontos).
+ * O mesmo código em duas linhas vale uma vez só (a última), com aviso.
+ */
+function lerDescontos(aba: ExcelJS.Worksheet, agora: Date): { descontos: Desconto[]; erros: RelatorioImportacao['erros'] } {
+  const colunas = new Map<string, number>();
+  aba.getRow(1).eachCell({ includeEmpty: false }, (celula, numero) => {
+    const chave = normalizarTexto(texto(celula.value));
+    if (!colunas.has(chave)) colunas.set(chave, numero);
+  });
+  const coluna = (nome: string) => colunas.get(normalizarTexto(nome));
+  const [codigo, preco, de, ate] = COLUNAS_DESCONTOS.map(coluna);
+  if (codigo === undefined || preco === undefined || ate === undefined) {
+    throw new ErroPlanilha(`Aba "${ABA_DESCONTOS}": faltam colunas (precisa de ${COLUNAS_DESCONTOS.join(', ')})`);
+  }
+
+  const validos = new Map<string, Desconto>();
+  const erros: RelatorioImportacao['erros'] = [];
+  let preenchidas = 0;
+  aba.eachRow({ includeEmpty: false }, (linha, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    let vazia = true;
+    linha.eachCell({ includeEmpty: false }, (c) => {
+      if (texto(c.value) !== '') vazia = false;
+    });
+    if (vazia) return;
+    if (++preenchidas > LIMITE_LINHAS) throw new ErroPlanilha(`A aba "${ABA_DESCONTOS}" tem mais de ${LIMITE_LINHAS} linhas`);
+    const valor = (numero: number | undefined) => (numero === undefined ? null : primitivo(linha.getCell(numero).value));
+    const lida = lerLinhaDeDesconto(numeroLinha, { codigo: valor(codigo), preco: valor(preco), de: valor(de), ate: valor(ate) }, agora);
+    if (!lida.ok) {
+      erros.push({ linha: numeroLinha, motivo: `Aba Descontos: ${lida.motivo}` });
+      return;
+    }
+    const anterior = validos.get(lida.desconto.codigoBarras);
+    if (anterior) erros.push({ linha: anterior.linha, motivo: `Aba Descontos: código de barras repetido, vale a última ocorrência (linha ${numeroLinha})` });
+    validos.set(lida.desconto.codigoBarras, lida.desconto);
+  });
+  erros.sort((a, b) => a.linha - b.linha);
+  return { descontos: [...validos.values()], erros };
+}
+
 /** Só usa `r`, o repositório da transação (nunca o externo, que travaria esperando a si mesmo). */
 async function resolverMercado(
   r: Repositorio,
@@ -274,26 +319,77 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
   const imagens = await lerImagensDaPlanilha(wb, abaProdutos, colunaFoto, linhas, erros);
   erros.sort((a, b) => a.linha - b.linha);
 
+  // Aba opcional "Descontos": cada linha é uma promoção, que é COBRADA (veja promocoes/pedidos.ts).
+  const abaDescontos = wb.worksheets.find((w) => normalizarTexto(w.name) === normalizarTexto(ABA_DESCONTOS));
+  const lidos = abaDescontos ? lerDescontos(abaDescontos, new Date()) : { descontos: [], erros: [] };
+  erros.push(...lidos.erros);
+  const precosDaPlanilha = new Map(ofertas.map((o) => [o.codigoBarras, o.preco]));
+
+  // Comércio com promoções válidas: a planilha inteira fica RETIDA num pedido até a dona confirmar o pagamento (nada é salvo agora).
+  // Com o valor por promoção em R$ 0,00 não há o que cobrar: segue direto, como se fosse o administrador.
+  if (ator.papel === 'mercado' && lidos.descontos.length > 0) {
+    const { validos, erros: errosDosDescontos } = await conferirDescontos(
+      lidos.descontos,
+      async (codigo) => precosDaPlanilha.get(codigo) ?? (await repo.acharOferta(ator.mercadoId, codigo))?.preco ?? null,
+    );
+    erros.push(...errosDosDescontos);
+    const valorUnitario = await valorPorPromocaoCentavos(repo);
+    if (validos.length > 0 && valorUnitario > 0) {
+      const proprio = await repo.acharMercado(ator.mercadoId);
+      if (!proprio || proprio.status !== 'ativo') throw new ErroPlanilha('Mercado não encontrado ou inativo');
+      const retida: PlanilhaRetida = {
+        ofertas,
+        fotos: [...fotos].filter(([codigo]) => !imagens.has(codigo)),
+        imagens: [...imagens],
+        descontos: validos,
+      };
+      const pedido = await repo.criarPedidoPromocao({
+        mercadoId: ator.mercadoId,
+        criadoEm: new Date(),
+        situacao: 'aguardando',
+        quantidade: validos.length,
+        valorUnitarioCentavos: valorUnitario,
+        totalCentavos: valorUnitario * validos.length,
+        avisouPagamentoEm: null,
+        pagoEm: null,
+        planilha: JSON.stringify(retida),
+      });
+      erros.sort((a, b) => a.linha - b.linha);
+      return {
+        mercadoId: ator.mercadoId,
+        mercadoCriado: false,
+        importadas: 0,
+        erros,
+        retida: true,
+        pedido: { id: pedido.id, quantidade: pedido.quantidade, valorUnitarioCentavos: pedido.valorUnitarioCentavos, totalCentavos: pedido.totalCentavos },
+      };
+    }
+  }
+
   return repo.transacao(async (r) => {
     const { mercado, criado } = await resolverMercado(r, ator, dadosMercado);
-    const agora = new Date();
-    await r.salvarOfertas(ofertas.map((oferta) => ({ ...oferta, mercadoId: mercado.id, precoAtualizadoEm: agora })));
-    // Fotos do mercado: links (o servidor baixa depois, veja fotos/gerenciador.ts) e imagens coladas (já prontas). Imagem e link na
-    // mesma linha: vale a imagem. Onde o produto já tem foto de verdade de outro, a do mercado fica só para ele.
-    await r.salvarFotosDaPlanilha([...fotos].filter(([codigo]) => !imagens.has(codigo)), mercado.id, agora);
-    const prontas = [...imagens].map(([codigoBarras, imagem]) => ({ codigoBarras, imagem }));
-    for (const { codigoBarras, imagem } of prontas) {
-      // A mesma regra da foto enviada pelo painel: sem foto de verdade, vira a de todos; com foto de outro, fica só do mercado.
-      const jaTem = (await r.listarResumoDeFotos([codigoBarras])).some((f) => f.origem !== 'ilustrativa');
-      const atual = jaTem ? await r.acharFoto(codigoBarras) : null;
-      const eDono = atual?.origem === 'mercado' && atual.mercadoId === mercado.id;
-      if (jaTem && !eDono) {
-        await r.salvarFotoDoMercado({ codigoBarras, mercadoId: mercado.id, imagem, atualizadaEm: agora });
-      } else {
-        await r.salvarFoto({ codigoBarras, origem: 'mercado', url: null, imagem, mercadoId: mercado.id, atualizadaEm: agora });
-        await r.removerFotoDoMercado(mercado.id, codigoBarras);
-      }
+    // Administrador (ou promoção sem custo): as promoções válidas entram na hora.
+    let descontos: Desconto[] = [];
+    if (lidos.descontos.length > 0) {
+      const conferidos = await conferirDescontos(lidos.descontos, async (codigo) => precosDaPlanilha.get(codigo) ?? (await r.acharOferta(mercado.id, codigo))?.preco ?? null);
+      descontos = conferidos.validos;
+      if (ator.papel === 'admin') erros.push(...conferidos.erros); // (para o comércio já foram somados acima)
     }
-    return { mercadoId: mercado.id, mercadoCriado: criado, importadas: ofertas.length, erros, ...(prontas.length > 0 ? { fotosColadas: prontas.length } : {}) };
+    // Fotos do mercado: links (o servidor baixa depois) e imagens coladas (já prontas); imagem e link na mesma linha: vale a imagem.
+    const resultado = await aplicarPlanilha(
+      r,
+      mercado.id,
+      { ofertas, fotos: [...fotos].filter(([codigo]) => !imagens.has(codigo)), imagens: [...imagens], descontos },
+      new Date(),
+    );
+    erros.sort((a, b) => a.linha - b.linha);
+    return {
+      mercadoId: mercado.id,
+      mercadoCriado: criado,
+      importadas: resultado.importadas,
+      erros,
+      ...(lidos.descontos.length > 0 ? { promocoes: resultado.promocoes } : {}),
+      ...(resultado.fotosColadas > 0 ? { fotosColadas: resultado.fotosColadas } : {}),
+    };
   });
 }

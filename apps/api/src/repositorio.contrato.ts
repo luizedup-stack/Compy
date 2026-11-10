@@ -5,6 +5,7 @@ import {
   type FotoProduto,
   type Mercado,
   type OfertaArmazenada,
+  type PedidoPromocao,
   type Repositorio,
   type Usuario,
 } from './repositorio';
@@ -735,6 +736,74 @@ export function testarRepositorio(nome: string, criar: () => Promise<Repositorio
           }),
         ).rejects.toThrow('falhou');
         expect(await repo.acharFoto('7891000100103')).toBeNull();
+      });
+    });
+
+    describe('fotos que valem só para um mercado', () => {
+      it('grava, acha, lista (só dos códigos pedidos) e remove; a nova substitui a anterior', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const outro = await repo.criarMercado(novoMercado('Outro', 'Rua B, 2'));
+        const quando = new Date('2026-11-10T12:00:00.000Z');
+        await repo.salvarFotoDoMercado({ codigoBarras: '7891000100103', mercadoId: m.id, imagem: 'data:image/jpeg;base64,AAAA', atualizadaEm: quando });
+        expect(await repo.acharFotoDoMercado(m.id, '7891000100103')).toMatchObject({ imagem: 'data:image/jpeg;base64,AAAA' });
+        expect(await repo.acharFotoDoMercado(outro.id, '7891000100103')).toBeNull();
+        await repo.salvarFotoDoMercado({ codigoBarras: '7891000100103', mercadoId: m.id, imagem: 'data:image/jpeg;base64,BBBB', atualizadaEm: quando });
+        expect((await repo.acharFotoDoMercado(m.id, '7891000100103'))?.imagem).toBe('data:image/jpeg;base64,BBBB');
+        expect((await repo.listarFotosDoMercado(m.id, ['7891000100103', '7890000000001'])).map((x) => x.codigoBarras)).toEqual(['7891000100103']);
+        expect(await repo.listarFotosDoMercado(m.id, [])).toEqual([]);
+        expect(await repo.removerFotoDoMercado(m.id, '7891000100103')).toBe(true);
+        expect(await repo.removerFotoDoMercado(m.id, '7891000100103')).toBe(false);
+      });
+
+      it('apagar o mercado apaga as fotos dele', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        await repo.salvarFotoDoMercado({ codigoBarras: '7891000100103', mercadoId: m.id, imagem: 'data:image/jpeg;base64,AAAA', atualizadaEm: new Date() });
+        await repo.apagarMercado(m.id);
+        expect(await repo.acharFotoDoMercado(m.id, '7891000100103')).toBeNull();
+      });
+    });
+
+    describe('pedidos de promoção', () => {
+      const novoPedido = (mercadoId: number, extra: Partial<PedidoPromocao> = {}): Omit<PedidoPromocao, 'id'> => ({
+        mercadoId, criadoEm: new Date('2026-11-10T12:00:00.000Z'), situacao: 'aguardando', quantidade: 3, valorUnitarioCentavos: 500,
+        totalCentavos: 1500, avisouPagamentoEm: null, pagoEm: null, planilha: '{"ofertas":[]}', ...extra,
+      });
+
+      it('cria com id, acha (com a planilha) e lista do mais novo ao mais antigo, sem a planilha', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const outro = await repo.criarMercado(novoMercado('Outro', 'Rua B, 2'));
+        const p1 = await repo.criarPedidoPromocao(novoPedido(m.id));
+        const p2 = await repo.criarPedidoPromocao(novoPedido(m.id, { quantidade: 1, totalCentavos: 500 }));
+        await repo.criarPedidoPromocao(novoPedido(outro.id));
+        expect(p2.id).toBeGreaterThan(p1.id);
+        expect(await repo.acharPedidoPromocao(p1.id)).toMatchObject({ mercadoId: m.id, situacao: 'aguardando', quantidade: 3, totalCentavos: 1500, planilha: '{"ofertas":[]}' });
+        expect(await repo.acharPedidoPromocao(9999)).toBeNull();
+        const lista = await repo.listarPedidosPromocao({ mercadoId: m.id });
+        expect(lista.map((p) => p.id)).toEqual([p2.id, p1.id]);
+        expect('planilha' in lista[0]!).toBe(false);
+        expect(await repo.listarPedidosPromocao()).toHaveLength(3);
+      });
+
+      it('atualiza só o que foi pedido (situação, aviso, pagamento e planilha)', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const p = await repo.criarPedidoPromocao(novoPedido(m.id));
+        const aviso = new Date('2026-11-10T13:00:00.000Z');
+        await repo.atualizarPedidoPromocao(p.id, { avisouPagamentoEm: aviso });
+        expect(await repo.acharPedidoPromocao(p.id)).toMatchObject({ situacao: 'aguardando', avisouPagamentoEm: aviso, planilha: '{"ofertas":[]}' });
+        await repo.atualizarPedidoPromocao(p.id, { situacao: 'pago', pagoEm: aviso, planilha: '' });
+        expect(await repo.acharPedidoPromocao(p.id)).toMatchObject({ situacao: 'pago', pagoEm: aviso, planilha: '' });
+      });
+
+      it('apagar o comércio apaga os pedidos dele', async () => {
+        const repo = await criar();
+        const m = await repo.criarMercado(novoMercado());
+        const p = await repo.criarPedidoPromocao(novoPedido(m.id));
+        await repo.apagarMercado(m.id);
+        expect(await repo.acharPedidoPromocao(p.id)).toBeNull();
       });
     });
   });

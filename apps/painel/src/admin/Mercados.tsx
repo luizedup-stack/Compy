@@ -175,7 +175,7 @@ function Linha({ mercado, aoAcessoCriado, aoSemAcesso, aoReativado, aoApagado, a
     setAcao('remocao');
     try {
       await removerMercado(mercado.id, escolha.prazo);
-      focoPendente.current = nome; // os botões mudam; o foco fica no nome do mercado
+      focoPendente.current = nome; // os botões mudam; o foco fica no nome do comércio
       setModo('ver');
       aoSemAcesso(mercado.id, escolha.prazo.tipo === 'temporario' ? dataPrevista(escolha.prazo.quantidade, escolha.prazo.unidade) : null);
     } catch (e) {
@@ -220,7 +220,7 @@ function Linha({ mercado, aoAcessoCriado, aoSemAcesso, aoReativado, aoApagado, a
 
   return (
     <tr>
-      <td data-label="Mercado">
+      <td data-label="Comércio">
         <div>
           <strong id={idNome} ref={nome} tabIndex={-1}>
             {mercado.nome}
@@ -289,7 +289,7 @@ function Linha({ mercado, aoAcessoCriado, aoSemAcesso, aoReativado, aoApagado, a
         )}
         {mostraFormulario && (
           <form onSubmit={enviarAcesso} noValidate>
-            <label htmlFor={idEmail}>E-mail do mercado</label>
+            <label htmlFor={idEmail}>E-mail do comércio</label>
             <input
               id={idEmail}
               ref={campoEmail}
@@ -362,7 +362,7 @@ function Linha({ mercado, aoAcessoCriado, aoSemAcesso, aoReativado, aoApagado, a
         {modo === 'tirar' && (
           <form onSubmit={tirarAcesso} noValidate aria-label={`Tirar acesso de ${mercado.nome}`} className="tirar-acesso">
             <p className="confirmacao">
-              O mercado e os produtos dele somem do aplicativo na hora, e ele deixa de enviar planilhas. Os dados ficam guardados.
+              O comércio e os produtos dele somem do aplicativo na hora, e ele deixa de enviar planilhas. Os dados ficam guardados.
             </p>
             <fieldset disabled={ocupado}>
               <legend>Por quanto tempo?</legend>
@@ -415,7 +415,7 @@ function Linha({ mercado, aoAcessoCriado, aoSemAcesso, aoReativado, aoApagado, a
         {modo === 'apagar' && (
           <div role="group" aria-label={`Apagar ${mercado.nome}`}>
             <p className="confirmacao">
-              Apagar de vez? O mercado e os {mercado.totalProdutos} produtos dele serão apagados e <strong>não dá para desfazer</strong>. Para só esconder, use "Tirar acesso".
+              Apagar de vez? O comércio e os {mercado.totalProdutos} produtos dele serão apagados e <strong>não dá para desfazer</strong>. Para só esconder, use "Tirar acesso".
             </p>
             <div className="acoes-botoes">
               <button type="button" className="botao botao-perigo botao-pequeno" aria-describedby={idNome} disabled={ocupado} onClick={apagar}>
@@ -488,12 +488,12 @@ export default function Mercados() {
 
   return (
     <section className="cartao cartao-largo">
-      <h1>Mercados</h1>
+      <h1>Comércios</h1>
       <p>
-        Para adicionar um mercado, envie a planilha dele em <Link to="/planilha">Enviar planilha</Link>.
+        Para adicionar um comércio, envie a planilha dele em <Link to="/planilha">Enviar planilha</Link>.
       </p>
 
-      {carregando && <p>Carregando mercados…</p>}
+      {carregando && <p>Carregando comércios…</p>}
 
       {!carregando && erro && (
         <>
@@ -510,7 +510,7 @@ export default function Mercados() {
 
       {!carregando && !erro && mercados.length === 0 && (
         <div className="vazio">
-          <p>Nenhum mercado ainda. Envie uma planilha.</p>
+          <p>Nenhum comércio ainda. Envie uma planilha.</p>
           <Link to="/planilha" className="botao botao-link">
             Enviar planilha
           </Link>
@@ -520,10 +520,10 @@ export default function Mercados() {
       {!carregando && !erro && mercados.length > 0 && (
         <div className="tabela-rolagem">
           <table className="tabela-produtos tabela-mercados">
-            <caption className="so-leitor">Mercados cadastrados</caption>
+            <caption className="so-leitor">Comércios cadastrados</caption>
             <thead>
               <tr>
-                <th scope="col">Mercado</th>
+                <th scope="col">Comércio</th>
                 <th scope="col">Situação</th>
                 <th scope="col">Produtos</th>
                 <th scope="col">Login</th>

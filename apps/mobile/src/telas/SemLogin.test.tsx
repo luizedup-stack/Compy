@@ -48,7 +48,7 @@ describe('app sem login', () => {
     const user = userEvent.setup();
     await abrirApp();
 
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     expect(await screen.findByText('Mercado Bom Preço')).toBeOnTheScreen();
 
     await user.press(aba('Conta'));

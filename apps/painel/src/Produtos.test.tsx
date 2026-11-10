@@ -645,7 +645,7 @@ describe('administrador em Produtos', () => {
     const chamadas = simularApi((c) => (c.caminho.startsWith('/admin/mercados') ? resposta([]) : resposta({ itens: [], total: 0 })));
     abrir('/produtos');
 
-    expect(await screen.findByText(/Nenhum mercado cadastrado/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nenhum comércio cadastrado/)).toBeInTheDocument();
     expect(chamadas.some((c) => c.caminho.startsWith('/painel/'))).toBe(false);
   });
 });

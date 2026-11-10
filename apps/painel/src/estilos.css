@@ -610,7 +610,7 @@ input:disabled {
   margin: 8px 0;
 }
 
-/* Seletor de mercado no cabeçalho (usuário com mais de um mercado) e lista "Meus mercados" */
+/* Seletor de mercado no cabeçalho (usuário com mais de um mercado) e lista "Meus comércios" */
 .seletor-mercado-topo {
   margin-left: auto;
   margin-right: 12px;
@@ -708,6 +708,13 @@ input:disabled {
 .botao-tema:hover {
   background: var(--botao-sec-hover);
 }
+
+/* Promoções (administração e cobrança do comércio); cores da marca Compy (--destaque = laranja). */
+.cartoes-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
+.resumo-item { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px solid var(--borda); background: var(--superficie-2, var(--superficie)); }
+.resumo-numero { font-size: 1.6rem; font-weight: 700; color: var(--destaque); }
+.formulario-promocao { display: grid; gap: 8px; max-width: 420px; margin-bottom: 16px; }
+.cobranca-pix { padding: 10px 12px; border-left: 4px solid var(--destaque); background: rgba(255, 138, 0, 0.12); border-radius: 6px; }
 
 /* Marca Compy no cabeçalho: ícone + nome em Poppins ExtraBold, com o acento laranja do "y". */
 .marca-compy {

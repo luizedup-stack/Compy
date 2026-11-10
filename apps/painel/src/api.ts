@@ -255,7 +255,7 @@ export async function obterMercado(): Promise<MercadoPainel> {
   return (await resposta.json()) as MercadoPainel;
 }
 
-/** Salva os dados do mercado em uso (só os campos enviados mudam; o servidor confere tudo). */
+/** Salva os dados do comércio em uso (só os campos enviados mudam; o servidor confere tudo). */
 export async function atualizarMercado(campos: Partial<DadosDoMercado>): Promise<MercadoPainel> {
   const resposta = await pedir('/painel/mercado', {
     method: 'PATCH',
@@ -353,6 +353,99 @@ export async function removerFotoDoProduto(codigo: string): Promise<{ foto: stri
 
 export async function removerProduto(codigo: string): Promise<void> {
   await pedir(`/painel/produtos/${encodeURIComponent(codigo)}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Promoções pagas (planilha com a aba "Descontos"): o pedido fica retido até o pagamento (Pix manual) ser confirmado.
+
+export type SituacaoPedido = 'aguardando' | 'pago' | 'cancelado';
+
+export interface PedidoPromocao {
+  id: number;
+  mercadoId: number;
+  /** Só na visão da administração. */
+  mercadoNome?: string;
+  criadoEm: string;
+  situacao: SituacaoPedido;
+  quantidade: number;
+  valorUnitarioCentavos: number;
+  totalCentavos: number;
+  /** Quando o comércio tocou em "Já paguei". */
+  avisouPagamentoEm: string | null;
+  pagoEm: string | null;
+}
+
+export interface ConfigPromocao {
+  valorCentavos: number;
+  pixChave: string | null;
+}
+
+/** 1500 → "R$ 15,00". */
+export function reais(centavos: number): string {
+  const inteiros = String(Math.floor(centavos / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `R$ ${inteiros},${String(centavos % 100).padStart(2, '0')}`;
+}
+
+/** "5", "5,5" ou "5,50" → 500, 550, 550 centavos; texto que não é um valor → null. */
+export function centavosDe(texto: string): number | null {
+  const t = texto.trim().replace(/^R\$\s*/, '').replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  return Math.round(Number(t) * 100);
+}
+
+/** Os pedidos de promoção do comércio em uso, com o valor por promoção e a chave Pix para pagar. */
+export async function listarPromocoes(): Promise<{ config: ConfigPromocao; pedidos: PedidoPromocao[] }> {
+  const resposta = await pedir('/painel/promocoes');
+  return (await resposta.json()) as { config: ConfigPromocao; pedidos: PedidoPromocao[] };
+}
+
+/** "Já paguei": só avisa a dona (quem libera o pedido é ela). */
+export async function avisarPagamento(id: number): Promise<PedidoPromocao> {
+  const resposta = await pedir(`/painel/promocoes/${id}/avisar`, { method: 'POST' });
+  return (await resposta.json()) as PedidoPromocao;
+}
+
+export async function cancelarPedido(id: number): Promise<PedidoPromocao> {
+  const resposta = await pedir(`/painel/promocoes/${id}/cancelar`, { method: 'POST' });
+  return (await resposta.json()) as PedidoPromocao;
+}
+
+export interface ResumoPromocoesAdmin {
+  config: ConfigPromocao;
+  resumo: {
+    pagas: number;
+    aguardando: number;
+    canceladas: number;
+    promocoesPagas: number;
+    promocoesAguardando: number;
+    recebidoCentavos: number;
+    aReceberCentavos: number;
+  };
+  porComercio: { mercadoId: number; nome: string; pagas: number; aguardando: number; recebidoCentavos: number; devidoCentavos: number }[];
+  pedidos: PedidoPromocao[];
+}
+
+/** Administração: tudo sobre as promoções (quem pagou, quem deve, quantas, valores). */
+export async function obterPromocoesAdmin(): Promise<ResumoPromocoesAdmin> {
+  const resposta = await pedir('/admin/promocoes');
+  return (await resposta.json()) as ResumoPromocoesAdmin;
+}
+
+/** Marca como pago: o servidor aplica a planilha retida (produtos e promoções). */
+export async function pagarPedido(id: number): Promise<{ pedido: PedidoPromocao; importadas: number; promocoes: number; ignoradas: number }> {
+  const resposta = await pedir(`/admin/promocoes/${id}/pagar`, { method: 'POST' });
+  return (await resposta.json()) as { pedido: PedidoPromocao; importadas: number; promocoes: number; ignoradas: number };
+}
+
+export async function cancelarPedidoAdmin(id: number): Promise<PedidoPromocao> {
+  const resposta = await pedir(`/admin/promocoes/${id}/cancelar`, { method: 'POST' });
+  return (await resposta.json()) as PedidoPromocao;
+}
+
+/** Muda o valor por promoção (em centavos) e/ou a chave Pix. O valor novo vale só para os pedidos novos. */
+export async function salvarConfigPromocao(campos: { valorCentavos?: number; pixChave?: string }): Promise<ConfigPromocao> {
+  const resposta = await pedir('/admin/promocoes/config', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(campos) });
+  return (await resposta.json()) as ConfigPromocao;
 }
 
 export async function obterCobranca(): Promise<Cobranca> {

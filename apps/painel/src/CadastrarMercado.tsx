@@ -1,5 +1,5 @@
 // Cadastro da CONTA do mercado: só o básico (e-mail e senha), sem confirmação de e-mail: a pessoa entra com o e-mail que quiser.
-// O mercado em si (nome, endereço completo, telefone) é cadastrado depois, na tela "Meu mercado".
+// O mercado em si (nome, endereço completo, telefone) é cadastrado depois, na tela "Meu comércio".
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cadastrarMercado, mensagemDoErro } from './api';
@@ -44,8 +44,8 @@ export default function CadastrarMercado() {
     <section className="cartao">
       <h1>Criar conta</h1>
       <p>
-        Informe seu e-mail e escolha uma senha. Depois de entrar, você cadastra os dados do seu mercado (endereço completo e
-        telefone) na tela <strong>Meu mercado</strong>. Só você vê e edita o que é seu.
+        Informe seu e-mail e escolha uma senha. Depois de entrar, você cadastra os dados do seu comércio (endereço completo e
+        telefone) na tela <strong>Meu comércio</strong>. Só você vê e edita o que é seu.
       </p>
       <form onSubmit={aoEnviar} noValidate>
         <label htmlFor="email-cadastro">E-mail</label>

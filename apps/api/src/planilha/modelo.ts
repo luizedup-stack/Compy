@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { ABA_MERCADO, ABA_PRODUTOS, COLUNAS_PRODUTOS, LIMITE_LINHAS } from '@mercado/shared';
+import { ABA_DESCONTOS, ABA_MERCADO, ABA_PRODUTOS, COLUNAS_DESCONTOS, COLUNAS_PRODUTOS, LIMITE_LINHAS } from '@mercado/shared';
 
 const ABA_INSTRUCOES = 'Instruções';
 const OBRIGATORIAS = 3;
@@ -25,6 +25,14 @@ export async function gerarModelo(): Promise<Buffer> {
   // Código de barras como texto: o Excel não pode converter o número para notação científica.
   produtos.getColumn(1).numFmt = '@';
 
+  // Aba opcional de promoções. Cada linha é UMA promoção e é cobrada (o valor aparece no painel ao enviar).
+  const descontos = wb.addWorksheet(ABA_DESCONTOS);
+  descontos.addRow(COLUNAS_DESCONTOS.map((nome, i) => (i === 0 || i === 1 || i === 3 ? `${nome}*` : nome))).font = { bold: true };
+  [20, 20, 16, 16].forEach((largura, i) => {
+    descontos.getColumn(i + 1).width = largura;
+  });
+  descontos.getColumn(1).numFmt = '@';
+
   const instrucoes = wb.addWorksheet(ABA_INSTRUCOES);
   instrucoes.getColumn(1).width = 110;
   [
@@ -39,7 +47,9 @@ export async function gerarModelo(): Promise<Buffer> {
     `7. Até ${LIMITE_LINHAS} produtos por planilha. Enviar de novo atualiza os preços; a planilha sempre vale mais.`,
     '8. Foto (opcional), de dois jeitos: (a) o link (começando com https://) da imagem do produto, que o sistema baixa e guarda; ou (b) a imagem COLADA na célula da coluna Foto, na linha do produto (Inserir > Imagem, deixando a imagem sobre a célula; até 100 imagens coladas por planilha, para mais fotos use links). Sem foto, o sistema procura sozinho pelo código de barras, e você também pode enviar a foto no painel.',
     '9. Se o produto ainda não tem foto de verdade, a sua passa a valer para todos. Se já tem (de outro mercado ou do banco aberto), a que existia continua para os outros e a sua fica guardada para o seu mercado.',
-    '10. Esta aba de instruções é ignorada na importação.',
+    `10. Aba "${ABA_DESCONTOS}" (opcional): cada linha é uma PROMOÇÃO, que é cobrada. Preencha o código de barras de um produto que está na aba "${ABA_PRODUTOS}" (ou já cadastrado), o preço promocional (menor que o normal), "Válido de" (opcional) e "Válido até" (obrigatório), no formato dia/mês/ano.`,
+    '11. Planilha com promoções só vai ao ar depois que o pagamento das promoções é confirmado; antes disso, nada da planilha é salvo. Sem a aba Descontos (ou vazia), tudo é salvo na hora e sem custo.',
+    '12. Esta aba de instruções é ignorada na importação.',
     '',
     'DICA: se a planilha do seu mercado é diferente deste modelo, peça a uma IA (ChatGPT, Claude, Gemini...) para ajustá-la. Envie a SUA planilha e este modelo juntos e escreva, por exemplo:',
     '"Reorganize a minha planilha para ficar igual ao modelo anexo: mesma aba \'Mercado\' e aba \'Produtos\' com as colunas Código de barras, Produto, Preço, Quantidade, Categoria, Disponível e Foto, nesta ordem. Código de barras como texto, preço com vírgula, e não invente nenhum dado."',
@@ -50,6 +60,10 @@ export async function gerarModelo(): Promise<Buffer> {
   instrucoes.getRow(1).font = { bold: true, size: 14 };
   instrucoes.addRow([cabecalho.join(' | ')]).font = { bold: true };
   instrucoes.addRow(['7891000100103 | Leite integral 1 L | 5,49 | 1 L | Laticínios | sim | https://exemplo.com/fotos/leite.jpg']);
+  instrucoes.addRow(['']);
+  instrucoes.addRow([`Exemplo de linha da aba ${ABA_DESCONTOS}:`]);
+  instrucoes.addRow([`${COLUNAS_DESCONTOS.join(' | ')}`]).font = { bold: true };
+  instrucoes.addRow(['7891000100103 | 4,99 | 10/11/2026 | 15/11/2026']);
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

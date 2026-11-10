@@ -8,7 +8,7 @@ async function abrirMercados(emailVerificado = true) {
   guardarSessao('tok-mercados', emailVerificado);
   const user = userEvent.setup();
   await abrirApp();
-  await user.press(aba('Mercados'));
+  await user.press(aba('Estabelecimentos'));
   return user;
 }
 
@@ -19,7 +19,7 @@ describe('Mercados', () => {
     await abrirApp();
     expect(screen.getByLabelText('Buscar produto')).toBeOnTheScreen();
     expect(aba('Buscar')).toBeOnTheScreen();
-    expect(aba('Mercados')).toBeOnTheScreen();
+    expect(aba('Estabelecimentos')).toBeOnTheScreen();
     expect(aba('Conta')).toBeOnTheScreen();
   });
 
@@ -40,18 +40,18 @@ describe('Mercados', () => {
     expect(screen.getByText('27 produtos')).toBeOnTheScreen();
     expect(screen.getByText('1 produto')).toBeOnTheScreen();
     expect(screen.getByText('Rua dos Ipês, 120 – Vila Sônia, São Paulo – SP')).toBeOnTheScreen();
-    expect(screen.queryByText('Carregando mercados…')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Carregando estabelecimentos…')).not.toBeOnTheScreen();
   });
 
-  it('mostra "Carregando mercados…" enquanto a resposta não chega', async () => {
+  it('mostra "Carregando estabelecimentos…" enquanto a resposta não chega', async () => {
     const espera = adiada<RespostaFalsa>();
     simularApi({ 'GET /mercados': () => espera.promessa });
     await abrirMercados();
-    expect(screen.getByText('Carregando mercados…')).toBeOnTheScreen();
+    expect(screen.getByText('Carregando estabelecimentos…')).toBeOnTheScreen();
 
     await act(async () => espera.resolver({ status: 200, corpo: MERCADOS }));
     expect(await screen.findByText('Empório Sonia')).toBeOnTheScreen();
-    expect(screen.queryByText('Carregando mercados…')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Carregando estabelecimentos…')).not.toBeOnTheScreen();
   });
 
   it('tocar num mercado abre o detalhe com a primeira página de produtos', async () => {
@@ -76,10 +76,10 @@ describe('Mercados', () => {
     expect(titulosDoCabecalho(screen.container).at(-1)).toBe('Mercado Bom Preço');
   });
 
-  it('sem mercados: mostra "Nenhum mercado disponível ainda."', async () => {
+  it('sem mercados: mostra "Nenhum estabelecimento disponível ainda."', async () => {
     simularApi({ 'GET /mercados': { status: 200, corpo: [] } });
     await abrirMercados();
-    expect(await screen.findByText('Nenhum mercado disponível ainda.')).toBeOnTheScreen();
+    expect(await screen.findByText('Nenhum estabelecimento disponível ainda.')).toBeOnTheScreen();
     expect(screen.queryAllByTestId('mercado')).toHaveLength(0);
   });
 
@@ -90,7 +90,7 @@ describe('Mercados', () => {
     const api = simularApi(rotas);
     const user = await abrirMercados();
     expect(await screen.findByText('Falha ao listar')).toBeOnTheScreen();
-    expect(screen.queryByText('Nenhum mercado disponível ainda.')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Nenhum estabelecimento disponível ainda.')).not.toBeOnTheScreen();
 
     rotas['GET /mercados'] = { status: 200, corpo: MERCADOS };
     await user.press(screen.getByRole('button', { name: 'Tentar de novo' }));
@@ -111,7 +111,7 @@ describe('Mercados', () => {
     simularApi({ 'GET /mercados': { status: 401, corpo: { erro: 'Sessão expirada' } } });
     await abrirMercados();
     await waitFor(() => expect(lerCofre().has(CHAVE_SESSAO)).toBe(false));
-    expect(screen.getByLabelText(/^Mercados(,|$)/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Estabelecimentos(,|$)/)).toBeOnTheScreen();
   });
 
   it('puxar para atualizar busca a lista de novo e mostra a versão mais nova', async () => {

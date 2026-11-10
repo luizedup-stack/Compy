@@ -15,6 +15,7 @@ import {
   ErroMercadoDuplicado,
   type BuscaRegistrada,
   type FotoProduto,
+  type PedidoPromocao,
   type Mercado,
   type OfertaArmazenada,
   type Repositorio,
@@ -180,6 +181,21 @@ function colunasDoMercado(parcial: Partial<Omit<Mercado, 'id'>>, r: sql.Request)
     r.input('telefone', sql.VarChar(20), parcial.telefone);
   }
   return sets;
+}
+
+/** Uma linha de dbo.PedidosPromocao como objeto (sem a planilha, que é pesada). */
+function linhaParaPedido(l: Linha): Omit<PedidoPromocao, 'planilha'> {
+  return {
+    id: l.id as number,
+    mercadoId: l.mercadoId as number,
+    criadoEm: new Date(l.criadoEm as Date),
+    situacao: l.situacao as PedidoPromocao['situacao'],
+    quantidade: l.quantidade as number,
+    valorUnitarioCentavos: l.valorUnitarioCentavos as number,
+    totalCentavos: l.totalCentavos as number,
+    avisouPagamentoEm: l.avisouPagamentoEm ? new Date(l.avisouPagamentoEm as Date) : null,
+    pagoEm: l.pagoEm ? new Date(l.pagoEm as Date) : null,
+  };
 }
 
 function parametrosDaOferta(r: sql.Request, o: OfertaArmazenada): void {
@@ -530,6 +546,50 @@ export function criarRepositorioSqlServer(pool: sql.ConnectionPool, opcoes: { av
         }
         cache.delete('codigosComFoto');
         cache.delete('codigosIlustrativos');
+      },
+      async criarPedidoPromocao(p) {
+        const l = await q(
+          `INSERT INTO dbo.PedidosPromocao (mercadoId, criadoEm, situacao, quantidade, valorUnitarioCentavos, totalCentavos, avisouPagamentoEm, pagoEm, planilha)
+           OUTPUT inserted.id
+           VALUES (@mercadoId, @criadoEm, @situacao, @quantidade, @valorUnitarioCentavos, @totalCentavos, @avisouPagamentoEm, @pagoEm, @planilha)`,
+          (r) => {
+            r.input('mercadoId', sql.Int, p.mercadoId);
+            r.input('criadoEm', sql.DateTime2(3), p.criadoEm);
+            r.input('situacao', sql.VarChar(12), p.situacao);
+            r.input('quantidade', sql.Int, p.quantidade);
+            r.input('valorUnitarioCentavos', sql.Int, p.valorUnitarioCentavos);
+            r.input('totalCentavos', sql.Int, p.totalCentavos);
+            r.input('avisouPagamentoEm', sql.DateTime2(3), p.avisouPagamentoEm);
+            r.input('pagoEm', sql.DateTime2(3), p.pagoEm);
+            r.input('planilha', sql.NVarChar(sql.MAX), p.planilha);
+          },
+        );
+        return { ...p, id: l[0]!.id as number };
+      },
+      async acharPedidoPromocao(id) {
+        const l = await q('SELECT * FROM dbo.PedidosPromocao WHERE id = @id', (r) => r.input('id', sql.Int, id));
+        return l[0] ? { ...linhaParaPedido(l[0]), planilha: l[0].planilha as string } : null;
+      },
+      async listarPedidosPromocao(filtro) {
+        const l = await q(
+          `SELECT id, mercadoId, criadoEm, situacao, quantidade, valorUnitarioCentavos, totalCentavos, avisouPagamentoEm, pagoEm
+           FROM dbo.PedidosPromocao WHERE (@mercadoId IS NULL OR mercadoId = @mercadoId) ORDER BY id DESC`,
+          (r) => r.input('mercadoId', sql.Int, filtro?.mercadoId ?? null),
+        );
+        return l.map(linhaParaPedido);
+      },
+      async atualizarPedidoPromocao(id, parcial) {
+        const sets: string[] = [];
+        const entradas: ((r: sql.Request) => void)[] = [];
+        if (parcial.situacao !== undefined) { sets.push('situacao = @situacao'); entradas.push((r) => r.input('situacao', sql.VarChar(12), parcial.situacao)); }
+        if (parcial.avisouPagamentoEm !== undefined) { sets.push('avisouPagamentoEm = @avisou'); entradas.push((r) => r.input('avisou', sql.DateTime2(3), parcial.avisouPagamentoEm)); }
+        if (parcial.pagoEm !== undefined) { sets.push('pagoEm = @pagoEm'); entradas.push((r) => r.input('pagoEm', sql.DateTime2(3), parcial.pagoEm)); }
+        if (parcial.planilha !== undefined) { sets.push('planilha = @planilha'); entradas.push((r) => r.input('planilha', sql.NVarChar(sql.MAX), parcial.planilha)); }
+        if (sets.length === 0) return;
+        await escrever(`UPDATE dbo.PedidosPromocao SET ${sets.join(', ')} WHERE id = @id`, (r) => {
+          r.input('id', sql.Int, id);
+          for (const e of entradas) e(r);
+        });
       },
       async salvarFotoDoMercado(f) {
         await q(

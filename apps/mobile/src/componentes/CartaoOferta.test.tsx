@@ -74,7 +74,7 @@ describe('CartaoOferta', () => {
     await user.press(screen.getByTestId('oferta'));
     expect(alerta).toHaveBeenCalledTimes(1);
     const [titulo, mensagem, botoes] = alerta.mock.calls[0]!;
-    expect(titulo).toBe('Ir até o mercado?');
+    expect(titulo).toBe('Ir até o estabelecimento?');
     expect(mensagem).toContain('Atacarejo Econômico');
     expect(mensagem).toContain('Rua Jacarandá, 410');
     botoes![0]!.onPress!();

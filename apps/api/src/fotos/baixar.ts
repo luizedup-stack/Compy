@@ -125,7 +125,7 @@ export interface OpcoesBaixar {
 /** Baixa o link e devolve a foto reduzida. Lança ImagemInvalida (definitivo) ou ErroTemporario (tentar depois). */
 export async function baixarFoto(
   link: string,
-  { fetchFn = globalThis.fetch, resolver = resolverPadrao, tempoLimiteMs = 15_000, userAgent = 'BolsoCerto/1.0 (https://github.com/luizedup-stack/bolso-certo)' }: OpcoesBaixar = {},
+  { fetchFn = globalThis.fetch, resolver = resolverPadrao, tempoLimiteMs = 15_000, userAgent = 'Compy/1.0 (https://github.com/luizedup-stack/Compy)' }: OpcoesBaixar = {},
 ): Promise<string> {
   let atual = await conferirUrlPublica(link, resolver);
   for (let salto = 0; ; salto++) {

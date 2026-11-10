@@ -1,5 +1,7 @@
 export const ABA_MERCADO = 'Mercado';
 export const ABA_PRODUTOS = 'Produtos';
+/** Aba opcional da planilha: cada linha é uma promoção (COBRADA). */
+export const ABA_DESCONTOS = 'Descontos';
 
 export const COLUNAS_PRODUTOS = [
   'Código de barras',
@@ -9,6 +11,12 @@ export const COLUNAS_PRODUTOS = [
   'Categoria',
   'Disponível',
 ] as const;
+
+/** Colunas da aba Descontos (as com * são obrigatórias): o produto, o preço promocional e o período. */
+export const COLUNAS_DESCONTOS = ['Código de barras', 'Preço promocional', 'Válido de', 'Válido até'] as const;
+
+/** Valor padrão de cada promoção, em centavos (R$ 5,00). A dona muda na administração. */
+export const VALOR_PADRAO_PROMOCAO_CENTAVOS = 500;
 
 export const LIMITE_LINHAS = 5000;
 export const LIMITE_BYTES = 5 * 1024 * 1024;
@@ -28,6 +36,10 @@ export interface Oferta {
   atualizadoEm: string;
   diasDesdeAtualizacao: number;
   desatualizado: boolean;
+  /** Quando há promoção valendo: `preco` já é o preço promocional e este é o preço normal (riscado na tela). */
+  precoOriginal?: number;
+  /** Até quando a promoção vale (texto ISO), ou null se não tem fim. */
+  promocaoAte?: string | null;
 }
 
 export interface GrupoProduto {
@@ -55,6 +67,10 @@ export interface ProdutoMercado {
   atualizadoEm: string;
   diasDesdeAtualizacao: number;
   desatualizado: boolean;
+  /** Quando há promoção valendo: `preco` já é o preço promocional e este é o preço normal. */
+  precoOriginal?: number;
+  /** Até quando a promoção vale (texto ISO), ou null se não tem fim. */
+  promocaoAte?: string | null;
   /** Caminho da foto na API (veja GrupoProduto.foto). */
   foto?: string | null;
   /** true quando a foto é só ILUSTRATIVA (a do tipo de produto, não a do produto exato). */
@@ -66,6 +82,14 @@ export interface RelatorioImportacao {
   mercadoCriado: boolean;
   importadas: number;
   erros: { linha: number; motivo: string }[];
+  /** Quantas promoções (linhas da aba Descontos) foram aplicadas na hora (só quando quem envia é o administrador). */
+  promocoes?: number;
+  /**
+   * true quando a planilha tem promoções e foi RETIDA até o pagamento: nada foi salvo ainda (`importadas` fica 0) e `pedido` diz
+   * quanto pagar. Quando a dona confirma o pagamento, a planilha é aplicada.
+   */
+  retida?: boolean;
+  pedido?: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number };
   /** Quantas imagens coladas na coluna Foto foram recebidas (links não entram: o servidor baixa depois). */
   fotosColadas?: number;
 }

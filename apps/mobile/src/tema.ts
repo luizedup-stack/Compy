@@ -15,6 +15,10 @@ export const cores = {
   bordaAviso: '#E8B931',
   erro: '#B42318',
   desabilitado: '#9AA5B1',
+  // Promoção: laranja chamativo sobre o azul da marca.
+  promocao: '#F28C28',
+  promocaoEscura: '#B85C00',
+  fundoPromocao: '#FFF3E0',
 } as const;
 
 /** Fonte da marca (Poppins). O App carrega os arquivos; sem eles o sistema usa a fonte padrão. */

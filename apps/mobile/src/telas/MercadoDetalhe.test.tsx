@@ -15,7 +15,7 @@ async function abrirDetalhe(rotas: Rotas, emailVerificado = true) {
   guardarSessao('tok-detalhe', emailVerificado);
   const user = userEvent.setup();
   await abrirApp();
-  await user.press(aba('Mercados'));
+  await user.press(aba('Estabelecimentos'));
   await screen.findByText(MERCADO.nome);
   await user.press(screen.getByRole('button', { name: /^Mercado Bom Preço,/ }));
   return { api, user };
@@ -148,7 +148,7 @@ describe('MercadoDetalhe', () => {
       [ROTA_PRODUTOS]: (c) => (falhar ? { status: 500, corpo: { erro: 'Falha no servidor' } } : paginaNumerada(30, c.consulta)),
     });
     expect(await screen.findByText('Falha no servidor')).toBeOnTheScreen();
-    expect(screen.queryByText('Este mercado ainda não tem produtos.')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Este estabelecimento ainda não tem produtos.')).not.toBeOnTheScreen();
 
     falhar = false;
     await user.press(screen.getByRole('button', { name: 'Tentar de novo' }));
@@ -162,15 +162,15 @@ describe('MercadoDetalhe', () => {
     guardarSessao('tok-detalhe', true);
     const user = userEvent.setup();
     await abrirApp();
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     await screen.findByText(MERCADO.nome);
     await user.press(screen.getByRole('button', { name: /^Mercado Bom Preço,/ }));
     expect(await screen.findByText('Não foi possível falar com o servidor')).toBeOnTheScreen();
   });
 
-  it('mercado sem produtos: "Este mercado ainda não tem produtos."', async () => {
+  it('mercado sem produtos: "Este estabelecimento ainda não tem produtos."', async () => {
     await abrirDetalhe({ [ROTA_PRODUTOS]: { status: 200, corpo: { itens: [], total: 0 } } });
-    expect(await screen.findByText('Este mercado ainda não tem produtos.')).toBeOnTheScreen();
+    expect(await screen.findByText('Este estabelecimento ainda não tem produtos.')).toBeOnTheScreen();
     expect(screen.queryByTestId('produto')).not.toBeOnTheScreen();
   });
 
@@ -257,7 +257,7 @@ describe('MercadoDetalhe', () => {
     guardarSessao('tok-detalhe', false);
     const user = userEvent.setup();
     await abrirApp();
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     await screen.findByText(MERCADO.nome);
     expect(screen.queryByText(/Confirme seu e-mail/)).not.toBeOnTheScreen();
 

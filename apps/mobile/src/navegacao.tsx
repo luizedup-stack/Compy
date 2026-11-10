@@ -54,7 +54,7 @@ function Principal() {
       }}
     >
       <Abas.Screen name="Busca" component={Busca} options={{ title: 'Buscar', tabBarIcon: iconeDaAba('🔍') }} />
-      <Abas.Screen name="Mercados" component={Mercados} options={{ title: 'Mercados', tabBarIcon: iconeDaAba('🏪') }} />
+      <Abas.Screen name="Mercados" component={Mercados} options={{ title: 'Estabelecimentos', tabBarIcon: iconeDaAba('🏪') }} />
       <Abas.Screen name="Conta" component={Conta} options={{ title: 'Conta', tabBarIcon: iconeDaAba('👤') }} />
     </Abas.Navigator>
   );

@@ -70,7 +70,7 @@ describe('login', () => {
     await entrar('cliente@exemplo.com', 'senha1234');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Esta área é para mercados. Use o aplicativo Compy.',
+      'Esta área é para comércios. Use o aplicativo Compy.',
     );
     expect(localStorage.length).toBe(0);
     expect(screen.queryByRole('heading', { name: 'Enviar planilha' })).not.toBeInTheDocument();
@@ -130,6 +130,32 @@ describe('envio de planilha', () => {
     expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
   });
 
+  it('planilha com promoções fica retida: avisa que NÃO foi salva, quanto pagar e leva para a Cobrança', async () => {
+    comSessao();
+    fetchMock.mockResolvedValue(
+      resposta(
+        {
+          mercadoId: 1, importadas: 0, mercadoCriado: false, retida: true,
+          pedido: { id: 9, quantidade: 3, valorUnitarioCentavos: 500, totalCentavos: 1500 },
+          erros: [{ linha: 4, motivo: 'Aba Descontos: preço promocional inválido' }],
+        },
+        202,
+      ),
+    );
+    abrir('/planilha');
+    const user = userEvent.setup();
+    await user.upload(screen.getByLabelText('Planilha (.xlsx)'), planilha());
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent('Planilha recebida, mas ainda NÃO foi salva');
+    expect(status).toHaveTextContent('3 promoções (R$ 5,00 cada): total de R$ 15,00');
+    expect(status).toHaveTextContent('Pedido nº 9');
+    expect(status).toHaveTextContent('Linha 4: Aba Descontos: preço promocional inválido');
+    expect(screen.getByRole('link', { name: 'Ver como pagar' })).toHaveAttribute('href', '/cobranca');
+    expect(status).not.toHaveTextContent('produtos importados');
+  });
+
   it('mostra o relatório com o total e as linhas com problema', async () => {
     comSessao();
     fetchMock.mockResolvedValue(
@@ -141,7 +167,7 @@ describe('envio de planilha', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
 
     const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('Mercado atualizado');
+    expect(status).toHaveTextContent('Comércio atualizado');
     expect(status).toHaveTextContent('26 produtos importados');
     expect(screen.getByRole('heading', { name: 'Linhas com problema' })).toBeInTheDocument();
     expect(screen.getByText('Linha 7: preço inválido')).toBeInTheDocument();
@@ -164,7 +190,7 @@ describe('envio de planilha', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
 
     const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('Mercado criado');
+    expect(status).toHaveTextContent('Comércio criado');
     expect(status).toHaveTextContent('1 produto importado');
     expect(status).not.toHaveTextContent('1 produtos');
     expect(screen.queryByRole('heading', { name: 'Linhas com problema' })).not.toBeInTheDocument();

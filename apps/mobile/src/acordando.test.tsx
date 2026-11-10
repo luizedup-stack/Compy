@@ -51,7 +51,7 @@ describe('servidor acordando', () => {
     });
     const user = userEvent.setup();
     await abrirApp();
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     expect(await screen.findByText('Mercado Bom Preço', {}, { timeout: 4000 })).toBeOnTheScreen();
   });
 

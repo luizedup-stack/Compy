@@ -61,7 +61,7 @@ function simularClipboard(writeText: ((t: string) => Promise<void>) | undefined)
 
 async function criarAcessoNaLinha(u: ReturnType<typeof userEvent.setup>, linha: HTMLElement, email = 'x@y.com') {
   await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
-  await u.type(within(linha).getByLabelText('E-mail do mercado'), email);
+  await u.type(within(linha).getByLabelText('E-mail do comércio'), email);
   await u.click(within(linha).getByRole('button', { name: 'Criar' }));
 }
 
@@ -86,15 +86,15 @@ describe('acesso à tela e navegação', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('admin vê Produtos, Enviar planilha e Administração, com os endereços certos', async () => {
+  it('admin vê Produtos, Enviar planilha, Administração e Promoções, com os endereços certos', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração']);
-    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/admin/mercados']);
+    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Administração', 'Promoções']);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/admin/mercados', '/admin/promocoes']);
     expect(within(nav).getByRole('link', { name: 'Administração' })).toHaveAttribute('aria-current', 'page');
   });
 
@@ -103,7 +103,7 @@ describe('acesso à tela e navegação', () => {
     abrir('/planilha');
     await userEvent.setup().click(screen.getByRole('link', { name: 'Administração' }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Mercados' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Comércios' })).toBeInTheDocument();
   });
 });
 
@@ -116,13 +116,13 @@ describe('lista de mercados', () => {
     expect(chamadas[0].caminho).toBe('/admin/mercados');
     expect(chamadas[0].autorizacao).toBe('Bearer tok-123');
 
-    const secao = screen.getByRole('heading', { level: 1, name: 'Mercados' }).closest('section')!;
+    const secao = screen.getByRole('heading', { level: 1, name: 'Comércios' }).closest('section')!;
     expect(
-      within(secao).getByText(/Para adicionar um mercado, envie a planilha dele em/),
+      within(secao).getByText(/Para adicionar um comércio, envie a planilha dele em/),
     ).toBeInTheDocument();
     expect(within(secao).getAllByRole('link', { name: 'Enviar planilha' })[0]).toHaveAttribute('href', '/planilha');
 
-    for (const titulo of ['Mercado', 'Situação', 'Produtos', 'Login', 'Ações']) {
+    for (const titulo of ['Comércio', 'Situação', 'Produtos', 'Login', 'Ações']) {
       expect(screen.getByRole('columnheader', { name: titulo })).toBeInTheDocument();
     }
     const l1 = within(linhaDe('Mercado Central'));
@@ -161,7 +161,7 @@ describe('lista de mercados', () => {
     expect(within(linhaDe('Mercadinho Antigo')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Dar acesso novamente', 'Apagar']);
   });
 
-  it('botões repetidos apontam para o nome do mercado da linha', async () => {
+  it('botões repetidos apontam para o nome do comércio da linha', async () => {
     simular();
     abrir('/admin/mercados');
     await screen.findByText('Mercado Central');
@@ -178,7 +178,7 @@ describe('lista de mercados', () => {
     simularApi(() => resposta([]));
     abrir('/admin/mercados');
 
-    const texto = await screen.findByText('Nenhum mercado ainda. Envie uma planilha.');
+    const texto = await screen.findByText('Nenhum comércio ainda. Envie uma planilha.');
     expect(within(texto.closest('div')!).getByRole('link', { name: 'Enviar planilha' })).toHaveAttribute(
       'href',
       '/planilha',
@@ -221,8 +221,8 @@ describe('criar acesso', () => {
     const linha = linhaDe('Mercado Central');
 
     await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
-    expect(within(linha).getByLabelText('E-mail do mercado')).toHaveFocus();
-    await u.type(within(linha).getByLabelText('E-mail do mercado'), 'x@y.com');
+    expect(within(linha).getByLabelText('E-mail do comércio')).toHaveFocus();
+    await u.type(within(linha).getByLabelText('E-mail do comércio'), 'x@y.com');
     await u.click(within(linha).getByRole('button', { name: 'Criar' }));
 
     const painel = await within(linha).findByRole('status');
@@ -259,7 +259,7 @@ describe('criar acesso', () => {
     await criarAcessoNaLinha(userEvent.setup(), linha, 'ruim@y.com');
 
     expect(await within(linha).findByRole('alert')).toHaveTextContent(mensagem);
-    expect(within(linha).getByLabelText('E-mail do mercado')).toHaveValue('ruim@y.com');
+    expect(within(linha).getByLabelText('E-mail do comércio')).toHaveValue('ruim@y.com');
     expect(within(linha).getByRole('button', { name: 'Criar' })).toBeEnabled();
     expect(within(linha).queryByRole('status')).not.toBeInTheDocument();
     // as outras linhas não são afetadas
@@ -289,7 +289,7 @@ describe('criar acesso', () => {
     await u.click(within(linha).getByRole('button', { name: 'Criar login' }));
     await u.click(within(linha).getByRole('button', { name: 'Cancelar' }));
 
-    expect(within(linha).queryByLabelText('E-mail do mercado')).not.toBeInTheDocument();
+    expect(within(linha).queryByLabelText('E-mail do comércio')).not.toBeInTheDocument();
     expect(within(linha).getByRole('button', { name: 'Criar login' })).toHaveFocus();
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
   });
@@ -687,7 +687,7 @@ describe('linhas independentes', () => {
     await u.click(within(linha).getByRole('button', { name: 'Tirar acesso agora' }));
 
     await waitFor(() => expect(within(linha).getByText('Sem acesso')).toBeInTheDocument());
-    expect(within(linha).queryByLabelText('E-mail do mercado')).not.toBeInTheDocument();
+    expect(within(linha).queryByLabelText('E-mail do comércio')).not.toBeInTheDocument();
     expect(within(linha).queryByRole('button', { name: 'Criar login' })).not.toBeInTheDocument();
   });
 });

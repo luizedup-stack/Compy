@@ -8,6 +8,8 @@ import {
   mercadosDoCatalogo,
   produtosDoMercadoNoCatalogo,
   type Catalogo,
+  type CriterioOrdem,
+  type Filtros,
   type GrupoProduto,
   type ProdutoMercado,
 } from '@mercado/shared';
@@ -57,7 +59,7 @@ const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolv
 
 /** O servidor não está atendendo agora (sem rede, ou ainda ligando): vale mostrar a cópia dos dados guardada no celular. */
 const servidorIndisponivel = (e: ErroApi): boolean => e.status === 0 || STATUS_SERVIDOR_ACORDANDO.has(e.status);
-export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Mercados usam o painel na web.';
+export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Comércios usam o painel na web.';
 export const MSG_EMAIL_REPETIDO = 'Esse e-mail já está cadastrado';
 
 export class ErroApi extends Error {
@@ -316,18 +318,50 @@ async function comCopiaLocal<T>(noServidor: () => Promise<T>, naCopia: (catalogo
  * Lista de produtos da tela inicial (sem busca): já comparados entre os mercados, os vendidos em mais de um mercado
  * primeiro. `pagina` começa em 1; `total` é a quantidade de produtos em todas as páginas.
  */
-export function listarProdutos(ordem: 'unidade' | 'embalagem', pagina: number): Promise<{ grupos: GrupoProduto[]; total: number }> {
+export function listarProdutos(
+  ordem: 'unidade' | 'embalagem',
+  pagina: number,
+  opcoes?: OpcoesDeLista,
+): Promise<{ grupos: GrupoProduto[]; total: number }> {
   return comCopiaLocal(
-    () => pedirAutenticado<{ grupos: GrupoProduto[]; total: number }>(`/produtos?ordem=${ordem}&pagina=${pagina}`),
-    (catalogo) => listarProdutosNoCatalogo(catalogo, { ordem, pagina }),
+    () => pedirAutenticado<{ grupos: GrupoProduto[]; total: number }>(`/produtos?ordem=${ordem}&pagina=${pagina}${consultaDasOpcoes(opcoes, 'relevancia')}`),
+    (catalogo) => listarProdutosNoCatalogo(catalogo, { ordem, pagina, ...(opcoes?.criterio ? { criterio: opcoes.criterio } : {}), ...(opcoes?.filtros ? { filtros: opcoes.filtros } : {}) }),
   );
 }
 
+/** Ordenação e filtros escolhidos na tela de busca. */
+export interface OpcoesDeLista {
+  criterio?: CriterioOrdem;
+  filtros?: Filtros;
+}
+
+/**
+ * Parte da consulta da URL com a ordenação e os filtros ("&ordenar=...&precoMin=..."). A ordenação que o servidor já usa quando
+ * nada é pedido (`padraoDoServidor`: menor preço na busca, relevância na lista) não precisa ir.
+ */
+export function consultaDasOpcoes(opcoes: OpcoesDeLista | undefined, padraoDoServidor: CriterioOrdem): string {
+  if (!opcoes) return '';
+  const partes: string[] = [];
+  if (opcoes.criterio && opcoes.criterio !== padraoDoServidor) partes.push(`ordenar=${opcoes.criterio}`);
+  const f = opcoes.filtros;
+  if (f) {
+    if (f.precoMin !== undefined) partes.push(`precoMin=${f.precoMin}`);
+    if (f.precoMax !== undefined) partes.push(`precoMax=${f.precoMax}`);
+    if (f.unidade !== undefined) partes.push(`unidade=${f.unidade}`);
+    if (f.quantidadeMin !== undefined) partes.push(`qtdMin=${f.quantidadeMin}`);
+    if (f.quantidadeMax !== undefined) partes.push(`qtdMax=${f.quantidadeMax}`);
+    if (f.mercadoIds && f.mercadoIds.length > 0) partes.push(`comercios=${f.mercadoIds.join(',')}`);
+    if (f.soPromocao) partes.push('promocao=1');
+    if (f.soComparaveis) partes.push('comparaveis=1');
+  }
+  return partes.length > 0 ? `&${partes.join('&')}` : '';
+}
+
 /** Busca de produtos (só clientes): grupos e ofertas ordenados pela `ordem` escolhida. */
-export function buscar(q: string, ordem: 'unidade' | 'embalagem'): Promise<GrupoProduto[]> {
+export function buscar(q: string, ordem: 'unidade' | 'embalagem', opcoes?: OpcoesDeLista): Promise<GrupoProduto[]> {
   return comCopiaLocal(
-    () => pedirAutenticado<GrupoProduto[]>(`/busca?q=${encodeURIComponent(q)}&ordem=${ordem}`),
-    (catalogo) => buscarNoCatalogo(catalogo, { q, ordem }),
+    () => pedirAutenticado<GrupoProduto[]>(`/busca?q=${encodeURIComponent(q)}&ordem=${ordem}${consultaDasOpcoes(opcoes, 'menor-preco')}`),
+    (catalogo) => buscarNoCatalogo(catalogo, { q, ordem, ...(opcoes?.criterio ? { criterio: opcoes.criterio } : {}), ...(opcoes?.filtros ? { filtros: opcoes.filtros } : {}) }),
   );
 }
 

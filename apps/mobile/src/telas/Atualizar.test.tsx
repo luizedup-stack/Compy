@@ -9,7 +9,7 @@ describe('botão Atualizar', () => {
     const api = simularApi({ 'GET /mercados': { status: 200, corpo: MERCADOS } });
     const user = userEvent.setup();
     await abrirApp();
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     expect(await screen.findByText('Atacarejo Econômico')).toBeOnTheScreen();
     const antes = api.chamadas.filter((c) => c.caminho === '/mercados').length;
 

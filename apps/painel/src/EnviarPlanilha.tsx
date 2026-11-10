@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { RelatorioImportacao } from '@mercado/shared';
-import { useNavigate } from 'react-router-dom';
-import { baixarModelo, enviarPlanilha, ErroApi } from './api';
+import { Link, useNavigate } from 'react-router-dom';
+import { baixarModelo, enviarPlanilha, ErroApi, reais } from './api';
 
 export default function EnviarPlanilha() {
   const navigate = useNavigate();
@@ -47,9 +47,10 @@ export default function EnviarPlanilha() {
     <section className="cartao">
       <h1>Enviar planilha</h1>
       <p>
-        Baixe a planilha-modelo e preencha com os dados do seu mercado e com os produtos. Uma única planilha
-        tem tudo: os dados do mercado e a lista de produtos. Assim que você enviar, os preços já aparecem para
-        os clientes.
+        Baixe a planilha-modelo e preencha com os dados do seu comércio e com os produtos. Uma única planilha
+        tem tudo: os dados do comércio e a lista de produtos. Assim que você enviar, os preços já aparecem para
+        os clientes. A aba opcional <strong>Descontos</strong> cria promoções, que são cobradas (veja em Cobrança): a planilha com
+        promoções só vai ao ar depois do pagamento.
       </p>
       <p>
         <button type="button" className="botao botao-secundario" onClick={aoBaixarModelo}>
@@ -99,14 +100,47 @@ export default function EnviarPlanilha() {
         </p>
       )}
 
-      {relatorio && (
+      {relatorio?.retida && relatorio.pedido && (
         <div role="status" className="aviso aviso-ok">
           <p>
-            <strong>{relatorio.mercadoCriado ? 'Mercado criado' : 'Mercado atualizado'}</strong>
+            <strong>Planilha recebida, mas ainda NÃO foi salva.</strong>
+          </p>
+          <p>
+            Ela tem {relatorio.pedido.quantidade} {relatorio.pedido.quantidade === 1 ? 'promoção' : 'promoções'} ({reais(relatorio.pedido.valorUnitarioCentavos)}{' '}
+            cada): total de <strong>{reais(relatorio.pedido.totalCentavos)}</strong>. Pague por Pix e aguarde a confirmação: só então os produtos e as
+            promoções vão ao ar. Pedido nº {relatorio.pedido.id}.
+          </p>
+          <p>
+            <Link to="/cobranca">Ver como pagar</Link>
+          </p>
+          {relatorio.erros.length > 0 && (
+            <>
+              <h2>Linhas com problema</h2>
+              <ul>
+                {relatorio.erros.map((e) => (
+                  <li key={`${e.linha}-${e.motivo}`}>
+                    Linha {e.linha}: {e.motivo}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
+      {relatorio && !relatorio.retida && (
+        <div role="status" className="aviso aviso-ok">
+          <p>
+            <strong>{relatorio.mercadoCriado ? 'Comércio criado' : 'Comércio atualizado'}</strong>
           </p>
           <p>
             {relatorio.importadas} {relatorio.importadas === 1 ? 'produto importado' : 'produtos importados'}
           </p>
+          {relatorio.promocoes !== undefined && (
+            <p>
+              {relatorio.promocoes} {relatorio.promocoes === 1 ? 'promoção aplicada' : 'promoções aplicadas'}
+            </p>
+          )}
           {relatorio.fotosColadas ? (
             <p>
               {relatorio.fotosColadas} {relatorio.fotosColadas === 1 ? 'foto recebida' : 'fotos recebidas'} da planilha.

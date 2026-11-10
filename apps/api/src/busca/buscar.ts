@@ -10,7 +10,7 @@ import type { FotosEmbutidas } from '../fotos/embutidas';
 import type { OfertaArmazenada, Repositorio } from '../repositorio';
 
 export { LIMITE_GRUPOS_BUSCA, type OrdemBusca } from '@mercado/shared';
-import type { OrdemBusca } from '@mercado/shared';
+import type { CriterioOrdem, Filtros, OrdemBusca } from '@mercado/shared';
 
 const MAX_TERMO_REGISTRADO = 200;
 
@@ -38,6 +38,8 @@ export async function montarCatalogo(repo: Repositorio, embutidas?: FotosEmbutid
       quantidadeValor: o.quantidadeValor,
       quantidadeUnidade: o.quantidadeUnidade,
       precoAtualizadoEm: o.precoAtualizadoEm.toISOString(),
+      // Promoção (só quando existe, para a cópia não crescer à toa): o preço vale entre início e fim, e só se for menor que o normal.
+      ...(o.promocaoPreco !== null ? { precoPromocional: o.promocaoPreco, promocaoInicio: o.promocaoInicio?.toISOString() ?? null, promocaoFim: o.promocaoFim?.toISOString() ?? null } : {}),
     });
   }
   // Mercados ativos sem nenhuma oferta disponível também entram (aparecem com 0 produtos).
@@ -104,10 +106,10 @@ export function limitarCatalogo(catalogo: Catalogo, maximo = LIMITE_OFERTAS_COPI
  */
 export async function buscar(
   repo: Repositorio,
-  { q, ordem, usuarioId, embutidas, catalogo }: { q: string; ordem: OrdemBusca; usuarioId?: number; embutidas?: FotosEmbutidas; catalogo?: Catalogo },
+  { q, ordem, criterio, filtros, usuarioId, embutidas, catalogo }: { q: string; ordem: OrdemBusca; criterio?: CriterioOrdem; filtros?: Filtros; usuarioId?: number; embutidas?: FotosEmbutidas; catalogo?: Catalogo },
 ): Promise<GrupoProduto[]> {
   if (!consultaValida(q)) return [];
-  const grupos = buscarNoCatalogo(catalogo ?? (await montarCatalogo(repo, embutidas)), { q, ordem });
+  const grupos = buscarNoCatalogo(catalogo ?? (await montarCatalogo(repo, embutidas)), { q, ordem, ...(criterio ? { criterio } : {}), ...(filtros ? { filtros } : {}) });
 
   const mercados = new Set<number>();
   for (const g of grupos) for (const o of g.ofertas) mercados.add(o.mercadoId);

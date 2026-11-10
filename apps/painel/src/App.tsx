@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Mercados from './admin/Mercados';
+import PromocoesAdmin from './admin/Promocoes';
 import {
   EVENTO_LISTA_ATUALIZADA,
   EVENTO_MERCADOS_MUDARAM,
@@ -32,13 +33,15 @@ function AlternarTema() {
       type="button"
       className="botao-tema"
       aria-pressed={escuro}
+      aria-label={escuro ? 'Modo claro' : 'Modo escuro'}
+      title={escuro ? 'Modo claro' : 'Modo escuro'}
       onClick={() => {
         const novo: Tema = escuro ? 'claro' : 'escuro';
         escolherTema(novo);
         setTema(novo);
       }}
     >
-      {escuro ? '☀️ Modo claro' : '🌙 Modo escuro'}
+      {escuro ? '☀️' : '🌙'}
     </button>
   );
 }
@@ -54,25 +57,26 @@ function RotaProtegida({ children, papel }: { children: ReactNode; papel?: Papel
 const ITENS_MERCADO = [
   { para: '/produtos', texto: 'Produtos' },
   { para: '/planilha', texto: 'Enviar planilha' },
-  { para: '/meu-mercado', texto: 'Meu mercado' },
+  { para: '/meu-mercado', texto: 'Meu comércio' },
   { para: '/cobranca', texto: 'Cobrança' },
 ];
 const ITENS_ADMIN = [
   { para: '/produtos', texto: 'Produtos' },
   { para: '/planilha', texto: 'Enviar planilha' },
   { para: '/admin/mercados', texto: 'Administração' },
+  { para: '/admin/promocoes', texto: 'Promoções' },
 ];
 
 /**
  * Seletor "Mercado:" do topo, só para quem tem MAIS DE UM mercado (usuário de mercado). Trocar de mercado muda o mercado
- * de todas as telas (Produtos, Planilha, Meu mercado...): `aoTrocar` faz o conteúdo recarregar.
+ * de todas as telas (Produtos, Planilha, Meu comércio...): `aoTrocar` faz o conteúdo recarregar.
  */
 function SeletorDeMercado({ aoTrocar }: { aoTrocar: () => void }) {
   const [lista, setLista] = useState<ResumoDoMercado[]>([]);
   const [escolhido, setEscolhido] = useState<number | null>(null);
   const papel = lerSessao()?.papel;
 
-  // Lê a última lista recebida do servidor (guardada ao entrar, ao abrir "Meu mercado" e ao cadastrar um mercado);
+  // Lê a última lista recebida do servidor (guardada ao entrar, ao abrir "Meu comércio" e ao cadastrar um mercado);
   // o cabeçalho não faz chamada própria.
   const carregar = useCallback(() => {
     if (papel !== 'mercado') return;
@@ -98,7 +102,7 @@ function SeletorDeMercado({ aoTrocar }: { aoTrocar: () => void }) {
   if (lista.length < 2) return null;
   return (
     <label className="seletor-mercado-topo">
-      Mercado:{' '}
+      Comércio:{' '}
       <select
         value={escolhido ?? ''}
         onChange={(e) => {
@@ -157,7 +161,7 @@ function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
 }
 
 export default function App() {
-  // Sobe a cada troca/cadastro de mercado: o conteúdo (`main`) é recriado e as telas carregam os dados do mercado certo.
+  // Sobe a cada troca/cadastro de mercado: o conteúdo (`main`) é recriado e as telas carregam os dados do comércio certo.
   const [versaoDoMercado, setVersaoDoMercado] = useState(0);
   const recarregarTelas = useCallback(() => setVersaoDoMercado((v) => v + 1), []);
 
@@ -213,6 +217,14 @@ export default function App() {
             element={
               <RotaProtegida papel="admin">
                 <Mercados />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/admin/promocoes"
+            element={
+              <RotaProtegida papel="admin">
+                <PromocoesAdmin />
               </RotaProtegida>
             }
           />

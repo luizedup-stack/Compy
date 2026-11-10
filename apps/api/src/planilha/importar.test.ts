@@ -541,9 +541,9 @@ describe('gerarModelo', () => {
     return wb;
   }
 
-  it('tem as abas Mercado, Produtos e Instruções com rótulos e sem dados', async () => {
+  it('tem as abas Mercado, Produtos, Descontos e Instruções com rótulos e sem dados', async () => {
     const wb = await ler(await gerarModelo());
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['Mercado', 'Produtos', 'Instruções']);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Mercado', 'Produtos', 'Descontos', 'Instruções']);
 
     const mercado = wb.getWorksheet('Mercado')!;
     expect(mercado.getCell('A1').value).toBe('Nome do mercado*');

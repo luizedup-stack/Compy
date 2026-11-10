@@ -1,12 +1,14 @@
-import type { GrupoProduto } from '@mercado/shared';
+import type { CriterioOrdem, GrupoProduto } from '@mercado/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { buscar, listarProdutos, mensagemDoErro } from '../api';
+import { buscar, listarProdutos, mensagemDoErro, type OpcoesDeLista } from '../api';
 import { useAtualizacao } from '../atualizar';
 import { Botao } from '../componentes/Botao';
 import { CartaoOferta } from '../componentes/CartaoOferta';
 import { FotoDoProduto } from '../componentes/FotoDoProduto';
+import { PainelDeFiltros, SEM_FILTROS, contarFiltros, type SelecaoDeFiltros } from '../componentes/PainelDeFiltros';
+import { SeletorOrdenacao } from '../componentes/SeletorOrdenacao';
 import { cores } from '../tema';
 
 type Ordem = 'unidade' | 'embalagem';
@@ -15,9 +17,12 @@ type Ordem = 'unidade' | 'embalagem';
 const ESPERA_MS = 400;
 const MINIMO_LETRAS = 2;
 
-const OPCOES: { ordem: Ordem; titulo: string }[] = [
-  { ordem: 'unidade', titulo: 'Menor preço por unidade' },
-  { ordem: 'embalagem', titulo: 'Menor preço da embalagem' },
+/** As formas de ordenar a lista (a primeira é a que vale ao abrir). */
+const CRITERIOS: { valor: CriterioOrdem; titulo: string }[] = [
+  { valor: 'relevancia', titulo: 'Relevância' },
+  { valor: 'menor-preco', titulo: 'Menor preço' },
+  { valor: 'maior-preco', titulo: 'Maior preço' },
+  { valor: 'recentes', titulo: 'Recentes' },
 ];
 
 type Estado =
@@ -35,14 +40,22 @@ type Estado =
  */
 export function Busca() {
   const [texto, setTexto] = useState('');
-  const [ordem, setOrdem] = useState<Ordem>('unidade');
+  // Como comparar o preço (unidade ou embalagem), a ordenação escolhida e os filtros: tudo junto vai na consulta.
+  const [selecao, setSelecao] = useState<SelecaoDeFiltros>(SEM_FILTROS);
+  const [criterio, setCriterio] = useState<CriterioOrdem>('relevancia');
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [ordemAberta, setOrdemAberta] = useState(false);
+  const ordem: Ordem = selecao.comparar;
+  // Sempre o valor mais novo, para as consultas que já estão em andamento não usarem opções velhas.
+  const opcoesRef = useRef<OpcoesDeLista>({ criterio: 'relevancia' });
+  opcoesRef.current = { criterio, ...(Object.keys(selecao.filtros).length > 0 ? { filtros: selecao.filtros } : {}) };
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Número da última chamada feita (ou invalidada): respostas de números anteriores são descartadas.
   const contador = useRef(0);
   // Última busca pedida e ainda válida (em andamento ou mostrada); evita repetir a mesma chamada.
-  const ultima = useRef<{ q: string; ordem: Ordem } | null>(null);
+  const ultima = useRef<{ q: string; ordem: Ordem; opcoes: string } | null>(null);
 
   const cancelarEspera = useCallback(() => {
     if (temporizador.current !== null) {
@@ -67,15 +80,17 @@ export function Busca() {
       const lista = q.length < MINIMO_LETRAS;
       const chave = lista ? '' : q;
       const anterior = ultima.current;
-      if (!forcar && anterior && anterior.q === chave && anterior.ordem === ordemEscolhida) return;
+      const opcoes = opcoesRef.current;
+      const chaveOpcoes = JSON.stringify(opcoes);
+      if (!forcar && anterior && anterior.q === chave && anterior.ordem === ordemEscolhida && anterior.opcoes === chaveOpcoes) return;
 
-      ultima.current = { q: chave, ordem: ordemEscolhida };
+      ultima.current = { q: chave, ordem: ordemEscolhida, opcoes: chaveOpcoes };
       contador.current += 1;
       const numero = contador.current;
       setEstado({ tipo: 'carregando' });
       if (lista) {
         try {
-          const { grupos, total } = await listarProdutos(ordemEscolhida, 1);
+          const { grupos, total } = await listarProdutos(ordemEscolhida, 1, opcoes);
           if (numero !== contador.current) return;
           setEstado({ tipo: 'inicio', grupos, total, pagina: 1, carregandoMais: false, erroMais: null });
         } catch (e) {
@@ -86,7 +101,7 @@ export function Busca() {
         return;
       }
       try {
-        const grupos = await buscar(q, ordemEscolhida);
+        const grupos = await buscar(q, ordemEscolhida, opcoes);
         if (numero !== contador.current) return;
         setEstado({ tipo: 'ok', q, grupos });
       } catch (e) {
@@ -118,7 +133,7 @@ export function Busca() {
     const proxima = estado.pagina + 1;
     setEstado({ ...estado, carregandoMais: true, erroMais: null });
     try {
-      const { grupos, total } = await listarProdutos(ordem, proxima);
+      const { grupos, total } = await listarProdutos(ordem, proxima, opcoesRef.current);
       if (numero !== contador.current) return; // a pessoa digitou ou trocou a ordem enquanto isso
       setEstado((atual) => {
         if (atual.tipo !== 'inicio') return atual;
@@ -151,10 +166,19 @@ export function Busca() {
     }, ESPERA_MS);
   }
 
-  function trocarOrdem(nova: Ordem) {
-    if (nova === ordem) return;
-    setOrdem(nova);
-    void disparar(texto.trim(), nova); // troca imediata, sem esperar os 400 ms
+  function trocarCriterio(novo: CriterioOrdem) {
+    setOrdemAberta(false);
+    if (novo === criterio) return;
+    opcoesRef.current = { ...opcoesRef.current, criterio: novo };
+    setCriterio(novo);
+    void disparar(texto.trim(), ordem); // troca imediata, sem esperar os 400 ms
+  }
+
+  function aplicarFiltros(nova: SelecaoDeFiltros) {
+    setFiltrosAbertos(false);
+    opcoesRef.current = { criterio, ...(Object.keys(nova.filtros).length > 0 ? { filtros: nova.filtros } : {}) };
+    setSelecao(nova);
+    void disparar(texto.trim(), nova.comparar);
   }
 
   return (
@@ -173,23 +197,29 @@ export function Busca() {
           autoCorrect={false}
           clearButtonMode="while-editing"
         />
-        <View testID="ordem" accessibilityRole="radiogroup" style={estilos.opcoes}>
-          {OPCOES.map((opcao) => {
-            const marcada = opcao.ordem === ordem;
-            return (
-              <Pressable
-                key={opcao.ordem}
-                accessibilityRole="radio"
-                accessibilityLabel={opcao.titulo}
-                accessibilityState={{ checked: marcada, selected: marcada }}
-                onPress={() => trocarOrdem(opcao.ordem)}
-                style={[estilos.opcao, marcada ? estilos.opcaoMarcada : null]}
-              >
-                <Text style={[estilos.textoOpcao, marcada ? estilos.textoOpcaoMarcada : null]}>{opcao.titulo}</Text>
-              </Pressable>
-            );
-          })}
+        <View style={estilos.barraOrdem}>
+          <View style={estilos.seletorOrdem}>
+            <SeletorOrdenacao
+              opcoes={CRITERIOS}
+              escolhido={criterio}
+              aberto={ordemAberta}
+              aoAbrir={() => setOrdemAberta(true)}
+              aoFechar={() => setOrdemAberta(false)}
+              aoEscolher={trocarCriterio}
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={contarFiltros(selecao) > 0 ? `Filtros, ${contarFiltros(selecao)} ligados` : 'Filtros'}
+            onPress={() => setFiltrosAbertos(true)}
+            style={[estilos.botaoFiltros, contarFiltros(selecao) > 0 ? estilos.botaoFiltrosLigado : null]}
+          >
+            <Text style={[estilos.textoBotaoFiltros, contarFiltros(selecao) > 0 ? estilos.textoBotaoFiltrosLigado : null]}>
+              {contarFiltros(selecao) > 0 ? `Filtros (${contarFiltros(selecao)})` : 'Filtros'}
+            </Text>
+          </Pressable>
         </View>
+        <PainelDeFiltros visivel={filtrosAbertos} inicial={selecao} aoFechar={() => setFiltrosAbertos(false)} aoAplicar={aplicarFiltros} />
       </View>
 
       {estado.tipo === 'inicio' && estado.grupos.length === 0 ? (
@@ -231,8 +261,8 @@ export function Busca() {
           onEndReached={() => void carregarMais()}
           ListHeaderComponent={
             <Text style={estilos.explicacaoInicio}>
-              Produtos para comparar. Os vendidos em mais de um mercado vêm primeiro, com o mais barato em destaque. Digite acima para
-              buscar um produto.
+              Produtos para comparar entre os estabelecimentos, com o mais barato em destaque. Use "Ordenar por" e "Filtros" para achar o
+              que você quer, ou digite acima para buscar um produto.
             </Text>
           }
           ListFooterComponent={
@@ -300,21 +330,12 @@ const estilos = StyleSheet.create({
     color: cores.texto,
     backgroundColor: cores.fundo,
   },
-  opcoes: { flexDirection: 'row', gap: 8 },
-  opcao: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: cores.marca,
-    backgroundColor: cores.fundo,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  opcaoMarcada: { backgroundColor: cores.marcaEscura, borderColor: cores.marcaEscura },
-  textoOpcao: { fontSize: 14, fontWeight: '600', color: cores.marcaEscura, textAlign: 'center' },
-  textoOpcaoMarcada: { color: cores.fundo },
+  barraOrdem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  seletorOrdem: { flex: 1 },
+  botaoFiltros: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: cores.marca, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundo },
+  botaoFiltrosLigado: { backgroundColor: cores.promocao, borderColor: cores.promocao },
+  textoBotaoFiltros: { fontSize: 14, fontWeight: '700', color: cores.marcaEscura },
+  textoBotaoFiltrosLigado: { color: '#FFFFFF' },
   mensagem: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 16, color: cores.textoSuave },
   carregando: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
   textoCarregando: { fontSize: 16, color: cores.textoSuave },

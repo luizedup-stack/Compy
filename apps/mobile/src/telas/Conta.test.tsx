@@ -2,6 +2,7 @@ import { act, fireEvent, screen, userEvent } from '@testing-library/react-native
 import * as Linking from 'expo-linking';
 
 import { URL_API, pedirAutenticado } from '../api';
+import { URL_SITE } from './Conta';
 import { CHAVE_SESSAO } from '../sessao';
 import { aba, abrirApp, guardarSessao, lerCofre, simularApi, type RespostaFalsa } from '../teste/ajudas';
 import { adiada, semCamposDeTexto } from '../teste/mercados';
@@ -68,6 +69,33 @@ describe('Conta', () => {
       const { user } = await abrirConta();
       await user.press(screen.getByRole('link', { name: 'Política de privacidade' }));
       expect(await screen.findByText('Não foi possível abrir a política de privacidade.')).toBeOnTheScreen();
+    });
+  });
+
+  describe('Fale conosco', () => {
+    it('abre a seção de contato do site pelo expo-linking', async () => {
+      const { user } = await abrirConta();
+      expect(screen.getByRole('link', { name: 'Fale conosco' })).toBeOnTheScreen();
+      await user.press(screen.getByRole('link', { name: 'Fale conosco' }));
+      expect(Linking.openURL).toHaveBeenCalledTimes(1);
+      expect(Linking.openURL).toHaveBeenCalledWith(`${URL_SITE}#contato`);
+    });
+
+    it('avisa quando o aparelho não consegue abrir o link', async () => {
+      (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error('sem navegador'));
+      const { user } = await abrirConta();
+      await user.press(screen.getByRole('link', { name: 'Fale conosco' }));
+      expect(await screen.findByText('Não foi possível abrir a página de contato.')).toBeOnTheScreen();
+    });
+
+    it('também aparece sem login', async () => {
+      simularApi({});
+      await abrirApp();
+      const user = userEvent.setup();
+      await user.press(aba('Conta'));
+      expect(screen.getByRole('link', { name: 'Fale conosco' })).toBeOnTheScreen();
+      await user.press(screen.getByRole('link', { name: 'Fale conosco' }));
+      expect(Linking.openURL).toHaveBeenCalledWith(`${URL_SITE}#contato`);
     });
   });
 
@@ -214,7 +242,7 @@ describe('Conta', () => {
   it('não há faixa de confirmação de e-mail em nenhuma aba, mesmo com o e-mail não confirmado', async () => {
     const { user } = await abrirConta({ 'GET /mercados': { status: 200, corpo: [] } }, false);
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Conta
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Mercados
     await user.press(aba('Buscar'));
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Buscar

@@ -30,7 +30,7 @@ export function MercadoDetalhe({ navigation, route }: Props) {
     if (!endereco) return;
     navigation.setOptions({
       headerRight: () => (
-        <Pressable accessibilityRole="link" accessibilityLabel="Como chegar ao mercado" onPress={() => perguntarSeQuerIr({ nome, endereco })}>
+        <Pressable accessibilityRole="link" accessibilityLabel="Como chegar ao estabelecimento" onPress={() => perguntarSeQuerIr({ nome, endereco })}>
           <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Como chegar</Text>
         </Pressable>
       ),
@@ -167,7 +167,7 @@ export function MercadoDetalhe({ navigation, route }: Props) {
         onEndReachedThreshold={0.5}
         initialNumToRender={20}
         maxToRenderPerBatch={50}
-        ListEmptyComponent={<Text style={estilos.mensagem}>Este mercado ainda não tem produtos.</Text>}
+        ListEmptyComponent={<Text style={estilos.mensagem}>Este estabelecimento ainda não tem produtos.</Text>}
         ListFooterComponent={
           carregandoMais ? (
             <View style={estilos.carregando} accessibilityLiveRegion="polite">

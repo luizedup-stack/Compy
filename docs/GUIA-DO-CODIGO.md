@@ -113,6 +113,25 @@ guarda a cópia em partes de 3.000 ofertas **compactadas** (gzip, `fflate`) em `
 (`PRAZO_RENOVAR_MS` em `apps/mobile/src/api.ts`). A lista da tela inicial é montada por `listarProdutosNoCatalogo` (`packages/shared/src/busca.ts`),
 que ordena por um resumo leve e só monta os produtos da página pedida (0,2 s com 50 mil ofertas).
 
+**Produtos, não só mercados (nomes na tela)** → o que a pessoa vê agora fala em **comércio** (painel) e **estabelecimento** (app, aba "Estabelecimentos"). Só os
+TEXTOS mudaram: rotas da API (`/mercados`), tabelas do banco e nomes no código continuam "mercado" (mudar isso não traz nada ao usuário e arriscaria quebrar o que funciona).
+
+**Ordenar e filtrar** → toda a conta mora em `packages/shared/src/busca.ts` (a mesma no servidor e na cópia do celular): `CriterioOrdem` (relevância, menor preço, maior preço, recentes),
+`Filtros` (preço, quantidade, comércios, só promoção, só comparáveis), `buscarNoCatalogo` e `listarProdutosNoCatalogo`. Sem os parâmetros novos o resultado é o de sempre.
+A API lê os parâmetros em `apps/api/src/busca/parametros.ts` (`/busca` e `/produtos`: `ordenar`, `precoMin`, `precoMax`, `qtdMin`, `qtdMax`, `unidade`, `comercios`, `promocao=1`, `comparaveis=1`).
+No app: seletor "Ordenar por" e botão "Filtros" em `apps/mobile/src/telas/Busca.tsx`; o painel de filtros é `apps/mobile/src/componentes/PainelDeFiltros.tsx`; a consulta é montada em `apps/mobile/src/api.ts` (`consultaDasOpcoes`). Testes: `packages/shared/src/ordenar-filtrar.test.ts`, `apps/api/src/rotas/ordenarFiltrar.test.ts`.
+
+**Promoções pagas (aba "Descontos")** → regra e motivos em `docs/superpowers/specs/2026-11-10-produtos-descontos-design.md`.
+- Planilha: `apps/api/src/planilha/importar.ts` lê a aba opcional **Descontos** (`lerDescontos`); o modelo de planilha tem a aba (`planilha/modelo.ts`).
+- Regras de datas, conferência e aplicação: `apps/api/src/promocoes/pedidos.ts` (`lerLinhaDeDesconto`, `conferirDescontos`, `aplicarPlanilha`, valor por promoção e chave Pix).
+- Pedido retido: planilha de comércio com promoções válidas NÃO é salva; vira um pedido "aguardando" (tabela `PedidosPromocao`, migração `008-promocoes.sql`) e a rota devolve 202. Quando a dona marca **pago** (`POST /admin/promocoes/:id/pagar`) a planilha é aplicada.
+- Rotas: `apps/api/src/rotas/promocoes.ts` (comércio: `/painel/promocoes`, avisar, cancelar; administração: `/admin/promocoes`, pagar, cancelar, `/admin/promocoes/config` para o valor e a chave Pix).
+- Telas: comércio em `apps/painel/src/Cobranca.tsx` (e o aviso em `EnviarPlanilha.tsx`); administração em `apps/painel/src/admin/Promocoes.tsx`.
+- Preço que vale agora: `promocaoAtiva` em `packages/shared/src/busca.ts` (promoção dentro do período e menor que o preço normal; vencida some sozinha, sem rotina agendada). No app, o selo laranja está em `componentes/CartaoOferta.tsx` e `LinhaProduto.tsx`.
+- Valor padrão: R$ 5,00 (`VALOR_PADRAO_PROMOCAO_CENTAVOS`), guardado em centavos; o valor fica gravado em cada pedido (mudar o preço não altera pedidos antigos).
+
+**Divulgação (site e Instagram)** → `site/` (uma página HTML, veja `site/LEIA-ME.md`), `divulgacao/gerar-posts.cjs` (gera as imagens com o Electron do projeto), `divulgacao/legendas.md` e `divulgacao/perfil.md`.
+
 **App sem login e "Como chegar"** → o app abre sempre nas abas (`apps/mobile/src/navegacao.tsx`); Entrar e Cadastrar abrem por cima, a partir da aba Conta (`telas/Conta.tsx`). As rotas de leitura da API são públicas (`usuarioOpcional` em `apps/api/src/auth/guardas.ts`). A pergunta "Ir até o mercado?" e os links do Google Maps e do Waze estão em `apps/mobile/src/rota.ts`.
 
 **Hospedagem** → `render.yaml` (como montar e iniciar no Render) e `docs/HOSPEDAGEM.md`. O painel compila com `PAINEL_BASE=/painel-web/` (`apps/painel/vite.config.ts`) e

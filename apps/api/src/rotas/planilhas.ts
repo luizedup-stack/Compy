@@ -48,6 +48,8 @@ export function rotasPlanilhas({ repo, aoMudarProdutos }: { repo: Repositorio; a
 
       try {
         const relatorio = await importarPlanilha(repo, arquivo, ator);
+        // Planilha com promoções: ficou RETIDA até o pagamento (nada foi salvo). 202 = recebido, mas ainda não aplicado.
+        if (relatorio.retida) return reply.code(202).send(relatorio);
         aoMudarProdutos?.(); // produtos novos: procura a foto deles
         return relatorio;
       } catch (e) {

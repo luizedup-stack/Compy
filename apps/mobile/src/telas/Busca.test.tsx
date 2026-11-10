@@ -63,7 +63,7 @@ const X_POR_EMBALAGEM = (): GrupoProduto => {
 
 const BUSCA = 'Buscar produto';
 const TITULO_FOX = 'Papel Higiênico Fox Folha Dupla 12 rolos';
-const EXPLICACAO_INICIO = /Produtos para comparar\./;
+const EXPLICACAO_INICIO = /Produtos para comparar entre os estabelecimentos/;
 
 /** Resposta de GET /produtos (lista da tela inicial). */
 function listaInicial(grupos: GrupoProduto[], total = grupos.length): RespostaFalsa {
@@ -91,6 +91,12 @@ async function avancar(ms: number) {
 async function buscarTexto(texto: string) {
   await digitar(texto);
   await avancar(400);
+}
+
+/** Abre o listbox "Ordenar por" (botão fechado) e toca na opção pedida; o listbox fecha sozinho. */
+async function escolherOrdem(titulo: string) {
+  await fireEvent.press(screen.getByTestId('botao-ordenar'));
+  await fireEvent.press(await screen.findByRole('radio', { name: titulo }));
 }
 
 /** Nomes dos mercados na ordem em que as ofertas aparecem na tela. */
@@ -202,7 +208,7 @@ describe('Busca', () => {
       expect(api.chamadas[0]).toMatchObject({
         metodo: 'GET',
         caminho: '/busca',
-        consulta: '?q=papel%20higienico&ordem=unidade',
+        consulta: '?q=papel%20higienico&ordem=unidade&ordenar=relevancia',
         autorizacao: 'Bearer tok-busca',
       });
       expect(await screen.findByText('Papel Higiênico Fox Folha Dupla 12 rolos')).toBeOnTheScreen();
@@ -219,21 +225,21 @@ describe('Busca', () => {
       await avancar(100);
 
       expect(api.chamadas).toHaveLength(1);
-      expect(api.chamadas[0].consulta).toBe('?q=papel&ordem=unidade');
+      expect(api.chamadas[0].consulta).toBe('?q=papel&ordem=unidade&ordenar=relevancia');
     });
 
     it('apaga os espaços das pontas antes de mandar', async () => {
       const api = simularApi({ 'GET /busca': resposta([FOX_12()]) });
       await abrirApp();
       await buscarTexto('  papel higienico  ');
-      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel%20higienico&ordem=unidade']);
+      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel%20higienico&ordem=unidade&ordenar=relevancia']);
     });
 
     it('codifica acentos e símbolos no q', async () => {
       const api = simularApi({ 'GET /busca': resposta([]) });
       await abrirApp();
       await buscarTexto('feijão & arroz');
-      expect(api.chamadas[0].consulta).toBe('?q=feij%C3%A3o%20%26%20arroz&ordem=unidade');
+      expect(api.chamadas[0].consulta).toBe('?q=feij%C3%A3o%20%26%20arroz&ordem=unidade&ordenar=relevancia');
     });
 
     it('com menos de 2 letras não chama a busca e continua mostrando a lista de produtos', async () => {
@@ -292,7 +298,7 @@ describe('Busca', () => {
       expect(api.chamadas).toHaveLength(1);
 
       // tocar de novo na opção que já está marcada também não refaz a chamada
-      await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço por unidade' }));
+      await escolherOrdem('Relevância');
       await avancar(1000);
       expect(api.chamadas).toHaveLength(1);
     });
@@ -397,70 +403,121 @@ describe('Busca', () => {
     });
   });
 
-  describe('alternância de ordem', () => {
-    it('começa em "Menor preço por unidade" e é um grupo de opções acessível', async () => {
+  describe('ordenar e filtrar', () => {
+    it('começa em "Relevância" e as formas de ordenar ficam num listbox, fechado até tocar no botão', async () => {
       simularApi({});
       await abrirApp();
-      expect(screen.getByTestId('ordem').props.accessibilityRole).toBe('radiogroup');
-      expect(screen.getByRole('radio', { name: 'Menor preço por unidade', checked: true })).toBeOnTheScreen();
-      expect(screen.getByRole('radio', { name: 'Menor preço da embalagem', checked: false })).toBeOnTheScreen();
+      expect(screen.getByTestId('botao-ordenar')).toBeOnTheScreen();
+      expect(screen.getByLabelText(/^Ordenar por: Relevância\./)).toBeOnTheScreen();
+      expect(screen.queryByTestId('lista-ordenar')).not.toBeOnTheScreen(); // fechado: as opções ainda não aparecem
+
+      await fireEvent.press(screen.getByTestId('botao-ordenar'));
+      expect(await screen.findByTestId('lista-ordenar')).toHaveProp('accessibilityRole', 'radiogroup');
+      expect(screen.getByRole('radio', { name: 'Relevância', checked: true })).toBeOnTheScreen();
+      for (const nome of ['Menor preço', 'Maior preço', 'Recentes']) {
+        expect(screen.getByRole('radio', { name: nome, checked: false })).toBeOnTheScreen();
+      }
+      expect(screen.getByRole('button', { name: 'Filtros' })).toBeOnTheScreen();
     });
 
-    it('trocar para "Menor preço da embalagem" refaz a busca na hora com ordem=embalagem e mostra a nova ordem como veio', async () => {
-      const api = simularApi({
-        'GET /busca': (c) => resposta(c.consulta.includes('ordem=embalagem') ? [X_POR_EMBALAGEM()] : [X_POR_UNIDADE()]),
-      });
+    it('trocar para "Maior preço" refaz a busca na hora com ordenar=maior-preco, e fecha o listbox', async () => {
+      const api = simularApi({ 'GET /busca': resposta([X_POR_UNIDADE()]) });
       await abrirApp();
       await buscarTexto('papel hig x');
       await screen.findByText('Papel Higiênico X Folha Simples');
-      expect(mercadosNaTela()).toEqual(['Empório Sonia', 'Supermercado Estrela da Vila']);
 
-      await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço da embalagem' }));
-      // sem esperar os 400 ms: a troca é imediata
-      await avancar(0);
+      await escolherOrdem('Maior preço');
+      await avancar(0); // sem esperar os 400 ms: a troca é imediata
 
       expect(api.chamadas.map((c) => c.consulta)).toEqual([
-        '?q=papel%20hig%20x&ordem=unidade',
-        '?q=papel%20hig%20x&ordem=embalagem',
+        '?q=papel%20hig%20x&ordem=unidade&ordenar=relevancia',
+        '?q=papel%20hig%20x&ordem=unidade&ordenar=maior-preco',
       ]);
-      expect(screen.getByRole('radio', { name: 'Menor preço da embalagem', checked: true })).toBeOnTheScreen();
-      expect(screen.getByRole('radio', { name: 'Menor preço por unidade', checked: false })).toBeOnTheScreen();
-      expect(await screen.findByText('R$ 14,00')).toBeOnTheScreen();
-      expect(mercadosNaTela()).toEqual(['Supermercado Estrela da Vila', 'Empório Sonia']);
-      expect(screen.getAllByText('mais barato')).toHaveLength(1);
-
-      // e volta
-      await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço por unidade' }));
-      await avancar(0);
-      expect(api.chamadas[2].consulta).toBe('?q=papel%20hig%20x&ordem=unidade');
-      expect(mercadosNaTela()).toEqual(['Empório Sonia', 'Supermercado Estrela da Vila']);
+      expect(screen.queryByTestId('lista-ordenar')).not.toBeOnTheScreen();
+      expect(screen.getByLabelText(/^Ordenar por: Maior preço\./)).toBeOnTheScreen();
     });
 
-    it('trocar a ordem sem texto recarrega a lista de produtos na nova ordem; o texto digitado depois usa a ordem escolhida', async () => {
+    it('"Menor preço" na busca é o que o servidor já faz sem pedir: não manda ordenar', async () => {
+      const api = simularApi({ 'GET /busca': resposta([X_POR_UNIDADE()]) });
+      await abrirApp();
+      await escolherOrdem('Menor preço');
+      await buscarTexto('papel hig x');
+      expect(api.chamadas.filter((c) => c.caminho === '/busca').map((c) => c.consulta)).toEqual(['?q=papel%20hig%20x&ordem=unidade']);
+    });
+
+    it('trocar a ordenação sem texto recarrega a lista de produtos; o texto digitado depois usa a ordenação escolhida', async () => {
       const api = simularApi({ 'GET /busca': resposta([FOX_12()]), 'GET /produtos': listaInicial([NEVE_12()]) });
       await abrirApp();
       await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
-      await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço da embalagem' }));
+      await escolherOrdem('Recentes');
       await avancar(1000);
       expect(chamadasDeBusca(api)).toHaveLength(0);
       expect(api.chamadas.filter((c) => c.caminho === '/produtos').map((c) => c.consulta)).toEqual([
         '?ordem=unidade&pagina=1',
-        '?ordem=embalagem&pagina=1',
+        '?ordem=unidade&pagina=1&ordenar=recentes',
       ]);
 
       await buscarTexto('fox');
-      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=fox&ordem=embalagem']);
+      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=fox&ordem=unidade&ordenar=recentes']);
     });
 
-    it('trocar a ordem com uma busca ainda esperando os 400 ms manda uma chamada só', async () => {
+    it('trocar a ordenação com uma busca ainda esperando os 400 ms manda uma chamada só', async () => {
       const api = simularApi({ 'GET /busca': resposta([FOX_12()]) });
       await abrirApp();
       await digitar('fox');
       await avancar(100);
-      await fireEvent.press(screen.getByRole('radio', { name: 'Menor preço da embalagem' }));
+      await escolherOrdem('Maior preço');
       await avancar(0);
       await avancar(1000);
-      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=fox&ordem=embalagem']);
+      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=fox&ordem=unidade&ordenar=maior-preco']);
+    });
+
+    it('o painel de Filtros abre, aplica preço, "só promoções" e "comparar por embalagem" e a busca leva tudo na consulta', async () => {
+      const api = simularApi({ 'GET /busca': resposta([FOX_12()]), 'GET /mercados': { status: 200, corpo: [] } });
+      await abrirApp();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
+      expect(await screen.findByTestId('painel-filtros')).toBeOnTheScreen();
+
+      await fireEvent.changeText(screen.getByLabelText('Preço mínimo'), '3,5');
+      await fireEvent.changeText(screen.getByLabelText('Preço máximo'), '20');
+      await fireEvent.press(screen.getByRole('checkbox', { name: '🔥 Só promoções' }));
+      await fireEvent.press(screen.getByRole('radio', { name: 'Embalagem' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Aplicar' }));
+      await avancar(0);
+
+      // o botão mostra quantos filtros estão ligados (preço, só promoções e comparar por embalagem = 3)
+      expect(screen.getByRole('button', { name: 'Filtros, 3 ligados' })).toBeOnTheScreen();
+      await buscarTexto('fox');
+      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=fox&ordem=embalagem&ordenar=relevancia&precoMin=3.5&precoMax=20&promocao=1']);
+    });
+
+    it('filtro com valor inválido mostra o aviso e não aplica nada', async () => {
+      const api = simularApi({ 'GET /busca': resposta([]), 'GET /mercados': { status: 200, corpo: [] } });
+      await abrirApp();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
+      await fireEvent.changeText(await screen.findByLabelText('Preço mínimo'), 'abc');
+      await fireEvent.press(screen.getByRole('button', { name: 'Aplicar' }));
+      expect(await screen.findByText('Use só números nos valores (por exemplo 12,50).')).toBeOnTheScreen();
+      await fireEvent.changeText(screen.getByLabelText('Preço mínimo'), '10');
+      await fireEvent.changeText(screen.getByLabelText('Preço máximo'), '5');
+      await fireEvent.press(screen.getByRole('button', { name: 'Aplicar' }));
+      expect(await screen.findByText('O preço mínimo não pode ser maior que o máximo.')).toBeOnTheScreen();
+      expect(chamadasDeBusca(api)).toHaveLength(0);
+    });
+
+    it('"Limpar" desliga todos os filtros', async () => {
+      simularApi({ 'GET /busca': resposta([]), 'GET /mercados': { status: 200, corpo: [] } });
+      await abrirApp();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
+      await fireEvent.press(await screen.findByRole('checkbox', { name: '🔥 Só promoções' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Aplicar' }));
+      await avancar(0);
+      expect(screen.getByRole('button', { name: 'Filtros, 1 ligados' })).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filtros, 1 ligados' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Limpar' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Aplicar' }));
+      await avancar(0);
+      expect(screen.getByRole('button', { name: 'Filtros' })).toBeOnTheScreen();
     });
   });
 
@@ -525,7 +582,7 @@ describe('Busca', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Tentar de novo' }));
       await avancar(0);
 
-      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade', '?q=papel&ordem=unidade']);
+      expect(chamadasDeBusca(api).map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade&ordenar=relevancia', '?q=papel&ordem=unidade&ordenar=relevancia']);
       expect(await screen.findByText('Papel Higiênico Fox Folha Dupla 12 rolos')).toBeOnTheScreen();
       expect(screen.queryByText('Não foi possível falar com o servidor')).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Tentar de novo' })).not.toBeOnTheScreen();
@@ -549,7 +606,7 @@ describe('Busca', () => {
       rotas['GET /busca'] = resposta([FOX_12()]);
       await buscarTexto('fox');
       expect(await screen.findByText('Papel Higiênico Fox Folha Dupla 12 rolos')).toBeOnTheScreen();
-      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade', '?q=fox&ordem=unidade']);
+      expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=papel&ordem=unidade&ordenar=relevancia', '?q=fox&ordem=unidade&ordenar=relevancia']);
     });
 
     it('um 401 encerra a sessão (apaga o token); o app continua aberto, sem login', async () => {
@@ -571,10 +628,12 @@ describe('Busca', () => {
 
       expect(screen.container.queryAll((el) => el.type === 'TextInput')).toHaveLength(1);
       expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
-      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta) e o "Atualizar" do topo; nada que edite.
+      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta), o "Atualizar" do topo, "Ordenar por" e "Filtros"; nada que edite.
       const botoes = screen.queryAllByRole('button').map((el) => String(el.props.accessibilityLabel));
-      expect(botoes).toHaveLength(4);
-      expect(botoes.every((rotulo) => /^((Buscar|Mercados|Conta), tab, \d of 3|Atualizar produtos e preços)$/.test(rotulo))).toBe(true);
+      expect(botoes).toHaveLength(6);
+      expect(
+        botoes.every((rotulo) => /^((Buscar|Estabelecimentos|Conta), tab, \d of 3|Atualizar produtos e preços|Filtros|Ordenar por: .*\. Toque para ver as opções)$/.test(rotulo)),
+      ).toBe(true);
     });
   });
 
