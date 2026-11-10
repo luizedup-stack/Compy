@@ -3,11 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bolso Certo – compare preços e economize de verdade</title>
-  <meta name="description" content="O Bolso Certo compara o preço do mesmo produto em vários comércios perto de você. Veja promoções, ordene pelo menor preço e vá até lá. Comércios: cadastrem seus produtos por planilha.">
+  <title>Compy – compare antes de comprar</title>
+  <meta name="description" content="O Compy compara o preço do mesmo produto em vários comércios perto de você. Veja promoções, ordene pelo menor preço e vá até lá. Comércios: cadastrem seus produtos por planilha.">
   <link rel="icon" type="image/svg+xml" href="icone.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <!--
-    Site de divulgação do Bolso Certo: UMA página, sem nenhum serviço pago e sem programa nenhum (só HTML e CSS).
+    Site de divulgação do Compy: UMA página, sem nenhum serviço pago e sem programa nenhum (só HTML e CSS).
     Para mudar um texto, abra este arquivo e troque o que está entre as tags. As cores estão no começo do <style>.
     Os endereços dos botões estão nos "href" (procure por "baixar-app" e "cadastrar-comercio").
     Se mudar o preço da promoção no painel de administração, troque também o "R$ 5" daqui (procure por "preco-promocao").
@@ -15,23 +18,26 @@
   -->
   <style>
     :root {
-      --azul: #0F7D99;
-      --azul-escuro: #0B5F76;
-      --azul-claro: #E6F5F9;
-      --laranja: #F28C28;
-      --laranja-escuro: #B85C00;
-      --laranja-claro: #FFF3E0;
+      /* Paleta oficial da marca Compy (marca/*.svg): azul principal + azul secundário mais vivo para o degradê do topo. */
+      --azul: #0B1F5B;
+      --azul-escuro: #081646;
+      --azul-secundario: #2E6BFF;
+      --azul-claro: #EDF1FB;
+      --laranja: #FF8A00;
+      --laranja-escuro: #C96900;
+      --laranja-claro: #FFF1E0;
+      --cinza: #F5F7FA;
       --texto: #1F2933;
       --suave: #52606D;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: var(--texto); background: #fff; line-height: 1.55; }
+    body { margin: 0; font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: var(--texto); background: var(--cinza); line-height: 1.55; }
     a { color: inherit; }
     .centro { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 
     /* Topo */
-    header.topo { position: sticky; top: 0; z-index: 10; background: rgba(11, 95, 118, 0.96); backdrop-filter: blur(6px); }
+    header.topo { position: sticky; top: 0; z-index: 10; background: rgba(8, 22, 70, 0.96); backdrop-filter: blur(6px); }
     header.topo .centro { display: flex; align-items: center; justify-content: space-between; height: 64px; }
     .marca { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; font-size: 1.25rem; }
     .marca img { width: 38px; height: 38px; border-radius: 10px; }
@@ -47,7 +53,7 @@
     .botao.azul { background: var(--azul); color: #fff; }
 
     /* Hero */
-    .hero { background: radial-gradient(circle at 80% 20%, #1aa0c2 0%, transparent 45%), linear-gradient(135deg, var(--azul) 0%, var(--azul-escuro) 100%); color: #fff; overflow: hidden; }
+    .hero { background: radial-gradient(circle at 80% 20%, var(--azul-secundario) 0%, transparent 45%), linear-gradient(135deg, var(--azul) 0%, var(--azul-escuro) 100%); color: #fff; overflow: hidden; }
     .hero .centro { display: grid; grid-template-columns: 1.15fr .85fr; gap: 30px; align-items: center; padding-top: 64px; padding-bottom: 72px; }
     .hero h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.08; margin: 0 0 16px; font-weight: 900; }
     .hero h1 em { font-style: normal; color: #FFD08A; }
@@ -58,7 +64,7 @@
     /* Celular de enfeite (só HTML e CSS) */
     .celular { width: 280px; margin: 0 auto; background: #0a2f3a; border-radius: 38px; padding: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, .35); transform: rotate(3deg); }
     .tela { background: #fff; border-radius: 28px; overflow: hidden; color: var(--texto); }
-    .tela .barra { background: var(--azul); color: #fff; padding: 14px 14px 12px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .tela .barra { background: var(--azul); color: #fff; padding: 14px 14px 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     .tela .barra img { width: 24px; height: 24px; border-radius: 6px; }
     .tela .campo { margin: 12px; padding: 10px 12px; border: 1px solid #cbd2d9; border-radius: 8px; color: #9aa5b1; font-size: .9rem; }
     .tela .ordem { display: flex; gap: 6px; padding: 0 12px 8px; font-size: .72rem; }
@@ -120,7 +126,7 @@
 
 <header class="topo">
   <div class="centro">
-    <a class="marca" href="#inicio"><img src="icone.svg" alt="">Bolso Certo</a>
+    <a class="marca" href="#inicio"><img src="icone.svg" alt="">Compy</a>
     <nav class="menu" aria-label="Principal">
       <a href="#app">O app</a>
       <a href="#promocoes">Promoções</a>
@@ -138,7 +144,7 @@
     <div class="centro">
       <div>
         <h1>O mesmo produto, <em>preços diferentes</em>. Descubra onde sai mais barato.</h1>
-        <p class="sub">O Bolso Certo compara o preço do mesmo produto em vários comércios, mostra as promoções e leva você até o lugar certo. Sem cadastro, de graça.</p>
+        <p class="sub">O Compy compara o preço do mesmo produto em vários comércios, mostra as promoções e leva você até o lugar certo. Sem cadastro, de graça.</p>
         <div class="botoes">
           <a class="botao laranja" id="baixar-app" href="https://github.com/luizedup-stack/bolso-certo/raw/main/releases/bolso-certo.apk">📲 Baixar o app (Android)</a>
           <a class="botao contorno" id="cadastrar-comercio" href="https://bolso-certo.onrender.com/painel-web/cadastrar">🏪 Tenho um comércio</a>
@@ -148,7 +154,7 @@
       <div aria-hidden="true">
         <div class="celular">
           <div class="tela">
-            <div class="barra"><img src="icone.svg" alt="">Bolso Certo</div>
+            <div class="barra"><img src="icone.svg" alt="">Compy</div>
             <div class="campo">🔍 arroz 5kg</div>
             <div class="ordem"><span class="on">Relevância</span><span>Menor preço</span><span>Recentes</span></div>
             <div class="oferta">
@@ -219,7 +225,7 @@
   <!-- Comércios -->
   <section id="comercios">
     <div class="centro">
-      <h2>Para comércios: o Bolso Certo – Comércio</h2>
+      <h2>Para comércios: o Compy – Comércio</h2>
       <p class="lead">O painel onde cada comércio cadastra os seus produtos e preços. Entra, faz o acesso normal e pronto: os clientes já veem.</p>
       <div class="cartoes">
         <div class="cartao"><div class="num">1</div><h3>Crie sua conta</h3><p>Só e-mail e senha. Depois você cadastra o endereço completo do seu comércio (o CEP preenche o endereço para você).</p></div>
@@ -246,7 +252,7 @@
     </div>
   </section>
 
-  <!-- Contato: dúvidas, sugestões, problemas. O e-mail abaixo é um EXEMPLO (placeholder) — troque "contato@bolsocerto.com.br"
+  <!-- Contato: dúvidas, sugestões, problemas. O e-mail abaixo é um EXEMPLO (placeholder) — troque "contato@compy.com.br"
        pelo endereço de e-mail de verdade que você quer usar (pode ser um Gmail, sem custo nenhum), nos dois lugares marcados
        com CONTATO_EMAIL. -->
   <section id="contato">
@@ -255,11 +261,11 @@
       <p class="lead">Dúvida, sugestão ou algum problema? Mande um e-mail. Comércios também podem usar este canal.</p>
       <div class="cartao" style="max-width:520px">
         <p style="margin-bottom:14px">Respondemos o mais rápido que der.</p>
-        <a class="botao azul" href="mailto:contato@bolsocerto.com.br?subject=Fale%20com%20o%20Bolso%20Certo">
-          ✉️ contato@bolsocerto.com.br
+        <a class="botao azul" href="mailto:contato@compy.com.br?subject=Fale%20com%20a%20Compy">
+          ✉️ contato@compy.com.br
         </a>
         <p class="nota" style="margin-top:14px;color:#52606D">
-          Se o botão não abrir seu programa de e-mail, copie o endereço: <strong>contato@bolsocerto.com.br</strong>
+          Se o botão não abrir seu programa de e-mail, copie o endereço: <strong>contato@compy.com.br</strong>
         </p>
       </div>
     </div>
@@ -269,7 +275,7 @@
   <section class="chamada">
     <div class="centro">
       <h2>Chega de pagar mais caro sem saber</h2>
-      <p class="lead" style="color:#d9f1f7;margin-left:auto;margin-right:auto">Baixe o Bolso Certo e compare antes de comprar. Se você tem um comércio, apareça para quem está procurando.</p>
+      <p class="lead" style="color:#d9f1f7;margin-left:auto;margin-right:auto">Baixe o Compy e compare antes de comprar. Se você tem um comércio, apareça para quem está procurando.</p>
       <div class="botoes">
         <a class="botao laranja" href="https://github.com/luizedup-stack/bolso-certo/raw/main/releases/bolso-certo.apk">📲 Baixar o app</a>
         <a class="botao contorno" href="https://bolso-certo.onrender.com/painel-web/cadastrar">🏪 Cadastrar meu comércio</a>
@@ -280,9 +286,9 @@
 
 <footer>
   <div class="centro">
-    <span>© Bolso Certo – compare, economize, acerte.</span>
-    <!-- Troque @bolsocerto pelo usuário real do Instagram quando a conta for criada. -->
-    <span>Instagram: <a href="https://www.instagram.com/bolsocerto/" rel="noopener">@bolsocerto</a></span>
+    <span>© Compy – compare antes de comprar.</span>
+    <!-- Troque @compy pelo usuário real do Instagram quando a conta for criada. -->
+    <span>Instagram: <a href="https://www.instagram.com/compy/" rel="noopener">@compy</a></span>
   </div>
 </footer>
 
