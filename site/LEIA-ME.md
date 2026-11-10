@@ -1,7 +1,16 @@
-# Site do Bolso Certo
+# Site do Compy
 
 Uma página só (`index.html`), feita só com HTML e CSS: **não precisa de nenhum programa, banco de dados ou serviço pago**. Os preços que aparecem
 nas telas do site são **exemplos inventados**.
+
+## O site hospeda o APK (para o tester baixar sempre a versão mais atual)
+
+O botão "Baixar o app" baixa o arquivo `site/bolso-certo.apk` **direto do próprio site** (não do GitHub), para o endereço nunca mudar e sempre
+valer o mesmo link. **A cada APK novo, duas coisas** (isso é parte de gerar um APK novo, eu faço sempre):
+1. Copiar o arquivo novo por cima de `site/bolso-certo.apk` (o mesmo arquivo que vai para `releases/bolso-certo.apk`).
+2. Trocar o número da versão no `<span id="versao-apk">` do `index.html`.
+
+O `.gitignore` tem uma exceção só para `site/*.apk` (senão a regra geral `*.apk` o deixaria de fora do envio ao GitHub).
 
 ## Ver no seu computador
 Dê dois cliques em `site/index.html`: ele abre no navegador.

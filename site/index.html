@@ -6,6 +6,14 @@
   <title>Compy – compare antes de comprar</title>
   <meta name="description" content="O Compy compara o preço do mesmo produto em vários comércios perto de você. Veja promoções, ordene pelo menor preço e vá até lá. Comércios: cadastrem seus produtos por planilha.">
   <link rel="icon" type="image/svg+xml" href="icone.svg">
+  <!-- Como o link aparece ao ser compartilhado (WhatsApp, Instagram, etc.). "capa.png" é gerada por gerar-capa.cjs;
+       o endereço abaixo já é o do GitHub Pages (veja LEIA-ME.md): funciona assim que o site estiver publicado lá. -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Compy – compare antes de comprar">
+  <meta property="og:description" content="Compare o preço do mesmo produto em vários comércios, veja promoções e vá até o lugar certo. Grátis, sem cadastro.">
+  <meta property="og:image" content="https://luizedup-stack.github.io/bolso-certo/capa.png">
+  <meta property="og:url" content="https://luizedup-stack.github.io/bolso-certo/">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -15,6 +23,12 @@
     Os endereços dos botões estão nos "href" (procure por "baixar-app" e "cadastrar-comercio").
     Se mudar o preço da promoção no painel de administração, troque também o "R$ 5" daqui (procure por "preco-promocao").
     Todos os preços que aparecem nas telas deste site são EXEMPLOS inventados, não são de nenhum comércio real.
+
+    O SITE HOSPEDA O APK (arquivo "bolso-certo.apk", nesta mesma pasta): o botão "Baixar o app" baixa direto daqui, não do
+    GitHub. A CADA NOVA VERSÃO DO APK, duas coisas (eu faço isso ao gerar um APK novo):
+      1. Copiar o arquivo novo por cima de "site/bolso-certo.apk" (o mesmo que vai para "releases/bolso-certo.apk").
+      2. Atualizar o texto de <span id="versao-apk"> aqui embaixo com o número da versão.
+    Sem isso, quem baixar pelo site fica com uma versão desatualizada.
   -->
   <style>
     :root {
@@ -60,6 +74,7 @@
     .hero p.sub { font-size: 1.2rem; color: #d9f1f7; max-width: 34em; margin: 0 0 28px; }
     .hero .botoes { display: flex; flex-wrap: wrap; gap: 14px; }
     .hero small { display: block; margin-top: 16px; color: #b6e3ee; }
+    #versao-apk { display: inline-block; margin-top: 6px; font-weight: 700; color: #FFD08A; }
 
     /* Celular de enfeite (só HTML e CSS) */
     .celular { width: 280px; margin: 0 auto; background: #0a2f3a; border-radius: 38px; padding: 12px; box-shadow: 0 30px 60px rgba(0, 0, 0, .35); transform: rotate(3deg); }
@@ -146,10 +161,11 @@
         <h1>O mesmo produto, <em>preços diferentes</em>. Descubra onde sai mais barato.</h1>
         <p class="sub">O Compy compara o preço do mesmo produto em vários comércios, mostra as promoções e leva você até o lugar certo. Sem cadastro, de graça.</p>
         <div class="botoes">
-          <a class="botao laranja" id="baixar-app" href="https://github.com/luizedup-stack/bolso-certo/raw/main/releases/bolso-certo.apk">📲 Baixar o app (Android)</a>
+          <a class="botao laranja" id="baixar-app" href="bolso-certo.apk">📲 Baixar o app (Android)</a>
           <a class="botao contorno" id="cadastrar-comercio" href="https://bolso-certo.onrender.com/painel-web/cadastrar">🏪 Tenho um comércio</a>
         </div>
-        <small>Ao abrir o arquivo no celular, o Android pede para permitir a instalação: é normal em apps fora da loja.</small>
+        <small>Ao abrir o arquivo no celular, o Android pede para permitir a instalação: é normal em apps fora da loja.<br>
+          <span id="versao-apk">Versão 1.2.1 — o arquivo aqui é sempre o mais atual.</span></small>
       </div>
       <div aria-hidden="true">
         <div class="celular">
@@ -277,7 +293,7 @@
       <h2>Chega de pagar mais caro sem saber</h2>
       <p class="lead" style="color:#d9f1f7;margin-left:auto;margin-right:auto">Baixe o Compy e compare antes de comprar. Se você tem um comércio, apareça para quem está procurando.</p>
       <div class="botoes">
-        <a class="botao laranja" href="https://github.com/luizedup-stack/bolso-certo/raw/main/releases/bolso-certo.apk">📲 Baixar o app</a>
+        <a class="botao laranja" href="bolso-certo.apk">📲 Baixar o app</a>
         <a class="botao contorno" href="https://bolso-certo.onrender.com/painel-web/cadastrar">🏪 Cadastrar meu comércio</a>
       </div>
     </div>
