@@ -393,10 +393,41 @@ export function centavosDe(texto: string): number | null {
   return Math.round(Number(t) * 100);
 }
 
-/** Os pedidos de promoção do comércio em uso, com o valor por promoção e a chave Pix para pagar. */
-export async function listarPromocoes(): Promise<{ config: ConfigPromocao; pedidos: PedidoPromocao[] }> {
+/** Os pedidos de promoção do comércio em uso, com o valor por promoção, a chave Pix para pagar e se o aviso por e-mail está ligado. */
+export async function listarPromocoes(): Promise<{ config: ConfigPromocao; avisarPorEmail: boolean; pedidos: PedidoPromocao[] }> {
   const resposta = await pedir('/painel/promocoes');
-  return (await resposta.json()) as { config: ConfigPromocao; pedidos: PedidoPromocao[] };
+  return (await resposta.json()) as { config: ConfigPromocao; avisarPorEmail: boolean; pedidos: PedidoPromocao[] };
+}
+
+/** Liga ou desliga o aviso por e-mail de quando uma promoção do comércio é aprovada (o padrão é ligado). */
+export async function salvarAvisoPromocao(avisar: boolean): Promise<{ avisarPorEmail: boolean }> {
+  const resposta = await pedir('/painel/promocoes/aviso', { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ avisar }) });
+  return (await resposta.json()) as { avisarPorEmail: boolean };
+}
+
+/** Preço promocional e, opcionalmente, de quando a quando vale (datas em texto "dd/mm/aaaa", como o comércio digita). */
+export interface CamposPromocao {
+  precoPromocional: string;
+  validoDe?: string;
+  validoAte: string;
+}
+
+/**
+ * Coloca (ou troca) a promoção de UM produto já cadastrado, direto no painel (sem planilha). Como sempre: se o valor por
+ * promoção for maior que zero, fica retido até a administração aprovar o pagamento; sendo R$ 0, já aplica na hora.
+ */
+export async function colocarEmPromocao(
+  codigo: string,
+  campos: CamposPromocao,
+): Promise<{ retida: true; pedido: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number } } | { retida: false; importadas: number; promocoes: number; ignoradas: number }> {
+  const resposta = await pedir(`/painel/produtos/${encodeURIComponent(codigo)}/promocao`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(campos),
+  });
+  return (await resposta.json()) as
+    | { retida: true; pedido: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number } }
+    | { retida: false; importadas: number; promocoes: number; ignoradas: number };
 }
 
 /** "Já paguei": só avisa a dona (quem libera o pedido é ela). */

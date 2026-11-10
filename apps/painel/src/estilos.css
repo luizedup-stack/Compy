@@ -609,11 +609,23 @@ input:disabled {
   display: block;
   margin: 8px 0;
 }
+.dica-promocao {
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+  margin: 12px 0 4px;
+}
+
+/* Grupo da direita do cabeçalho: seletor de comércio, lua (modo escuro) e Sair, sempre juntos. */
+.acoes-cabecalho {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 /* Seletor de mercado no cabeçalho (usuário com mais de um mercado) e lista "Meus comércios" */
 .seletor-mercado-topo {
-  margin-left: auto;
-  margin-right: 12px;
   white-space: nowrap;
 }
 .lista-mercados {

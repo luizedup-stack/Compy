@@ -15,6 +15,8 @@ export const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsh
 export interface Ambiente {
   repo: Repositorio;
   app: FastifyInstance;
+  /** Os e-mails que o servidor "enviou" durante o teste (nada sai de verdade; fica só guardado aqui). */
+  emailsEnviados: { para: string; assunto: string; texto: string }[];
   criarComPapel(papel: Papel, email?: string): Promise<{ id: number; token: string }>;
 }
 
@@ -22,10 +24,12 @@ export async function criarAmbiente(
   opcoes: Partial<Omit<OpcoesApp, 'repo' | 'email' | 'jwtSecret'>> = {},
 ): Promise<Ambiente> {
   const repo = criarRepositorioMemoria();
-  const app = await construirApp({ repo, email: criarEmailMemoria(), jwtSecret: 'segredo-de-teste', ...opcoes });
+  const emailFalso = criarEmailMemoria();
+  const app = await construirApp({ repo, email: emailFalso, jwtSecret: 'segredo-de-teste', ...opcoes });
   return {
     repo,
     app,
+    emailsEnviados: emailFalso.enviados,
     async criarComPapel(papel, email = `${papel}@exemplo.com`) {
       const u = await repo.criarUsuario({
         email,

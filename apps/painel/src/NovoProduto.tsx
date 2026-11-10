@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ProdutoPainel } from '@mercado/shared';
-import { criarProduto, mensagemDoErro, sessaoRecusada } from './api';
+import { colocarEmPromocao, criarProduto, mensagemDoErro, sessaoRecusada } from './api';
 
 interface Props {
-  /** Chamado com o produto criado (a tela de produtos recarrega a lista). */
-  aoCriar: (p: ProdutoPainel) => void;
+  /** Chamado com o produto criado (a tela de produtos recarrega a lista); `avisoPromocao` só vem se a promoção foi preenchida. */
+  aoCriar: (p: ProdutoPainel, avisoPromocao?: string) => void;
   aoSessaoRecusada: () => void;
 }
 
@@ -17,6 +17,9 @@ export default function NovoProduto({ aoCriar, aoSessaoRecusada }: Props) {
   const [quantidade, setQuantidade] = useState('');
   const [categoria, setCategoria] = useState('');
   const [disponivel, setDisponivel] = useState(true);
+  // Promoção (opcional): se o preço promocional for preenchido, a promoção é criada logo após o produto.
+  const [precoPromocional, setPrecoPromocional] = useState('');
+  const [validoAte, setValidoAte] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const campoCodigo = useRef<HTMLInputElement>(null);
@@ -36,6 +39,8 @@ export default function NovoProduto({ aoCriar, aoSessaoRecusada }: Props) {
     setQuantidade('');
     setCategoria('');
     setDisponivel(true);
+    setPrecoPromocional('');
+    setValidoAte('');
     setErro(null);
   }
 
@@ -48,6 +53,11 @@ export default function NovoProduto({ aoCriar, aoSessaoRecusada }: Props) {
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
+    // A promoção é opcional, mas se o preço promocional foi preenchido, o "Válido até" é obrigatório (o servidor também confere isso).
+    if (precoPromocional.trim() !== '' && validoAte.trim() === '') {
+      setErro('Preencha "Válido até" para colocar o produto em promoção');
+      return;
+    }
     setEnviando(true);
     try {
       const criado = await criarProduto({
@@ -58,8 +68,23 @@ export default function NovoProduto({ aoCriar, aoSessaoRecusada }: Props) {
         categoria: categoria.trim() === '' ? null : categoria.trim(),
         disponivel,
       });
+      let avisoPromocao: string | undefined;
+      if (precoPromocional.trim() !== '') {
+        try {
+          const resultado = await colocarEmPromocao(criado.codigoBarras, { precoPromocional: precoPromocional.trim(), validoAte: validoAte.trim() });
+          avisoPromocao = resultado.retida
+            ? 'Promoção enviada: fica em destaque depois que a administração aprovar o pagamento.'
+            : 'Promoção aplicada: o produto já está em destaque.';
+        } catch (falhaPromocao) {
+          if (sessaoRecusada(falhaPromocao)) {
+            aoSessaoRecusada();
+            return;
+          }
+          avisoPromocao = `Produto cadastrado, mas a promoção não pôde ser criada: ${mensagemDoErro(falhaPromocao)}`;
+        }
+      }
       setAberto(false);
-      aoCriar(criado);
+      aoCriar(criado, avisoPromocao);
     } catch (falha) {
       if (sessaoRecusada(falha)) aoSessaoRecusada();
       else setErro(mensagemDoErro(falha));
@@ -111,6 +136,28 @@ export default function NovoProduto({ aoCriar, aoSessaoRecusada }: Props) {
       <label className="linha-marcar">
         <input type="checkbox" checked={disponivel} onChange={(e) => setDisponivel(e.target.checked)} /> Disponível
       </label>
+      <p className="dica-promocao">
+        Quer colocar este produto em promoção já ao cadastrar? Preencha o preço promocional e a data de validade (isso gera uma
+        cobrança: veja em <strong>Cobrança</strong> como funciona).
+      </p>
+      <label htmlFor="novo-preco-promocional">Preço promocional (opcional)</label>
+      <input
+        id="novo-preco-promocional"
+        type="text"
+        inputMode="decimal"
+        placeholder="12,90"
+        value={precoPromocional}
+        onChange={(e) => setPrecoPromocional(e.target.value)}
+      />
+      <label htmlFor="novo-valido-ate">Válido até {precoPromocional.trim() !== '' && '(obrigatório com preço promocional)'}</label>
+      <input
+        id="novo-valido-ate"
+        type="text"
+        inputMode="numeric"
+        placeholder="dd/mm/aaaa"
+        value={validoAte}
+        onChange={(e) => setValidoAte(e.target.value)}
+      />
       {erro && (
         <p role="alert" className="aviso aviso-erro">
           {erro}

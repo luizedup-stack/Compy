@@ -290,3 +290,89 @@ describe('administração das promoções', () => {
     expect((await post('/admin/promocoes/1/pagar', tokenC)).statusCode).toBe(403);
   });
 });
+
+describe('promoção manual no painel (editar/cadastrar produto, sem planilha)', () => {
+  async function criarOferta(preco = 25) {
+    await post(
+      '/painel/produtos',
+      tokenC,
+      { codigoBarras: ARROZ, nome: 'Arroz 5kg', preco: String(preco).replace('.', ','), quantidade: '5 kg' } as unknown as object,
+    );
+  }
+
+  it('fica retida (202) até a aprovação; com o valor por promoção em R$ 0, aplica na hora (200)', async () => {
+    await criarOferta();
+    const res = await post(`/painel/produtos/${ARROZ}/promocao`, tokenC, { precoPromocional: '19,90', validoAte: dia(5) });
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toMatchObject({ retida: true, pedido: { quantidade: 1, valorUnitarioCentavos: 500, totalCentavos: 500 } });
+    expect((await amb.repo.acharOferta(comercio.id, ARROZ))?.promocaoPreco).toBeNull(); // ainda não vale
+
+    await put('/admin/promocoes/config', admin.token, { valorCentavos: 0 });
+    const res2 = await post(`/painel/produtos/${ARROZ}/promocao`, tokenC, { precoPromocional: '18,00', validoAte: dia(5) });
+    expect(res2.statusCode).toBe(200);
+    expect(res2.json()).toMatchObject({ retida: false, promocoes: 1 });
+    expect((await amb.repo.acharOferta(comercio.id, ARROZ))?.promocaoPreco).toBe(18);
+  });
+
+  it('a mesma rota funciona logo depois de cadastrar um produto novo', async () => {
+    const criado = await post(
+      '/painel/produtos',
+      tokenC,
+      { codigoBarras: FEIJAO, nome: 'Feijão 1kg', preco: '9,00', quantidade: '1 kg' } as unknown as object,
+    );
+    expect(criado.statusCode).toBe(201);
+    const res = await post(`/painel/produtos/${FEIJAO}/promocao`, tokenC, { precoPromocional: '6,50', validoAte: dia(3) });
+    expect(res.statusCode).toBe(202);
+  });
+
+  it('recusa: produto não encontrado, preço promocional maior/igual ao normal, ou sem "Válido até"', async () => {
+    await criarOferta(25);
+    expect((await post(`/painel/produtos/${FEIJAO}/promocao`, tokenC, { precoPromocional: '5,00', validoAte: dia(3) })).statusCode).toBe(404);
+    const caro = await post(`/painel/produtos/${ARROZ}/promocao`, tokenC, { precoPromocional: '30,00', validoAte: dia(3) });
+    expect(caro.statusCode).toBe(400);
+    expect((caro.json() as { erro: string }).erro).toContain('menor que o preço normal');
+    const semData = await post(`/painel/produtos/${ARROZ}/promocao`, tokenC, { precoPromocional: '10,00' });
+    expect(semData.statusCode).toBe(400);
+  });
+
+  it('um comércio não cria promoção no produto de outro (404); exige login de mercado', async () => {
+    await criarOferta();
+    const outro = await amb.criarComPapel('mercado', 'outro3@exemplo.com');
+    await amb.repo.criarMercado({ nome: 'B', endereco: 'Rua B, 2', nomeNorm: 'b', enderecoNorm: 'rua b, 2', status: 'ativo', contaSituacao: 'gratuita', usuarioId: outro.id });
+    expect((await post(`/painel/produtos/${ARROZ}/promocao`, outro.token, { precoPromocional: '10,00', validoAte: dia(3) })).statusCode).toBe(404);
+    expect((await post(`/painel/produtos/${ARROZ}/promocao`, '', { precoPromocional: '10,00', validoAte: dia(3) })).statusCode).toBe(401);
+  });
+});
+
+describe('aviso por e-mail quando a promoção é aprovada', () => {
+  async function pedidoPendente() {
+    await post('/painel/produtos', tokenC, { codigoBarras: ARROZ, nome: 'Arroz 5kg', preco: '25,00', quantidade: '5 kg' } as unknown as object);
+    const res = await post(`/painel/produtos/${ARROZ}/promocao`, tokenC, { precoPromocional: '19,90', validoAte: dia(5) });
+    return (res.json() as { pedido: { id: number } }).pedido.id;
+  }
+
+  it('o comércio começa avisado por padrão (GET /painel/promocoes) e recebe o e-mail ao ser aprovado', async () => {
+    expect((await get('/painel/promocoes', tokenC)).json()).toMatchObject({ avisarPorEmail: true });
+    const id = await pedidoPendente();
+    await post(`/admin/promocoes/${id}/pagar`, admin.token);
+    expect(amb.emailsEnviados).toHaveLength(1);
+    expect(amb.emailsEnviados[0]).toMatchObject({ para: 'comercio@exemplo.com', assunto: 'Sua promoção foi aprovada' });
+    expect(amb.emailsEnviados[0]!.texto).toContain('Comércio A');
+  });
+
+  it('desligando o aviso ("Meu comércio"), nenhum e-mail é mandado ao aprovar', async () => {
+    const desligar = await put('/painel/promocoes/aviso', tokenC, { avisar: false });
+    expect(desligar.statusCode).toBe(200);
+    expect(desligar.json()).toEqual({ avisarPorEmail: false });
+    expect((await get('/painel/promocoes', tokenC)).json()).toMatchObject({ avisarPorEmail: false });
+
+    const id = await pedidoPendente();
+    await post(`/admin/promocoes/${id}/pagar`, admin.token);
+    expect(amb.emailsEnviados).toHaveLength(0);
+  });
+
+  it('"avisar" precisa ser verdadeiro ou falso; exige login de mercado', async () => {
+    expect((await put('/painel/promocoes/aviso', tokenC, { avisar: 'sim' })).statusCode).toBe(400);
+    expect((await put('/painel/promocoes/aviso', admin.token, { avisar: true })).statusCode).toBe(403);
+  });
+});

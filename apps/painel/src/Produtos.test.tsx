@@ -337,6 +337,102 @@ describe('edição na linha', () => {
   });
 });
 
+describe('promoção na linha (sem planilha)', () => {
+  async function abrirPromocao() {
+    const user = userEvent.setup();
+    let promo: () => Response = () => resposta({ retida: true, pedido: { id: 9, quantidade: 1, valorUnitarioCentavos: 500, totalCentavos: 500 } }, 202);
+    const chamadas = simularApi((c) =>
+      c.metodo === 'GET' ? resposta({ itens: [arroz, feijao], total: 2 }) : promo(),
+    );
+    abrir('/produtos');
+    await screen.findByText('Arroz Tipo 1 5kg');
+    const tr = linhaDe('Arroz Tipo 1 5kg');
+    const linha = within(tr);
+    await user.click(linha.getByRole('button', { name: 'Colocar em promoção' }));
+    return {
+      user,
+      chamadas,
+      linha,
+      tr,
+      respondePromo: (fn: () => Response) => {
+        promo = fn;
+      },
+      pedidos: () => chamadas.filter((c) => c.metodo === 'POST'),
+    };
+  }
+
+  it('abre um formulário com preço promocional e validade; some o resto das ações', async () => {
+    const { linha } = await abrirPromocao();
+
+    expect(linha.getByLabelText('Preço promocional')).toBeInTheDocument();
+    expect(linha.getByLabelText('Válido até')).toBeInTheDocument();
+    expect(linha.getByRole('button', { name: 'Confirmar promoção' })).toBeInTheDocument();
+    expect(linha.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+  });
+
+  it('envia preço e validade; valor > 0 fica retida até a aprovação', async () => {
+    const { user, linha, tr, pedidos } = await abrirPromocao();
+    await user.type(linha.getByLabelText('Preço promocional'), '12,90');
+    await user.type(linha.getByLabelText('Válido até'), '20/12/2026');
+    await user.click(linha.getByRole('button', { name: 'Confirmar promoção' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/fica em destaque depois que a administração aprovar/);
+    expect(within(tr).getByRole('button', { name: 'Colocar em promoção' })).toBeInTheDocument();
+    expect(pedidos()).toHaveLength(1);
+    expect(pedidos()[0].caminho).toBe('/painel/produtos/7891000100103/promocao');
+    expect(pedidos()[0].corpo).toEqual({ precoPromocional: '12,90', validoAte: '20/12/2026' });
+  });
+
+  it('com o valor por promoção em R$ 0, o servidor já aplica na hora e a mensagem muda', async () => {
+    const { user, linha, respondePromo } = await abrirPromocao();
+    respondePromo(() => resposta({ retida: false, importadas: 0, promocoes: 1, ignoradas: 0 }));
+    await user.type(linha.getByLabelText('Preço promocional'), '12,90');
+    await user.type(linha.getByLabelText('Válido até'), '20/12/2026');
+    await user.click(linha.getByRole('button', { name: 'Confirmar promoção' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/já está em destaque/);
+  });
+
+  it('sem preencher os campos, não chama o servidor e mostra o aviso', async () => {
+    const { user, linha, pedidos } = await abrirPromocao();
+    await user.click(linha.getByRole('button', { name: 'Confirmar promoção' }));
+
+    expect(await linha.findByRole('alert')).toHaveTextContent('Preencha o preço promocional e a data de validade');
+    expect(pedidos()).toHaveLength(0);
+  });
+
+  it('erro do servidor (ex.: preço maior que o normal) aparece na linha e o formulário continua aberto', async () => {
+    const { user, linha, respondePromo } = await abrirPromocao();
+    respondePromo(() => resposta({ erro: 'O preço promocional precisa ser menor que o preço normal (14.9)' }, 400));
+    await user.type(linha.getByLabelText('Preço promocional'), '20,00');
+    await user.type(linha.getByLabelText('Válido até'), '20/12/2026');
+    await user.click(linha.getByRole('button', { name: 'Confirmar promoção' }));
+
+    expect(await linha.findByRole('alert')).toHaveTextContent('O preço promocional precisa ser menor que o preço normal (14.9)');
+    expect(linha.getByLabelText('Preço promocional')).toBeInTheDocument();
+  });
+
+  it('Cancelar fecha o formulário sem chamar o servidor e devolve o foco ao botão', async () => {
+    const { user, linha, tr, pedidos } = await abrirPromocao();
+    await user.click(linha.getByRole('button', { name: 'Cancelar' }));
+
+    expect(within(tr).queryByLabelText('Preço promocional')).not.toBeInTheDocument();
+    expect(within(tr).getByRole('button', { name: 'Colocar em promoção' })).toHaveFocus();
+    expect(pedidos()).toHaveLength(0);
+  });
+
+  it('sessão recusada (401) leva para /entrar', async () => {
+    const { user, linha, respondePromo } = await abrirPromocao();
+    respondePromo(() => resposta({ erro: 'Sessão expirada' }, 401));
+    await user.type(linha.getByLabelText('Preço promocional'), '12,90');
+    await user.type(linha.getByLabelText('Válido até'), '20/12/2026');
+    await user.click(linha.getByRole('button', { name: 'Confirmar promoção' }));
+
+    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
+    expect(localStorage.length).toBe(0);
+  });
+});
+
 describe('remover', () => {
   async function abrirLista() {
     const user = userEvent.setup();

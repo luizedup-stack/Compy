@@ -138,24 +138,27 @@ function Cabecalho({ aoTrocarMercado }: { aoTrocarMercado: () => void }) {
       <div className="marca">
         <Marca />
       </div>
-      <AlternarTema />
       {sessao && (
-        <>
-          <nav aria-label="Principal" className="navegacao">
-            <ul>
-              {itens.map((item) => (
-                <li key={item.para}>
-                  <NavLink to={item.para}>{item.texto}</NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <SeletorDeMercado aoTrocar={aoTrocarMercado} />
+        <nav aria-label="Principal" className="navegacao">
+          <ul>
+            {itens.map((item) => (
+              <li key={item.para}>
+                <NavLink to={item.para}>{item.texto}</NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      {/* A lua fica sempre ao lado do botão Sair (ou sozinha, no canto, quando não há sessão). */}
+      <div className="acoes-cabecalho">
+        {sessao && <SeletorDeMercado aoTrocar={aoTrocarMercado} />}
+        <AlternarTema />
+        {sessao && (
           <button type="button" className="botao botao-secundario" onClick={sair}>
             Sair
           </button>
-        </>
-      )}
+        )}
+      </div>
     </header>
   );
 }

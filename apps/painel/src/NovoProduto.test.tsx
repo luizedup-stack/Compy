@@ -109,6 +109,47 @@ describe('Novo produto', () => {
     expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument();
   });
 
+  it('com preço promocional e validade, cria a promoção logo depois de cadastrar o produto (fica retida)', async () => {
+    const leite = produto({ codigoBarras: '7891000100103', nome: 'Leite Integral 1 L', preco: 5.5, quantidadeTexto: '1 L', categoria: null });
+    let criado = false;
+    const chamadas = simularApi((c) => {
+      if (c.metodo === 'POST' && c.caminho === '/painel/produtos') {
+        criado = true;
+        return resposta(leite, 201);
+      }
+      if (c.metodo === 'POST' && c.caminho.endsWith('/promocao')) {
+        return resposta({ retida: true, pedido: { id: 9, quantidade: 1, valorUnitarioCentavos: 500, totalCentavos: 500 } }, 202);
+      }
+      return resposta(criado ? { itens: [leite], total: 1 } : { itens: [], total: 0 });
+    });
+    abrir('/produtos');
+    await screen.findByRole('button', { name: 'Novo produto' });
+    const usuario = userEvent.setup();
+    const form = await preencher(usuario, { quantidade: '1 L' });
+    await usuario.type(within(form).getByLabelText('Preço promocional (opcional)'), '4,50');
+    await usuario.type(within(form).getByLabelText(/^Válido até/), '20/12/2026');
+    await usuario.click(within(form).getByRole('button', { name: 'Cadastrar produto' }));
+
+    expect(await screen.findByText('Leite Integral 1 L')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/Promoção enviada: fica em destaque depois que a administração aprovar/);
+
+    const envioPromocao = chamadas.find((c) => c.caminho.endsWith('/promocao'))!;
+    expect(envioPromocao.caminho).toBe('/painel/produtos/7891000100103/promocao');
+    expect(envioPromocao.corpo).toEqual({ precoPromocional: '4,50', validoAte: '20/12/2026' });
+  });
+
+  it('preço promocional sem "Válido até" é barrado sem chamar o servidor', async () => {
+    simularApi(() => resposta({ itens: [], total: 0 }));
+    abrir('/produtos');
+    await screen.findByRole('button', { name: 'Novo produto' });
+    const usuario = userEvent.setup();
+    const form = await preencher(usuario);
+    await usuario.type(within(form).getByLabelText('Preço promocional (opcional)'), '4,50');
+    await usuario.click(within(form).getByRole('button', { name: 'Cadastrar produto' }));
+
+    expect(await within(form).findByRole('alert')).toHaveTextContent('Preencha "Válido até" para colocar o produto em promoção');
+  });
+
   it('o administrador cadastra no mercado escolhido (a chamada leva ?mercadoId=)', async () => {
     comSessao('admin');
     localStorage.setItem('bolso-certo:mercado-escolhido', '7');
