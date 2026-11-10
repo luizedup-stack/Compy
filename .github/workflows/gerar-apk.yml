@@ -1,6 +1,6 @@
 # Gera o APK do app (Android) nos servidores do GitHub, já apontando para o servidor na nuvem.
 # Como usar: no GitHub, aba "Actions" > "Gerar APK" > "Run workflow". Quando terminar (uns 15 a 25 minutos),
-# abra a execução e baixe "bolso-certo-apk" na parte de baixo ("Artifacts"). Dentro do .zip está o bolso-certo.apk.
+# abra a execução e baixe "compy-apk" na parte de baixo ("Artifacts"). Dentro do .zip está o compy.apk.
 name: Gerar APK
 
 on:
@@ -54,11 +54,11 @@ jobs:
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
       - name: Nomear o arquivo
-        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk bolso-certo.apk
+        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk compy.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: bolso-certo-apk
-          path: bolso-certo.apk
+          name: compy-apk
+          path: compy.apk
           if-no-files-found: error
           retention-days: 30
