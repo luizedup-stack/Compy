@@ -36,6 +36,10 @@ describe('RelatorioImportacao', () => {
       mercadoCriado: boolean;
       importadas: number;
       erros: { linha: number; motivo: string }[];
+      promocoes?: number;
+      retida?: boolean;
+      pedido?: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number };
+      fotosColadas?: number;
     }>();
     expect(relatorio.erros[0]).toEqual({ linha: 3, motivo: 'Preço inválido' });
   });

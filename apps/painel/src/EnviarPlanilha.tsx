@@ -57,6 +57,30 @@ export default function EnviarPlanilha() {
           Baixar planilha-modelo
         </button>
       </p>
+      <details className="dica">
+        <summary>Dica: a sua planilha é diferente do modelo?</summary>
+        <p>
+          Peça a uma IA (como o ChatGPT, o Claude ou o Gemini) para ajustar a sua planilha ao nosso modelo. Envie <strong>a sua planilha e o
+          nosso modelo juntos</strong> e escreva algo como:
+        </p>
+        <p className="exemplo-pedido">
+          Reorganize a minha planilha para ficar igual ao modelo anexo: mesma aba "Mercado" e aba "Produtos" com as colunas Código de
+          barras, Produto, Preço, Quantidade, Categoria, Disponível e Foto, nesta ordem. Código de barras como texto, preço com vírgula, e
+          não invente nenhum dado.
+        </p>
+        <p>
+          Depois, confira o resultado (principalmente códigos de barras e preços) antes de enviar. Mande para a IA só a lista de produtos,
+          sem dados pessoais seus ou de clientes.
+        </p>
+      </details>
+      <details className="dica">
+        <summary>Como mandar as fotos dos produtos</summary>
+        <p>
+          Na coluna <strong>Foto</strong> da planilha, ponha o <strong>link</strong> da imagem (começando com https://) ou <strong>cole a
+          imagem</strong> sobre a célula do produto (Inserir &gt; Imagem). Se o produto ainda não tem foto, a sua passa a valer para todos. Se
+          já tem, a que existia continua para os outros e a sua fica guardada para o seu mercado.
+        </p>
+      </details>
       <form onSubmit={aoEnviar}>
         <label htmlFor="planilha">Planilha (.xlsx)</label>
         <input
@@ -117,6 +141,11 @@ export default function EnviarPlanilha() {
               {relatorio.promocoes} {relatorio.promocoes === 1 ? 'promoção aplicada' : 'promoções aplicadas'}
             </p>
           )}
+          {relatorio.fotosColadas ? (
+            <p>
+              {relatorio.fotosColadas} {relatorio.fotosColadas === 1 ? 'foto recebida' : 'fotos recebidas'} da planilha.
+            </p>
+          ) : null}
           {relatorio.erros.length > 0 && (
             <>
               <h2>Linhas com problema</h2>

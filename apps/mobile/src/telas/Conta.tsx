@@ -13,7 +13,7 @@ import { cores, estilos as comuns } from '../tema';
 
 // Endereço do site do Bolso Certo (veja site/LEIA-ME.md): o botão "Fale conosco" leva até a seção de Contato de lá.
 // Troque aqui se o site for publicado noutro endereço.
-export const URL_SITE = 'https://luizedup-stack.github.io/bolso-certo/';
+export const URL_SITE = 'https://luizedup-stack.github.io/compy/';
 export const AVISO_CONTA_EXCLUIDA = 'Conta excluída.';
 /** Crédito das fotos: a licença do Open Food Facts (CC BY-SA) pede que elas sejam atribuídas. */
 export const CREDITO_FOTOS = 'Fotos dos produtos: Open Food Facts (licença CC BY-SA) e enviadas pelos comércios.';

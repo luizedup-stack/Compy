@@ -70,7 +70,7 @@ describe('login', () => {
     await entrar('cliente@exemplo.com', 'senha1234');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Esta área é para comércios. Use o aplicativo Bolso Certo.',
+      'Esta área é para comércios. Use o aplicativo Compy.',
     );
     expect(localStorage.length).toBe(0);
     expect(screen.queryByRole('heading', { name: 'Enviar planilha' })).not.toBeInTheDocument();

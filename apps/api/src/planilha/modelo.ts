@@ -36,7 +36,7 @@ export async function gerarModelo(): Promise<Buffer> {
   const instrucoes = wb.addWorksheet(ABA_INSTRUCOES);
   instrucoes.getColumn(1).width = 110;
   [
-    'Modelo de planilha do Bolso Certo',
+    'Modelo de planilha do Compy',
     '',
     `1. Na aba "${ABA_MERCADO}", preencha o nome e o endereço do mercado na coluna B.`,
     `2. Na aba "${ABA_PRODUTOS}", uma linha por produto. Colunas com * são obrigatórias.`,
@@ -45,10 +45,15 @@ export async function gerarModelo(): Promise<Buffer> {
     '5. Quantidade: texto livre como "1 L", "500 g" ou "12 rolos". Permite comparar o preço por unidade.',
     '6. Disponível: sim ou não. Em branco vale sim.',
     `7. Até ${LIMITE_LINHAS} produtos por planilha. Enviar de novo atualiza os preços; a planilha sempre vale mais.`,
-    '8. Foto (opcional): o link (começando com https://) da imagem do produto. O sistema baixa e guarda a foto. Sem link, ele procura a foto sozinho pelo código de barras, e você também pode enviar a foto no painel.',
-    `9. Aba "${ABA_DESCONTOS}" (opcional): cada linha é uma PROMOÇÃO, que é cobrada. Preencha o código de barras de um produto que está na aba "${ABA_PRODUTOS}" (ou já cadastrado), o preço promocional (menor que o normal), "Válido de" (opcional) e "Válido até" (obrigatório), no formato dia/mês/ano.`,
-    '10. Planilha com promoções só vai ao ar depois que o pagamento das promoções é confirmado; antes disso, nada da planilha é salvo. Sem a aba Descontos (ou vazia), tudo é salvo na hora e sem custo.',
-    '11. Esta aba de instruções é ignorada na importação.',
+    '8. Foto (opcional), de dois jeitos: (a) o link (começando com https://) da imagem do produto, que o sistema baixa e guarda; ou (b) a imagem COLADA na célula da coluna Foto, na linha do produto (Inserir > Imagem, deixando a imagem sobre a célula; até 100 imagens coladas por planilha, para mais fotos use links). Sem foto, o sistema procura sozinho pelo código de barras, e você também pode enviar a foto no painel.',
+    '9. Se o produto ainda não tem foto de verdade, a sua passa a valer para todos. Se já tem (de outro mercado ou do banco aberto), a que existia continua para os outros e a sua fica guardada para o seu mercado.',
+    `10. Aba "${ABA_DESCONTOS}" (opcional): cada linha é uma PROMOÇÃO, que é cobrada. Preencha o código de barras de um produto que está na aba "${ABA_PRODUTOS}" (ou já cadastrado), o preço promocional (menor que o normal), "Válido de" (opcional) e "Válido até" (obrigatório), no formato dia/mês/ano.`,
+    '11. Planilha com promoções só vai ao ar depois que o pagamento das promoções é confirmado; antes disso, nada da planilha é salvo. Sem a aba Descontos (ou vazia), tudo é salvo na hora e sem custo.',
+    '12. Esta aba de instruções é ignorada na importação.',
+    '',
+    'DICA: se a planilha do seu mercado é diferente deste modelo, peça a uma IA (ChatGPT, Claude, Gemini...) para ajustá-la. Envie a SUA planilha e este modelo juntos e escreva, por exemplo:',
+    '"Reorganize a minha planilha para ficar igual ao modelo anexo: mesma aba \'Mercado\' e aba \'Produtos\' com as colunas Código de barras, Produto, Preço, Quantidade, Categoria, Disponível e Foto, nesta ordem. Código de barras como texto, preço com vírgula, e não invente nenhum dado."',
+    'Depois confira a planilha pronta (principalmente códigos de barras e preços) antes de enviar. Não envie dados pessoais seus ou de clientes para a IA: só a lista de produtos.',
     '',
     'Exemplo de linha da aba Produtos:',
   ].forEach((texto) => instrucoes.addRow([texto]));

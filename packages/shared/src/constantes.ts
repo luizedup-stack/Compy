@@ -90,6 +90,8 @@ export interface RelatorioImportacao {
    */
   retida?: boolean;
   pedido?: { id: number; quantidade: number; valorUnitarioCentavos: number; totalCentavos: number };
+  /** Quantas imagens coladas na coluna Foto foram recebidas (links não entram: o servidor baixa depois). */
+  fotosColadas?: number;
 }
 
 /** Produto como o painel do mercado o vê (resposta de /painel/produtos). */

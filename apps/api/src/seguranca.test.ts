@@ -1,5 +1,6 @@
 import { normalizarTexto } from '@mercado/shared';
 import { describe, expect, it } from 'vitest';
+import { valorPorPromocaoCentavos } from './promocoes/pedidos';
 import { criarAmbiente, comToken } from './rotas/apoioTeste';
 
 /**
@@ -158,8 +159,7 @@ describe('o preço de uma promoção não é escolhido pelo cliente', () => {
     // Um pedido direto no repositório com um valor "errado" simula o que aconteceria se alguém manipulasse a chamada:
     // a leitura da lista (GET /painel/promocoes) tem de mostrar o que está gravado, mas a CRIAÇÃO do pedido (na importação
     // da planilha) nunca aceita um valor vindo do corpo da requisição — só o `apps/api/src/promocoes/pedidos.ts` decide.
-    const fs = await import('./promocoes/pedidos');
-    expect(await fs.valorPorPromocaoCentavos(repo)).toBe(500);
+    expect(await valorPorPromocaoCentavos(repo)).toBe(500);
   });
 
   it('só o administrador muda o valor por promoção; o próprio mercado não consegue', async () => {

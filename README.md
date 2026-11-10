@@ -1,6 +1,6 @@
-# Bolso Certo
+# Compy
 
-O Bolso Certo é um jeito de **comparar os preços dos supermercados antes de sair de casa**. Os mercados da região enviam uma planilha com seus produtos e preços, e o cliente, no celular, busca um produto (por exemplo, "papel higiênico") e vê onde está mais barato, inclusive o preço por rolo, por quilo ou por litro, para a comparação ser justa.
+O Compy (que antes se chamava Bolso Certo) é um jeito de **comparar os preços dos supermercados antes de sair de casa**. Os mercados da região enviam uma planilha com seus produtos e preços, e o cliente, no celular, busca um produto (por exemplo, "papel higiênico") e vê onde está mais barato, inclusive o preço por rolo, por quilo ou por litro, para a comparação ser justa.
 
 O piloto é na **Vila Sônia, em São Paulo**, com poucos mercados.
 
@@ -13,10 +13,10 @@ O piloto é na **Vila Sônia, em São Paulo**, com poucos mercados.
 | Parte | O que é | Quem usa | Pasta |
 |---|---|---|---|
 | **API** | O servidor: guarda os preços, faz o login, a busca e a comparação. | (as outras duas partes conversam com ela) | `apps/api` |
-| **Bolso Certo - Mercado** (painel) | O software do mercado: o mercado **se cadastra sozinho**, cadastra produtos e preços (à mão ou por planilha) e só vê o que é dele. O desenvolvedor (administrador) vê todos. | Mercado e desenvolvedor | `apps/painel` (dentro do programa de Windows, `apps/desktop`) |
+| **Compy Mercado** (painel) | O software do mercado: o mercado **se cadastra sozinho**, cadastra produtos e preços (à mão ou por planilha) e só vê o que é dele. O desenvolvedor (administrador) vê todos. | Mercado e desenvolvedor | `apps/painel` (dentro do programa de Windows, `apps/desktop`) |
 | **App de celular** | O aplicativo em que o cliente busca e compara preços. É só para ver: não edita nada. | Cliente | `apps/mobile` |
 
-Há também a pasta `packages/shared` (regras usadas pelas três partes, como ler a quantidade e calcular o preço por unidade) e a pasta **`marca/`**, que guarda o **logo** e o ícone do Bolso Certo (arquivos `.svg`).
+Há também a pasta `packages/shared` (regras usadas pelas três partes, como ler a quantidade e calcular o preço por unidade) e a pasta **`marca/`**, que guarda o **logo** e o ícone do Compy (arquivos `.svg`).
 
 ## Banco de dados e hospedagem (grátis)
 
@@ -69,14 +69,14 @@ Se o PowerShell reclamar de "execução de scripts desabilitada", rode antes: `S
 
 Para usar **sem abrir terminal e sem internet**, há um programa de Windows com a API e o painel dentro dele (Electron). Ele já abre com as planilhas reais de teste carregadas.
 
-- **Gerar o programa:** `npm run construir:exe`. O resultado fica em `programa/Bolso Certo - Mercado-win32-x64/Bolso Certo - Mercado.exe` (e a cópia compactada, `programa/Bolso-Certo-Mercado-Windows.zip`, para enviar a outra pessoa; descompacte e abra o `.exe`). Essa pasta não vai para o git.
-- **Usar:** abra o `Bolso Certo - Mercado.exe`. O painel aparece na janela. **Mercado novo:** toque em "Cadastrar meu mercado" na tela de entrar (nome, endereço, e-mail e senha) e confirme o e-mail com o código. **Desenvolvedor (vê todos os mercados):** e-mail `admin@bolsocerto.local`; a senha é **gerada na primeira abertura** e fica no menu **Bolso Certo → Códigos de e-mail e endereço do celular** (e no arquivo `senha-desenvolvedor.txt` da pasta de dados do programa). Não está escrita no código. No menu **Bolso Certo → Códigos de e-mail e endereço do celular** ficam os códigos de confirmação de conta e o endereço da API para o celular (por exemplo `http://192.168.0.10:3000`).
+- **Gerar o programa:** `npm run construir:exe`. O resultado fica em `programa/Compy Mercado-win32-x64/Compy Mercado.exe` (e a cópia compactada, `programa/Bolso-Certo-Mercado-Windows.zip`, para enviar a outra pessoa; descompacte e abra o `.exe`). Essa pasta não vai para o git.
+- **Usar:** abra o `Compy Mercado.exe`. O painel aparece na janela. **Mercado novo:** toque em "Cadastrar meu mercado" na tela de entrar (nome, endereço, e-mail e senha) e confirme o e-mail com o código. **Desenvolvedor (vê todos os mercados):** e-mail `admin@bolsocerto.local`; a senha é **gerada na primeira abertura** e fica no menu **Compy → Códigos de e-mail e endereço do celular** (e no arquivo `senha-desenvolvedor.txt` da pasta de dados do programa). Não está escrita no código. No menu **Compy → Códigos de e-mail e endereço do celular** ficam os códigos de confirmação de conta e o endereço da API para o celular (por exemplo `http://192.168.0.10:3000`).
 - **Celular:** o app guarda uma cópia de todos os mercados e produtos e **funciona sem internet e com o programa fechado** (busca, mercados e produtos). Com o servidor respondendo, ele usa o servidor e renova a cópia. Instale `apk/bolso-certo.apk` (veja `apps/mobile/README.md`, seção "Gerar o APK") e, na tela de entrada, use **Configurar servidor** com o endereço mostrado no programa. O celular precisa estar na mesma rede do computador.
 - A API do programa usa sempre a porta **3000**; não deixe o `npm run testar` aberto ao mesmo tempo.
-- Os dados (contas, produtos, correções) são guardados em um arquivo no computador (`%APPDATA%Bolso Certo - Mercadosalvos`) e voltam quando o programa abre de novo; quem já entrou no app continua entrando. É um quebra-galho até existir o banco de dados. Para recomeçar do zero: menu **Bolso Certo → Apagar os dados salvos e recomeçar**. O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
-- **Acesso pela internet (temporário):** menu **Bolso Certo → Acesso pela internet (túnel)…** liga um túnel da Cloudflare (programa `cloudflared`, instalado com `winget install --id Cloudflare.cloudflared`) e mostra um endereço `https://….trycloudflare.com` para a pessoa digitar em **Configurar servidor** no aplicativo. O endereço **muda toda vez** que o túnel é ligado e só funciona com o computador e o programa ligados. É para testes: o caminho definitivo é hospedar o servidor.
-- **Modo nuvem:** no menu **Bolso Certo → Servidor na nuvem…** o programa passa a abrir o painel do servidor hospedado (e a usar o banco dele) em vez de ligar a API dentro do computador. Para gerar o programa já apontando para a nuvem: `$env:BOLSO_URL_NUVEM = "https://seu-servidor.onrender.com"` antes de `npm run construir:exe`. Veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md).
-- `npm run gerar-icones` refaz os ícones (programa e app) a partir de `marca/icone-bolso-certo.svg`.
+- Os dados (contas, produtos, correções) são guardados em um arquivo no computador (`%APPDATA%Compy Mercadosalvos`) e voltam quando o programa abre de novo; quem já entrou no app continua entrando. É um quebra-galho até existir o banco de dados. Para recomeçar do zero: menu **Compy → Apagar os dados salvos e recomeçar**. O programa não é assinado digitalmente, então o Windows pode mostrar o aviso "O Windows protegeu o computador": clique em "Mais informações" e "Executar assim mesmo".
+- **Acesso pela internet (temporário):** menu **Compy → Acesso pela internet (túnel)…** liga um túnel da Cloudflare (programa `cloudflared`, instalado com `winget install --id Cloudflare.cloudflared`) e mostra um endereço `https://….trycloudflare.com` para a pessoa digitar em **Configurar servidor** no aplicativo. O endereço **muda toda vez** que o túnel é ligado e só funciona com o computador e o programa ligados. É para testes: o caminho definitivo é hospedar o servidor.
+- **Modo nuvem:** no menu **Compy → Servidor na nuvem…** o programa passa a abrir o painel do servidor hospedado (e a usar o banco dele) em vez de ligar a API dentro do computador. Para gerar o programa já apontando para a nuvem: `$env:BOLSO_URL_NUVEM = "https://seu-servidor.onrender.com"` antes de `npm run construir:exe`. Veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md).
+- `npm run gerar-icones` refaz os ícones (programa e app) a partir de `marca/icone-compy.svg`.
 
 ## Como rodar cada parte (manual)
 
@@ -159,7 +159,7 @@ Isso roda os testes das cinco partes (pacote compartilhado, API, painel, app e p
 
 ## Onde estão os documentos do projeto
 
-- **Documento de design** (o que o Bolso Certo é e as decisões tomadas): `docs/superpowers/specs/2026-11-04-comparador-de-precos-design.md`
+- **Documento de design** (o que o Compy é e as decisões tomadas): `docs/superpowers/specs/2026-11-04-comparador-de-precos-design.md`
 - **Plano de construção** (as tarefas, uma a uma): `docs/superpowers/plans/2026-11-04-comparador-de-precos.md`
 - **Dados de teste e o que cada planilha testa**: `dados-de-teste/LEIA-ME.md`
 - Detalhes técnicos: `apps/api/README.md` (API) e `apps/mobile/README.md` (app).
@@ -167,7 +167,7 @@ Isso roda os testes das cinco partes (pacote compartilhado, API, painel, app e p
 
 ## O que falta antes de publicar
 
-Hoje o Bolso Certo serve para **testar e mostrar**, não para o público usar. Faltam:
+Hoje o Compy serve para **testar e mostrar**, não para o público usar. Faltam:
 
 - [x] **Banco de dados de verdade.** Feito: SQL Server / Azure SQL (`docs/BANCO.md`). Com `BANCO_URL` os dados sobrevivem a reinícios e as sessões continuam valendo. Falta: rotina de backup além da que o Azure faz sozinho e um plano de crescimento (a oferta gratuita é limitada).
 - [ ] **Envio de e-mail de verdade.** Hoje os e-mails só são escritos no terminal da API. É preciso contratar um provedor de e-mail para o cliente receber o código de confirmação e de recuperação de senha.
@@ -194,6 +194,6 @@ Hoje o Bolso Certo serve para **testar e mostrar**, não para o público usar. F
 - [ ] **Sessões depois de trocar a senha.** Redefinir a senha **não** derruba os logins já emitidos (lacuna conhecida), nem invalida outros códigos ainda pendentes.
 - [x] **Reinício da API.** Com banco, os dados e as sessões sobrevivem ao reinício (a identificação da sessão fica guardada no banco). Sem banco (memória), continua valendo: depois de reiniciar, todos entram de novo e os dados se perdem.
 - [x] **Métrica do piloto.** No banco, cada busca tem data e hora (`Buscas.feitaEm`); consultas prontas em `docs/BANCO.md`. (Na versão em memória o registro continua sem data.)
-- [ ] **Ícone do app e contas nas lojas.** Gerar o ícone em PNG a partir de `marca/icone-bolso-certo.svg`; preencher `scheme`, `android.package` e `ios.bundleIdentifier` em `apps/mobile/app.json`; e abrir as contas de desenvolvedor do **Google Play** e da **App Store** (pagas, com revisão).
-- [ ] **Conferir o nome "Bolso Certo"**: registro no INPI, disponibilidade no Google Play e na App Store, e se há domínio livre.
+- [ ] **Ícone do app e contas nas lojas.** Gerar o ícone em PNG a partir de `marca/icone-compy.svg`; preencher `scheme`, `android.package` e `ios.bundleIdentifier` em `apps/mobile/app.json`; e abrir as contas de desenvolvedor do **Google Play** e da **App Store** (pagas, com revisão).
+- [ ] **Conferir o nome "Compy"**: registro no INPI, disponibilidade no Google Play e na App Store, e se há domínio livre.
 - [ ] **Decisões de produto ainda em aberto** (seção 12 do documento de design): o valor e a forma da cobrança futura dos mercados, se a lista de compras com total fica para a versão 2, e como medir se o piloto deu certo (a sugestão é pelo menos 3 mercados com algumas centenas de produtos cada).

@@ -1,6 +1,6 @@
-# API do Bolso Certo
+# API do Compy
 
-O Bolso Certo compara preços de produtos entre mercados. Esta é a API (servidor) que o painel web e o aplicativo usam: cadastro e login, importação das planilhas de preços dos mercados, busca com comparação e painel do mercado.
+O Compy compara preços de produtos entre mercados. Esta é a API (servidor) que o painel web e o aplicativo usam: cadastro e login, importação das planilhas de preços dos mercados, busca com comparação e painel do mercado.
 
 ## Como rodar
 

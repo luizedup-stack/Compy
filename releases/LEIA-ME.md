@@ -1,15 +1,15 @@
-# APK do Bolso Certo (teste)
+# APK do Compy (teste)
 
 Cópia salva do aplicativo Android usado nos testes. **É só para teste**: usa a chave de teste do Android (instala direto no celular, mas não serve para a Play Store).
 
 | | |
 |---|---|
-| Arquivo | `bolso-certo.apk` (24.4 MB) |
-| Gerado em | 2026-11-09 (botão Atualizar, topo azul com a logo, ícones nas abas, lista inicial rápida e cópia compactada) |
+| Arquivo | `bolso-certo.apk` (25.0 MB) |
+| Gerado em | 2026-11-10 (nova marca Compy: nome, ícone, cores e fonte Poppins; mantém o botão Atualizar, a lista inicial rápida e as fotos do mercado) |
 | Servidor embutido | `https://bolso-certo.onrender.com` (o app já abre usando ele; ninguém precisa configurar) |
-| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.1 (código 10)** |
+| Pacote / versão | `br.com.bolsocerto.app`, versão **1.2.2 (código 11)** |
 | Android mínimo | 7.0 (API 24), celulares de 64 bits (arm64) |
-| SHA-256 do arquivo | `97aff8975d282421ade3609a983c25edff2ef29409e1a88be13330e00d9d8811` |
+| SHA-256 do arquivo | (gerado ao compilar esta versão; confira com `Get-FileHash`) |
 | Certificado de assinatura (SHA-256) | `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` (Android Debug) |
 
 ## O que esta versão tem

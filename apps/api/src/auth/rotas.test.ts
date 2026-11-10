@@ -205,7 +205,7 @@ describe('POST /auth/reenviar-verificacao', () => {
     });
     expect(res.statusCode).toBe(204);
     expect(email.enviados).toHaveLength(2);
-    expect(email.enviados[1]!.assunto).toContain('Bolso Certo');
+    expect(email.enviados[1]!.assunto).toContain('Compy');
     const verificar = await app.inject({
       method: 'POST',
       url: '/auth/verificar-email',
@@ -248,8 +248,8 @@ describe('POST /auth/esqueci-senha', () => {
     expect(email.enviados).toHaveLength(2);
     const enviado = email.enviados[1]!;
     expect(enviado.para).toBe('ana@exemplo.com');
-    expect(enviado.assunto).toContain('Bolso Certo');
-    expect(enviado.texto).toContain('Bolso Certo');
+    expect(enviado.assunto).toContain('Compy');
+    expect(enviado.texto).toContain('Compy');
     const u = (await repo.acharUsuarioPorEmail('ana@exemplo.com'))!;
     const hash = sha256(tokenDoEmail());
     const agora = Date.now();
@@ -451,7 +451,7 @@ describe('log de erros', () => {
 });
 
 describe('texto dos e-mails (R31)', () => {
-  const NEUTRO = 'Use este código no aplicativo ou no painel do Bolso Certo';
+  const NEUTRO = 'Use este código no aplicativo ou no painel do Compy';
 
   it('a confirmação de e-mail serve ao aplicativo e ao painel', async () => {
     await cadastrarComConfirmacao();

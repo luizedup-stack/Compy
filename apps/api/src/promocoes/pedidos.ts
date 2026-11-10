@@ -28,8 +28,10 @@ export interface Desconto {
 /** A planilha já lida, como fica guardada no pedido retido. */
 export interface PlanilhaRetida {
   ofertas: Omit<OfertaArmazenada, 'mercadoId' | 'precoAtualizadoEm'>[];
-  /** código de barras → link da foto. */
+  /** código de barras → link da foto (quem tem imagem colada, veja `imagens`, não entra aqui). */
   fotos: [string, string][];
+  /** código de barras → imagem já reduzida (JPEG, "data:..."), colada na planilha na coluna Foto. */
+  imagens: [string, string][];
   descontos: Desconto[];
 }
 
@@ -154,7 +156,7 @@ export async function aplicarPlanilha(
   mercadoId: number,
   planilha: PlanilhaRetida,
   agora: Date,
-): Promise<{ importadas: number; promocoes: number; ignoradas: number }> {
+): Promise<{ importadas: number; promocoes: number; ignoradas: number; fotosColadas: number }> {
   const existentes = new Map((await r.listarOfertasDoMercado(mercadoId)).map((o) => [o.codigoBarras, o]));
   await r.salvarOfertas(
     planilha.ofertas.map((o) => {
@@ -172,6 +174,20 @@ export async function aplicarPlanilha(
   // mão pelo painel vale mais e não é trocada; um link já indicado antes (igual) também não é refeito.
   await r.salvarFotosDaPlanilha(planilha.fotos, mercadoId, agora);
 
+  // Imagens COLADAS na planilha (já reduzidas): a mesma regra da foto enviada pelo painel — sem foto de verdade, vira a de
+  // todos os mercados que vendem o produto; com foto de outro mercado, a desta planilha fica só para este mercado.
+  for (const [codigoBarras, imagem] of planilha.imagens) {
+    const jaTem = (await r.listarResumoDeFotos([codigoBarras])).some((f) => f.origem !== 'ilustrativa');
+    const atual = jaTem ? await r.acharFoto(codigoBarras) : null;
+    const eDono = atual?.origem === 'mercado' && atual.mercadoId === mercadoId;
+    if (jaTem && !eDono) {
+      await r.salvarFotoDoMercado({ codigoBarras, mercadoId, imagem, atualizadaEm: agora });
+    } else {
+      await r.salvarFoto({ codigoBarras, origem: 'mercado', url: null, imagem, mercadoId, atualizadaEm: agora });
+      await r.removerFotoDoMercado(mercadoId, codigoBarras);
+    }
+  }
+
   let promocoes = 0;
   let ignoradas = 0;
   for (const d of planilha.descontos) {
@@ -188,7 +204,7 @@ export async function aplicarPlanilha(
     });
     promocoes += 1;
   }
-  return { importadas: planilha.ofertas.length, promocoes, ignoradas };
+  return { importadas: planilha.ofertas.length, promocoes, ignoradas, fotosColadas: planilha.imagens.length };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -1,24 +1,27 @@
 :root {
-  /* Tema CLARO (padrão): azul bem clarinho com branco. As cores moram aqui; o resto do arquivo só usa estas variáveis. */
+  /* Tema CLARO (padrão). As cores moram aqui; o resto do arquivo só usa estas variáveis. */
   color-scheme: light;
-  --fundo: #eaf3fc;
+  /* Cores da marca Compy: azul principal #0B1F5B, laranja destaque #FF8A00, azul secundário #2E6BFF e cinza neutro #F5F7FA. */
+  --fundo: #f5f7fa;
   --superficie: #ffffff;
-  --superficie-2: #f2f8fe;
-  --texto: #1b2a3a;
-  --texto-suave: #4a5d70;
-  --borda: #cfe0f1;
-  --campo-borda: #8aa4bf;
-  --primaria: #2f80d6;
-  --primaria-escura: #1559a3;
-  --link: #1559a3;
-  --botao-fundo: #1a62b3;
+  --superficie-2: #eef2fa;
+  --texto: #1b2a52;
+  --titulo: #0b1f5b;
+  --texto-suave: #52608a;
+  --borda: #d9e1f0;
+  --campo-borda: #8a98bd;
+  --destaque: #ff8a00;
+  --primaria: #2e6bff;
+  --primaria-escura: #0b1f5b;
+  --link: #1e4fd8;
+  --botao-fundo: #0b1f5b;
   --botao-texto: #ffffff;
-  --botao-sec-texto: #1559a3;
-  --botao-sec-hover: #e6f1fc;
+  --botao-sec-texto: #0b1f5b;
+  --botao-sec-hover: #e8eeff;
   --erro: #b42318;
   --erro-fundo: #fdeceb;
   --erro-botao-texto: #ffffff;
-  --ok-fundo: #e3f1fd;
+  --ok-fundo: #e8eeff;
   --aviso-fundo: #fff4cc;
   --aviso-borda: #b58100;
   --aviso-texto: #3d2f00;
@@ -28,9 +31,9 @@
   --etiqueta-sem-texto: #8a2c0d;
   --etiqueta-sem-fundo: #fdece4;
   --etiqueta-sem-borda: #e9a98f;
-  --sombra: 0 1px 3px rgba(20, 70, 120, 0.1), 0 4px 14px rgba(20, 70, 120, 0.06);
-  --linha-hover: #f5faff;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sombra: 0 1px 3px rgba(11, 31, 91, 0.1), 0 4px 14px rgba(11, 31, 91, 0.06);
+  --linha-hover: #f3f6fd;
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--texto);
   line-height: 1.5;
 }
@@ -39,24 +42,26 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema='claro']) {
     color-scheme: dark;
-    --fundo: #0e1a27;
-    --superficie: #162334;
-    --superficie-2: #1c2d41;
-    --texto: #e7eef6;
-    --texto-suave: #a9b9ca;
-    --borda: #2d435c;
-    --campo-borda: #5d7894;
-    --primaria: #5aa7ee;
-    --primaria-escura: #8cc3f7;
-    --link: #8cc3f7;
-    --botao-fundo: #5aa7ee;
-    --botao-texto: #04182c;
-    --botao-sec-texto: #8cc3f7;
-    --botao-sec-hover: #1f3550;
+    --fundo: #07123a;
+    --superficie: #0d1c52;
+    --superficie-2: #132868;
+    --texto: #eaf0ff;
+    --titulo: #ffffff;
+    --texto-suave: #aebbe3;
+    --borda: #2a3f8c;
+    --campo-borda: #6577b5;
+    --destaque: #ff8a00;
+    --primaria: #5f8dff;
+    --primaria-escura: #b8ccff;
+    --link: #8fb1ff;
+    --botao-fundo: #ff8a00;
+    --botao-texto: #0b1f5b;
+    --botao-sec-texto: #b8ccff;
+    --botao-sec-hover: #172b73;
     --erro: #ff8d85;
-    --erro-fundo: #3a1c1c;
+    --erro-fundo: #3a1c2c;
     --erro-botao-texto: #2a0a08;
-    --ok-fundo: #16324d;
+    --ok-fundo: #12286e;
     --aviso-fundo: #3b3210;
     --aviso-borda: #c99a1a;
     --aviso-texto: #ffe9a6;
@@ -67,30 +72,32 @@
     --etiqueta-sem-fundo: #3d1b12;
     --etiqueta-sem-borda: #8a4a35;
     --sombra: 0 1px 3px rgba(0, 0, 0, 0.5);
-    --linha-hover: #1a2b3f;
+    --linha-hover: #112465;
   }
 }
 
 :root[data-tema='escuro'] {
   color-scheme: dark;
-  --fundo: #0e1a27;
-  --superficie: #162334;
-  --superficie-2: #1c2d41;
-  --texto: #e7eef6;
-  --texto-suave: #a9b9ca;
-  --borda: #2d435c;
-  --campo-borda: #5d7894;
-  --primaria: #5aa7ee;
-  --primaria-escura: #8cc3f7;
-  --link: #8cc3f7;
-  --botao-fundo: #5aa7ee;
-  --botao-texto: #04182c;
-  --botao-sec-texto: #8cc3f7;
-  --botao-sec-hover: #1f3550;
+  --fundo: #07123a;
+  --superficie: #0d1c52;
+  --superficie-2: #132868;
+  --texto: #eaf0ff;
+  --titulo: #ffffff;
+  --texto-suave: #aebbe3;
+  --borda: #2a3f8c;
+  --campo-borda: #6577b5;
+  --destaque: #ff8a00;
+  --primaria: #5f8dff;
+  --primaria-escura: #b8ccff;
+  --link: #8fb1ff;
+  --botao-fundo: #ff8a00;
+  --botao-texto: #0b1f5b;
+  --botao-sec-texto: #b8ccff;
+  --botao-sec-hover: #172b73;
   --erro: #ff8d85;
-  --erro-fundo: #3a1c1c;
+  --erro-fundo: #3a1c2c;
   --erro-botao-texto: #2a0a08;
-  --ok-fundo: #16324d;
+  --ok-fundo: #12286e;
   --aviso-fundo: #3b3210;
   --aviso-borda: #c99a1a;
   --aviso-texto: #ffe9a6;
@@ -101,7 +108,7 @@
   --etiqueta-sem-fundo: #3d1b12;
   --etiqueta-sem-borda: #8a4a35;
   --sombra: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --linha-hover: #1a2b3f;
+  --linha-hover: #112465;
 }
 
 * {
@@ -164,10 +171,13 @@ a {
 h1 {
   margin-top: 0;
   font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--titulo);
 }
 
 h2 {
   font-size: 1.125rem;
+  color: var(--titulo);
 }
 
 label {
@@ -228,7 +238,7 @@ select {
 }
 
 :focus-visible {
-  outline: 3px solid #f2a900;
+  outline: 3px solid var(--destaque);
   outline-offset: 2px;
 }
 
@@ -256,6 +266,13 @@ select {
 .aviso ul {
   margin: 0;
   padding-left: 20px;
+}
+
+input,
+select,
+button,
+textarea {
+  font-family: inherit;
 }
 
 input:disabled {
@@ -304,7 +321,7 @@ input:disabled {
 }
 
 .navegacao a[aria-current='page'] {
-  border-bottom-color: var(--primaria);
+  border-bottom-color: var(--destaque);
 }
 
 .botao-pequeno {
@@ -692,9 +709,89 @@ input:disabled {
   background: var(--botao-sec-hover);
 }
 
-/* Promoções (administração e cobrança do comércio) */
+/* Promoções (administração e cobrança do comércio); cores da marca Compy (--destaque = laranja). */
 .cartoes-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
-.resumo-item { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px solid var(--borda, #cbd2d9); background: var(--fundo-cartao, #f5f9fa); }
-.resumo-numero { font-size: 1.6rem; font-weight: 700; color: #b85c00; }
+.resumo-item { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px solid var(--borda); background: var(--superficie-2, var(--superficie)); }
+.resumo-numero { font-size: 1.6rem; font-weight: 700; color: var(--destaque); }
 .formulario-promocao { display: grid; gap: 8px; max-width: 420px; margin-bottom: 16px; }
-.cobranca-pix { padding: 10px 12px; border-left: 4px solid #f28c28; background: rgba(242, 140, 40, 0.12); border-radius: 6px; }
+.cobranca-pix { padding: 10px 12px; border-left: 4px solid var(--destaque); background: rgba(255, 138, 0, 0.12); border-radius: 6px; }
+
+/* Marca Compy no cabeçalho: ícone + nome em Poppins ExtraBold, com o acento laranja do "y". */
+.marca-compy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marca-compy img {
+  display: block;
+  border-radius: 8px;
+}
+
+.nome-compy {
+  position: relative;
+  display: inline-block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--titulo);
+}
+
+.nome-compy .acento {
+  position: absolute;
+  top: -0.12em;
+  right: -0.2em;
+  width: 0.3em;
+  height: 0.36em;
+  background: var(--destaque);
+  clip-path: polygon(40% 0, 100% 0, 52% 100%, 0 100%);
+  transform: skewX(-8deg);
+}
+
+.produto-compy {
+  align-self: flex-end;
+  margin-left: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+/* Slogan da marca ("Compare antes de comprar."), com a palavra "antes" em laranja. */
+.slogan {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.slogan strong {
+  color: var(--destaque);
+}
+
+/* Dicas recolhíveis (Enviar planilha) */
+.dica {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+
+.dica summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--titulo);
+}
+
+.dica p {
+  margin: 8px 0 0;
+}
+
+.exemplo-pedido {
+  padding: 10px 12px;
+  background: var(--superficie);
+  border-left: 4px solid var(--destaque);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+}

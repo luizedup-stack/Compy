@@ -566,7 +566,7 @@ describe('gerarModelo', () => {
 
     const instrucoes = wb.getWorksheet('Instruções')!;
     const texto = JSON.stringify(instrucoes.getSheetValues());
-    expect(texto).toContain('Bolso Certo');
+    expect(texto).toContain('Compy');
     expect(instrucoes.actualRowCount).toBeGreaterThan(2);
   });
 

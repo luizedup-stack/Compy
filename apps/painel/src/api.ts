@@ -328,7 +328,7 @@ export async function editarProduto(codigo: string, campos: CamposProduto): Prom
 /** Endereço completo de uma foto (o servidor devolve só o caminho, ex.: "/fotos/7891000100103"). */
 export const urlDaFoto = (caminho: string): string => `${URL_BASE}${caminho}`;
 
-/** Envia a foto do produto (texto "data:image/jpeg;base64,..." já reduzido). A foto vale para todos os mercados que vendem o produto. */
+/** Envia a foto do produto (texto "data:image/jpeg;base64,..." já reduzido). Se o produto ainda não tem foto de verdade, ela vale para todos os mercados; se já tem, fica só para o mercado que enviou. */
 export async function enviarFotoDoProduto(
   codigo: string,
   imagem: string,

@@ -14,6 +14,7 @@ import {
   type RelatorioImportacao,
 } from '@mercado/shared';
 import { ErroMercadoDuplicado, type Mercado, type OfertaArmazenada, type Repositorio } from '../repositorio';
+import { ImagemInvalida, reduzirParaJpeg } from '../fotos/baixar';
 import { aplicarPlanilha, conferirDescontos, lerLinhaDeDesconto, valorPorPromocaoCentavos, type Desconto, type PlanilhaRetida } from '../promocoes/pedidos';
 import { conferirZip } from './conferirZip';
 import { ErroPlanilha } from './erroPlanilha';
@@ -49,6 +50,44 @@ function primitivo(valor: unknown): Primitivo {
 }
 
 const texto = (valor: unknown): string => String(primitivo(valor) ?? '').trim();
+
+/** Quantas imagens coladas numa planilha o servidor aceita (cada uma é reduzida e guardada). */
+const MAXIMO_IMAGENS_POR_PLANILHA = 100;
+
+/**
+ * Imagens COLADAS na planilha (Inserir > Imagem, posta sobre a célula da coluna Foto): cada uma é da linha em que está ancorada.
+ * Devolve a imagem já reduzida (JPEG pequeno) por código de barras; o que não der certo vira aviso no relatório e o produto entra do mesmo jeito.
+ * Imagem fora da coluna Foto (um logotipo no topo, por exemplo) é ignorada.
+ */
+async function lerImagensDaPlanilha(
+  wb: ExcelJS.Workbook,
+  aba: ExcelJS.Worksheet,
+  colunaFoto: number | undefined,
+  linhas: Map<number, string>,
+  erros: RelatorioImportacao['erros'],
+): Promise<Map<string, string>> {
+  const imagens = new Map<string, string>();
+  let lidas = 0;
+  for (const colada of aba.getImages()) {
+    const linha = Math.floor(colada.range.tl.nativeRow) + 1;
+    const coluna = Math.floor(colada.range.tl.nativeCol) + 1;
+    if (colunaFoto !== undefined && coluna !== colunaFoto) continue;
+    const codigo = linhas.get(linha);
+    if (codigo === undefined) continue;
+    if (++lidas > MAXIMO_IMAGENS_POR_PLANILHA) {
+      erros.push({ linha, motivo: `Foto ignorada: a planilha tem imagens demais (o limite é ${MAXIMO_IMAGENS_POR_PLANILHA})` });
+      continue;
+    }
+    try {
+      const bytes = wb.getImage(Number(colada.imageId))?.buffer;
+      if (!bytes) throw new ImagemInvalida('imagem vazia');
+      imagens.set(codigo, await reduzirParaJpeg(Buffer.from(bytes)));
+    } catch {
+      erros.push({ linha, motivo: 'Foto ignorada: não consegui ler a imagem colada nesta linha' });
+    }
+  }
+  return imagens;
+}
 
 /** Nomes aceitos para a coluna opcional com o link da foto do produto (comparados sem acento e sem maiúsculas). */
 const NOMES_COLUNA_FOTO = ['foto', 'link da foto', 'imagem', 'link da imagem', 'url da foto'];
@@ -176,7 +215,9 @@ function lerProdutos(aba: ExcelJS.Worksheet) {
   });
 
   erros.sort((a, b) => a.linha - b.linha);
-  return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros };
+  // Linha da planilha -> código de barras (só a linha que vale de cada produto): serve para achar de que produto é cada imagem colada.
+  const linhas = new Map<number, string>([...validas.values()].map((v) => [v.linha, v.oferta.codigoBarras]));
+  return { ofertas: [...validas.values()].map((v) => v.oferta), fotos, erros, linhas, colunaFoto };
 }
 
 /**
@@ -273,7 +314,10 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
     throw new ErroPlanilha('Arquivo inválido: envie uma planilha .xlsx');
   }
   const dadosMercado = lerMercado(encontrarAba(wb, ABA_MERCADO));
-  const { ofertas, fotos, erros } = lerProdutos(encontrarAba(wb, ABA_PRODUTOS));
+  const abaProdutos = encontrarAba(wb, ABA_PRODUTOS);
+  const { ofertas, fotos, erros, linhas, colunaFoto } = lerProdutos(abaProdutos);
+  const imagens = await lerImagensDaPlanilha(wb, abaProdutos, colunaFoto, linhas, erros);
+  erros.sort((a, b) => a.linha - b.linha);
 
   // Aba opcional "Descontos": cada linha é uma promoção, que é COBRADA (veja promocoes/pedidos.ts).
   const abaDescontos = wb.worksheets.find((w) => normalizarTexto(w.name) === normalizarTexto(ABA_DESCONTOS));
@@ -293,7 +337,12 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
     if (validos.length > 0 && valorUnitario > 0) {
       const proprio = await repo.acharMercado(ator.mercadoId);
       if (!proprio || proprio.status !== 'ativo') throw new ErroPlanilha('Mercado não encontrado ou inativo');
-      const retida: PlanilhaRetida = { ofertas, fotos: [...fotos], descontos: validos };
+      const retida: PlanilhaRetida = {
+        ofertas,
+        fotos: [...fotos].filter(([codigo]) => !imagens.has(codigo)),
+        imagens: [...imagens],
+        descontos: validos,
+      };
       const pedido = await repo.criarPedidoPromocao({
         mercadoId: ator.mercadoId,
         criadoEm: new Date(),
@@ -326,7 +375,13 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
       descontos = conferidos.validos;
       if (ator.papel === 'admin') erros.push(...conferidos.erros); // (para o comércio já foram somados acima)
     }
-    const resultado = await aplicarPlanilha(r, mercado.id, { ofertas, fotos: [...fotos], descontos }, new Date());
+    // Fotos do mercado: links (o servidor baixa depois) e imagens coladas (já prontas); imagem e link na mesma linha: vale a imagem.
+    const resultado = await aplicarPlanilha(
+      r,
+      mercado.id,
+      { ofertas, fotos: [...fotos].filter(([codigo]) => !imagens.has(codigo)), imagens: [...imagens], descontos },
+      new Date(),
+    );
     erros.sort((a, b) => a.linha - b.linha);
     return {
       mercadoId: mercado.id,
@@ -334,6 +389,7 @@ export async function importarPlanilha(repo: Repositorio, arquivo: Buffer, ator:
       importadas: resultado.importadas,
       erros,
       ...(lidos.descontos.length > 0 ? { promocoes: resultado.promocoes } : {}),
+      ...(resultado.fotosColadas > 0 ? { fotosColadas: resultado.fotosColadas } : {}),
     };
   });
 }

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ErroApi, guardarSessao, listarMeusMercados, login } from './api';
 
-const MSG_CLIENTE = 'Esta área é para comércios. Use o aplicativo Bolso Certo.';
+const MSG_CLIENTE = 'Esta área é para comércios. Use o aplicativo Compy.';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -48,6 +48,9 @@ export default function Login() {
 
   return (
     <section className="cartao">
+      <p className="slogan">
+        Compare <strong>antes</strong> de comprar.
+      </p>
       <h1>Entrar</h1>
       <p>Acesse com o e-mail e a senha da conta do seu comércio.</p>
       {typeof aviso === 'string' && aviso && (
