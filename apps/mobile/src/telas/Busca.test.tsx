@@ -93,6 +93,12 @@ async function buscarTexto(texto: string) {
   await avancar(400);
 }
 
+/** Abre o listbox "Ordenar por" (botão fechado) e toca na opção pedida; o listbox fecha sozinho. */
+async function escolherOrdem(titulo: string) {
+  await fireEvent.press(screen.getByTestId('botao-ordenar'));
+  await fireEvent.press(await screen.findByRole('radio', { name: titulo }));
+}
+
 /** Nomes dos mercados na ordem em que as ofertas aparecem na tela. */
 function mercadosNaTela(): string[] {
   return screen.getAllByTestId('oferta').map((el) => String(el.props.accessibilityLabel).split(',')[0]);
@@ -292,7 +298,7 @@ describe('Busca', () => {
       expect(api.chamadas).toHaveLength(1);
 
       // tocar de novo na opção que já está marcada também não refaz a chamada
-      await fireEvent.press(screen.getByRole('radio', { name: 'Ordenar por Relevância' }));
+      await escolherOrdem('Relevância');
       await avancar(1000);
       expect(api.chamadas).toHaveLength(1);
     });
@@ -398,38 +404,43 @@ describe('Busca', () => {
   });
 
   describe('ordenar e filtrar', () => {
-    it('começa em "Relevância" e as formas de ordenar são um grupo de opções acessível', async () => {
+    it('começa em "Relevância" e as formas de ordenar ficam num listbox, fechado até tocar no botão', async () => {
       simularApi({});
       await abrirApp();
-      expect(screen.getByTestId('criterio').props.accessibilityRole).toBe('radiogroup');
-      expect(screen.getByRole('radio', { name: 'Ordenar por Relevância', checked: true })).toBeOnTheScreen();
+      expect(screen.getByTestId('botao-ordenar')).toBeOnTheScreen();
+      expect(screen.getByLabelText(/^Ordenar por: Relevância\./)).toBeOnTheScreen();
+      expect(screen.queryByTestId('lista-ordenar')).not.toBeOnTheScreen(); // fechado: as opções ainda não aparecem
+
+      await fireEvent.press(screen.getByTestId('botao-ordenar'));
+      expect(await screen.findByTestId('lista-ordenar')).toHaveProp('accessibilityRole', 'radiogroup');
+      expect(screen.getByRole('radio', { name: 'Relevância', checked: true })).toBeOnTheScreen();
       for (const nome of ['Menor preço', 'Maior preço', 'Recentes']) {
-        expect(screen.getByRole('radio', { name: `Ordenar por ${nome}`, checked: false })).toBeOnTheScreen();
+        expect(screen.getByRole('radio', { name: nome, checked: false })).toBeOnTheScreen();
       }
       expect(screen.getByRole('button', { name: 'Filtros' })).toBeOnTheScreen();
     });
 
-    it('trocar para "Maior preço" refaz a busca na hora com ordenar=maior-preco', async () => {
+    it('trocar para "Maior preço" refaz a busca na hora com ordenar=maior-preco, e fecha o listbox', async () => {
       const api = simularApi({ 'GET /busca': resposta([X_POR_UNIDADE()]) });
       await abrirApp();
       await buscarTexto('papel hig x');
       await screen.findByText('Papel Higiênico X Folha Simples');
 
-      await fireEvent.press(screen.getByRole('radio', { name: 'Ordenar por Maior preço' }));
+      await escolherOrdem('Maior preço');
       await avancar(0); // sem esperar os 400 ms: a troca é imediata
 
       expect(api.chamadas.map((c) => c.consulta)).toEqual([
         '?q=papel%20hig%20x&ordem=unidade&ordenar=relevancia',
         '?q=papel%20hig%20x&ordem=unidade&ordenar=maior-preco',
       ]);
-      expect(screen.getByRole('radio', { name: 'Ordenar por Maior preço', checked: true })).toBeOnTheScreen();
-      expect(screen.getByRole('radio', { name: 'Ordenar por Relevância', checked: false })).toBeOnTheScreen();
+      expect(screen.queryByTestId('lista-ordenar')).not.toBeOnTheScreen();
+      expect(screen.getByLabelText(/^Ordenar por: Maior preço\./)).toBeOnTheScreen();
     });
 
     it('"Menor preço" na busca é o que o servidor já faz sem pedir: não manda ordenar', async () => {
       const api = simularApi({ 'GET /busca': resposta([X_POR_UNIDADE()]) });
       await abrirApp();
-      await fireEvent.press(screen.getByRole('radio', { name: 'Ordenar por Menor preço' }));
+      await escolherOrdem('Menor preço');
       await buscarTexto('papel hig x');
       expect(api.chamadas.filter((c) => c.caminho === '/busca').map((c) => c.consulta)).toEqual(['?q=papel%20hig%20x&ordem=unidade']);
     });
@@ -438,7 +449,7 @@ describe('Busca', () => {
       const api = simularApi({ 'GET /busca': resposta([FOX_12()]), 'GET /produtos': listaInicial([NEVE_12()]) });
       await abrirApp();
       await screen.findByText('Papel Higiênico Neve Folha Dupla 12 rolos');
-      await fireEvent.press(screen.getByRole('radio', { name: 'Ordenar por Recentes' }));
+      await escolherOrdem('Recentes');
       await avancar(1000);
       expect(chamadasDeBusca(api)).toHaveLength(0);
       expect(api.chamadas.filter((c) => c.caminho === '/produtos').map((c) => c.consulta)).toEqual([
@@ -455,7 +466,7 @@ describe('Busca', () => {
       await abrirApp();
       await digitar('fox');
       await avancar(100);
-      await fireEvent.press(screen.getByRole('radio', { name: 'Ordenar por Maior preço' }));
+      await escolherOrdem('Maior preço');
       await avancar(0);
       await avancar(1000);
       expect(api.chamadas.map((c) => c.consulta)).toEqual(['?q=fox&ordem=unidade&ordenar=maior-preco']);
@@ -617,10 +628,12 @@ describe('Busca', () => {
 
       expect(screen.container.queryAll((el) => el.type === 'TextInput')).toHaveLength(1);
       expect(screen.getByLabelText(BUSCA)).toBeOnTheScreen();
-      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta) o "Atualizar" do topo e o "Filtros"; nada que edite.
+      // Os únicos botões são os das abas da barra inferior (Buscar, Mercados, Conta), o "Atualizar" do topo, "Ordenar por" e "Filtros"; nada que edite.
       const botoes = screen.queryAllByRole('button').map((el) => String(el.props.accessibilityLabel));
-      expect(botoes).toHaveLength(5);
-      expect(botoes.every((rotulo) => /^((Buscar|Estabelecimentos|Conta), tab, \d of 3|Atualizar produtos e preços|Filtros)$/.test(rotulo))).toBe(true);
+      expect(botoes).toHaveLength(6);
+      expect(
+        botoes.every((rotulo) => /^((Buscar|Estabelecimentos|Conta), tab, \d of 3|Atualizar produtos e preços|Filtros|Ordenar por: .*\. Toque para ver as opções)$/.test(rotulo)),
+      ).toBe(true);
     });
   });
 

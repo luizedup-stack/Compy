@@ -1,6 +1,6 @@
 import type { CriterioOrdem, GrupoProduto } from '@mercado/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { buscar, listarProdutos, mensagemDoErro, type OpcoesDeLista } from '../api';
 import { useAtualizacao } from '../atualizar';
@@ -8,6 +8,7 @@ import { Botao } from '../componentes/Botao';
 import { CartaoOferta } from '../componentes/CartaoOferta';
 import { FotoDoProduto } from '../componentes/FotoDoProduto';
 import { PainelDeFiltros, SEM_FILTROS, contarFiltros, type SelecaoDeFiltros } from '../componentes/PainelDeFiltros';
+import { SeletorOrdenacao } from '../componentes/SeletorOrdenacao';
 import { cores } from '../tema';
 
 type Ordem = 'unidade' | 'embalagem';
@@ -43,6 +44,7 @@ export function Busca() {
   const [selecao, setSelecao] = useState<SelecaoDeFiltros>(SEM_FILTROS);
   const [criterio, setCriterio] = useState<CriterioOrdem>('relevancia');
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [ordemAberta, setOrdemAberta] = useState(false);
   const ordem: Ordem = selecao.comparar;
   // Sempre o valor mais novo, para as consultas que já estão em andamento não usarem opções velhas.
   const opcoesRef = useRef<OpcoesDeLista>({ criterio: 'relevancia' });
@@ -165,6 +167,7 @@ export function Busca() {
   }
 
   function trocarCriterio(novo: CriterioOrdem) {
+    setOrdemAberta(false);
     if (novo === criterio) return;
     opcoesRef.current = { ...opcoesRef.current, criterio: novo };
     setCriterio(novo);
@@ -195,25 +198,16 @@ export function Busca() {
           clearButtonMode="while-editing"
         />
         <View style={estilos.barraOrdem}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips} style={estilos.rolagemChips}>
-            <View testID="criterio" accessibilityRole="radiogroup" style={estilos.opcoes}>
-              {CRITERIOS.map((c) => {
-                const marcada = c.valor === criterio;
-                return (
-                  <Pressable
-                    key={c.valor}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`Ordenar por ${c.titulo}`}
-                    accessibilityState={{ checked: marcada, selected: marcada }}
-                    onPress={() => trocarCriterio(c.valor)}
-                    style={[estilos.opcao, marcada ? estilos.opcaoMarcada : null]}
-                  >
-                    <Text style={[estilos.textoOpcao, marcada ? estilos.textoOpcaoMarcada : null]}>{c.titulo}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
+          <View style={estilos.seletorOrdem}>
+            <SeletorOrdenacao
+              opcoes={CRITERIOS}
+              escolhido={criterio}
+              aberto={ordemAberta}
+              aoAbrir={() => setOrdemAberta(true)}
+              aoFechar={() => setOrdemAberta(false)}
+              aoEscolher={trocarCriterio}
+            />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={contarFiltros(selecao) > 0 ? `Filtros, ${contarFiltros(selecao)} ligados` : 'Filtros'}
@@ -337,26 +331,11 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.fundo,
   },
   barraOrdem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rolagemChips: { flex: 1 },
-  chips: { paddingRight: 8 },
-  botaoFiltros: { minHeight: 40, borderRadius: 20, borderWidth: 1, borderColor: cores.marca, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundo },
+  seletorOrdem: { flex: 1 },
+  botaoFiltros: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: cores.marca, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundo },
   botaoFiltrosLigado: { backgroundColor: cores.promocao, borderColor: cores.promocao },
   textoBotaoFiltros: { fontSize: 14, fontWeight: '700', color: cores.marcaEscura },
   textoBotaoFiltrosLigado: { color: '#FFFFFF' },
-  opcoes: { flexDirection: 'row', gap: 8 },
-  opcao: {
-    minHeight: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: cores.marca,
-    backgroundColor: cores.fundo,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  opcaoMarcada: { backgroundColor: cores.marcaEscura, borderColor: cores.marcaEscura },
-  textoOpcao: { fontSize: 14, fontWeight: '600', color: cores.marcaEscura, textAlign: 'center' },
-  textoOpcaoMarcada: { color: cores.fundo },
   mensagem: { paddingHorizontal: 16, paddingVertical: 8, fontSize: 16, color: cores.textoSuave },
   carregando: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
   textoCarregando: { fontSize: 16, color: cores.textoSuave },

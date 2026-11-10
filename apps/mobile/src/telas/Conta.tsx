@@ -11,6 +11,9 @@ import { useSessao } from '../sessao';
 import type { RootStackParamList } from '../rotas';
 import { cores, estilos as comuns } from '../tema';
 
+// Endereço do site do Bolso Certo (veja site/LEIA-ME.md): o botão "Fale conosco" leva até a seção de Contato de lá.
+// Troque aqui se o site for publicado noutro endereço.
+export const URL_SITE = 'https://luizedup-stack.github.io/bolso-certo/';
 export const AVISO_CONTA_EXCLUIDA = 'Conta excluída.';
 /** Crédito das fotos: a licença do Open Food Facts (CC BY-SA) pede que elas sejam atribuídas. */
 export const CREDITO_FOTOS = 'Fotos dos produtos: Open Food Facts (licença CC BY-SA) e enviadas pelos comércios.';
@@ -36,6 +39,11 @@ function ContaSemLogin() {
     Linking.openURL(`${urlApi()}/privacidade`).catch(() => setErroLink('Não foi possível abrir a política de privacidade.'));
   }
 
+  function abrirContato() {
+    setErroLink(null);
+    Linking.openURL(`${URL_SITE}#contato`).catch(() => setErroLink('Não foi possível abrir a página de contato.'));
+  }
+
   return (
     <ScrollView testID="tela-conta-sem-login" style={comuns.tela} contentContainerStyle={estilos.conteudo}>
       <Text accessibilityRole="header" style={estilos.titulo}>
@@ -52,6 +60,9 @@ function ContaSemLogin() {
       <Botao titulo="Entrar" aoPressionar={() => navigation.navigate('Entrar')} />
       <Botao titulo="Criar conta" tipo="secundario" aoPressionar={() => navigation.navigate('Cadastrar')} />
       <View>
+        <Pressable accessibilityRole="link" accessibilityLabel="Fale conosco" onPress={abrirContato}>
+          <Text style={comuns.link}>Fale conosco (dúvidas, sugestões)</Text>
+        </Pressable>
         <Pressable accessibilityRole="link" accessibilityLabel="Política de privacidade" onPress={abrirPolitica}>
           <Text style={comuns.link}>Política de privacidade</Text>
         </Pressable>
@@ -91,6 +102,13 @@ function ContaLogada() {
     });
   }
 
+  function abrirContato() {
+    setErroLink(null);
+    Linking.openURL(`${URL_SITE}#contato`).catch(() => {
+      if (montada.current) setErroLink('Não foi possível abrir a página de contato.');
+    });
+  }
+
   function cancelar() {
     if (emAndamento.current) return;
     setConfirmando(false);
@@ -126,6 +144,9 @@ function ContaLogada() {
       <Botao titulo="Sair" tipo="secundario" aoPressionar={() => void sair()} />
 
       <View>
+        <Pressable accessibilityRole="link" accessibilityLabel="Fale conosco" onPress={abrirContato}>
+          <Text style={comuns.link}>Fale conosco (dúvidas, sugestões)</Text>
+        </Pressable>
         <Pressable accessibilityRole="link" accessibilityLabel="Política de privacidade" onPress={abrirPolitica}>
           <Text style={comuns.link}>Política de privacidade</Text>
         </Pressable>
