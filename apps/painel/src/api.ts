@@ -255,7 +255,7 @@ export async function obterMercado(): Promise<MercadoPainel> {
   return (await resposta.json()) as MercadoPainel;
 }
 
-/** Salva os dados do mercado em uso (só os campos enviados mudam; o servidor confere tudo). */
+/** Salva os dados do comércio em uso (só os campos enviados mudam; o servidor confere tudo). */
 export async function atualizarMercado(campos: Partial<DadosDoMercado>): Promise<MercadoPainel> {
   const resposta = await pedir('/painel/mercado', {
     method: 'PATCH',

@@ -47,8 +47,8 @@ export default function EnviarPlanilha() {
     <section className="cartao">
       <h1>Enviar planilha</h1>
       <p>
-        Baixe a planilha-modelo e preencha com os dados do seu mercado e com os produtos. Uma única planilha
-        tem tudo: os dados do mercado e a lista de produtos. Assim que você enviar, os preços já aparecem para
+        Baixe a planilha-modelo e preencha com os dados do seu comércio e com os produtos. Uma única planilha
+        tem tudo: os dados do comércio e a lista de produtos. Assim que você enviar, os preços já aparecem para
         os clientes.
       </p>
       <p>
@@ -78,7 +78,7 @@ export default function EnviarPlanilha() {
       {relatorio && (
         <div role="status" className="aviso aviso-ok">
           <p>
-            <strong>{relatorio.mercadoCriado ? 'Mercado criado' : 'Mercado atualizado'}</strong>
+            <strong>{relatorio.mercadoCriado ? 'Comércio criado' : 'Comércio atualizado'}</strong>
           </p>
           <p>
             {relatorio.importadas} {relatorio.importadas === 1 ? 'produto importado' : 'produtos importados'}

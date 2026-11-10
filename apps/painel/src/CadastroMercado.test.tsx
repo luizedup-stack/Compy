@@ -20,15 +20,15 @@ async function preencher(usuario: ReturnType<typeof userEvent.setup>, extra: { s
 }
 
 describe('criar conta (só e-mail e senha)', () => {
-  it('a tela de entrar tem o link "Cadastrar meu mercado"', () => {
+  it('a tela de entrar tem o link "Cadastrar meu comércio"', () => {
     abrir('/entrar');
-    expect(screen.getByRole('link', { name: 'Cadastrar meu mercado' })).toHaveAttribute('href', '/cadastrar');
+    expect(screen.getByRole('link', { name: 'Cadastrar meu comércio' })).toHaveAttribute('href', '/cadastrar');
   });
 
-  it('não pede nome nem endereço do mercado (isso fica em "Meu mercado")', () => {
+  it('não pede nome nem endereço do mercado (isso fica em "Meu comércio")', () => {
     abrir('/cadastrar');
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Nome do mercado')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Nome do comércio')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Endereço')).not.toBeInTheDocument();
   });
 

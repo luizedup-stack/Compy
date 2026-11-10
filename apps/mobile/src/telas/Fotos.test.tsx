@@ -78,7 +78,7 @@ describe('fotos dos produtos no app', () => {
     });
     const user = userEvent.setup();
     await abrirApp();
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     await user.press(await screen.findByText('Mercado Bom Preço'));
     expect(await screen.findByLabelText('Foto de Leite Piracanjuba')).toBeOnTheScreen();
   });

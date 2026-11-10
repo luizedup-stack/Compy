@@ -20,7 +20,7 @@ export const DADOS_VAZIOS: DadosDoMercado = {
 interface Props {
   /** Valores iniciais (vazios para cadastrar; os atuais para editar). */
   inicial: DadosDoMercado;
-  /** Texto do botão: "Cadastrar mercado", "Salvar"... */
+  /** Texto do botão: "Cadastrar comércio", "Salvar"... */
   rotuloBotao: string;
   /** Prefixo dos ids dos campos (vários formulários podem existir na mesma tela). */
   prefixo: string;
@@ -32,7 +32,7 @@ interface Props {
 
 /** Confere no próprio navegador o que dá para conferir (o servidor confere tudo de novo). Devolve a mensagem ou null. */
 export function conferirDados(d: DadosDoMercado): string | null {
-  if (d.nome.trim().length < 2) return 'Informe o nome do mercado';
+  if (d.nome.trim().length < 2) return 'Informe o nome do comércio';
   const cep = validarCep(d.cep);
   if (!cep.ok) return cep.motivo;
   if (d.logradouro.trim().length < 3) return 'Informe a rua ou avenida';
@@ -128,7 +128,7 @@ export default function FormularioMercado({ inicial, rotuloBotao, prefixo, aoEnv
 
   return (
     <form onSubmit={aoSubmeter} noValidate className="formulario-mercado">
-      <label htmlFor={id('nome')}>Nome do mercado</label>
+      <label htmlFor={id('nome')}>Nome do comércio</label>
       <input id={id('nome')} type="text" autoComplete="organization" value={dados.nome} onChange={(e) => mudar('nome', e.target.value)} />
 
       <label htmlFor={id('cep')}>CEP</label>

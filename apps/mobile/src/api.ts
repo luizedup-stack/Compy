@@ -57,7 +57,7 @@ const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolv
 
 /** O servidor não está atendendo agora (sem rede, ou ainda ligando): vale mostrar a cópia dos dados guardada no celular. */
 const servidorIndisponivel = (e: ErroApi): boolean => e.status === 0 || STATUS_SERVIDOR_ACORDANDO.has(e.status);
-export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Mercados usam o painel na web.';
+export const MSG_AREA_CLIENTES = 'Esta área é para clientes. Comércios usam o painel na web.';
 export const MSG_EMAIL_REPETIDO = 'Esse e-mail já está cadastrado';
 
 export class ErroApi extends Error {

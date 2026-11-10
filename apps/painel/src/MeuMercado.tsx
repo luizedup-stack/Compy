@@ -1,7 +1,7 @@
-// Tela "Meu mercado": é aqui que o mercado cadastra e edita os seus dados (nome, endereço completo e telefone).
+// Tela "Meu comércio": é aqui que o mercado cadastra e edita os seus dados (nome, endereço completo e telefone).
 // - Conta nova (sem nenhum mercado): mostra o formulário para CADASTRAR o primeiro mercado.
-// - Com mercado: mostra os dados do mercado em uso para EDITAR e, embaixo, "Meus mercados" com o botão
-//   "Adicionar outro mercado" (um usuário pode ter mais de um; o seletor do topo escolhe com qual trabalhar).
+// - Com mercado: mostra os dados do comércio em uso para EDITAR e, embaixo, "Meus comércios" com o botão
+//   "Adicionar outro comércio" (um usuário pode ter mais de um; o seletor do topo escolhe com qual trabalhar).
 import { useEffect, useState } from 'react';
 import { DIAS_PRECO_VELHO, formatarCep, formatarTelefone } from '@mercado/shared';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -85,7 +85,7 @@ export default function MeuMercado() {
       guardarMercadoEscolhido(novo.id);
       await listarMeusMercados(); // atualiza a lista guardada, que o seletor do topo lê
       avisarMudancaDeMercados();
-      navigate('/meu-mercado', { replace: true, state: { aviso: `Mercado cadastrado: ${novo.nome}. Agora você está trabalhando nele.` } });
+      navigate('/meu-mercado', { replace: true, state: { aviso: `Comércio cadastrado: ${novo.nome}. Agora você está trabalhando nele.` } });
     } catch (e) {
       if (sessaoRecusada(e)) navigate('/entrar', { replace: true });
       throw new Error(mensagemDoErro(e));
@@ -110,7 +110,7 @@ export default function MeuMercado() {
 
   return (
     <section className="cartao">
-      <h1>Meu mercado</h1>
+      <h1>Meu comércio</h1>
       <div role="status">{typeof aviso === 'string' && aviso && <p className="aviso aviso-ok">{aviso}</p>}</div>
       {erroCarga && (
         <p role="alert" className="aviso aviso-erro">
@@ -121,12 +121,12 @@ export default function MeuMercado() {
 
       {semMercado && (
         <>
-          <h2>Cadastre o seu mercado</h2>
+          <h2>Cadastre o seu comércio</h2>
           <p>
-            Informe os dados do seu mercado. O endereço precisa estar completo (com CEP e número) e o telefone com DDD. Depois você
+            Informe os dados do seu comércio. O endereço precisa estar completo (com CEP e número) e o telefone com DDD. Depois você
             poderá cadastrar os produtos.
           </p>
-          <FormularioMercado inicial={DADOS_VAZIOS} rotuloBotao="Cadastrar mercado" prefixo="novo" aoEnviar={cadastrar} />
+          <FormularioMercado inicial={DADOS_VAZIOS} rotuloBotao="Cadastrar comércio" prefixo="novo" aoEnviar={cadastrar} />
         </>
       )}
 
@@ -140,7 +140,7 @@ export default function MeuMercado() {
           </p>
           {!mercado.perfilCompleto && (
             <p role="alert" className="aviso aviso-erro">
-              Complete o endereço e o telefone do seu mercado e salve.
+              Complete o endereço e o telefone do seu comércio e salve.
             </p>
           )}
           {mercado.produtosDesatualizados > 0 && (
@@ -160,8 +160,8 @@ export default function MeuMercado() {
           />
           <div role="status">{sucesso && <p className="aviso aviso-ok">Dados atualizados</p>}</div>
 
-          <h2>Meus mercados</h2>
-          <ul className="lista-mercados" aria-label="Meus mercados">
+          <h2>Meus comércios</h2>
+          <ul className="lista-mercados" aria-label="Meus comércios">
             {lista.map((m) => (
               <li key={m.id}>
                 <strong>{m.nome}</strong>
@@ -174,15 +174,15 @@ export default function MeuMercado() {
           {!adicionando ? (
             <p>
               <button type="button" className="botao botao-secundario" onClick={() => setAdicionando(true)}>
-                Adicionar outro mercado
+                Adicionar outro comércio
               </button>
             </p>
           ) : (
-            <div className="novo-produto" role="group" aria-label="Adicionar outro mercado">
-              <h3>Adicionar outro mercado</h3>
+            <div className="novo-produto" role="group" aria-label="Adicionar outro comércio">
+              <h3>Adicionar outro comércio</h3>
               <FormularioMercado
                 inicial={DADOS_VAZIOS}
-                rotuloBotao="Cadastrar mercado"
+                rotuloBotao="Cadastrar comércio"
                 prefixo="outro"
                 aoEnviar={cadastrar}
                 aoCancelar={() => setAdicionando(false)}

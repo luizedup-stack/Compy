@@ -38,7 +38,7 @@ export function CartaoOferta({ oferta, maisBarato = false }: Props) {
       accessible
       accessibilityRole="link"
       accessibilityLabel={partes.join(', ')}
-      accessibilityHint="Toque para ver como chegar ao mercado"
+      accessibilityHint="Toque para ver como chegar ao estabelecimento"
       onPress={() => perguntarSeQuerIr({ nome: oferta.mercadoNome, endereco: oferta.endereco })}
       style={({ pressed }) => [estilos.cartao, pressed ? estilos.pressionado : null]}
     >

@@ -214,7 +214,7 @@ describe('Conta', () => {
   it('não há faixa de confirmação de e-mail em nenhuma aba, mesmo com o e-mail não confirmado', async () => {
     const { user } = await abrirConta({ 'GET /mercados': { status: 200, corpo: [] } }, false);
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Conta
-    await user.press(aba('Mercados'));
+    await user.press(aba('Estabelecimentos'));
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Mercados
     await user.press(aba('Buscar'));
     expect(screen.queryByText(AVISO_EMAIL)).not.toBeOnTheScreen(); // aba Buscar

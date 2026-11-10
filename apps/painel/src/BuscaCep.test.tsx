@@ -19,7 +19,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Abre "Meu mercado" de uma conta sem mercado (formulário de cadastro) com o ViaCEP respondendo como `viacep`. */
+/** Abre "Meu comércio" de uma conta sem mercado (formulário de cadastro) com o ViaCEP respondendo como `viacep`. */
 async function abrirFormulario(viacep: (c: Chamada) => Response | Promise<Response>) {
   const chamadas = simularApi(
     (c) => {
@@ -29,7 +29,7 @@ async function abrirFormulario(viacep: (c: Chamada) => Response | Promise<Respon
     { meusMercados: 'responder' },
   );
   abrir('/meu-mercado');
-  await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' });
+  await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' });
   return chamadas;
 }
 

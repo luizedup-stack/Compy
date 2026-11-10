@@ -31,7 +31,7 @@ async function abrir(url: string): Promise<void> {
 
 /** Pergunta se a pessoa quer ir até o mercado e, se quiser, abre o trajeto no Google Maps ou no Waze. */
 export function perguntarSeQuerIr(destino: Destino): void {
-  Alert.alert('Ir até o mercado?', `${destino.nome}\n${destino.endereco}`, [
+  Alert.alert('Ir até o estabelecimento?', `${destino.nome}\n${destino.endereco}`, [
     { text: 'Google Maps', onPress: () => void abrir(urlGoogleMaps(destino)) },
     { text: 'Waze', onPress: () => void abrir(urlWaze(destino)) },
     { text: 'Agora não', style: 'cancel' },

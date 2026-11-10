@@ -21,5 +21,8 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts'],
     // Testes que digitam formulários inteiros ficam lentos com o computador ocupado: folga para não falharem à toa.
     testTimeout: 30_000,
+    // O Node novo (26) liga um "localStorage" próprio que atrapalha o do jsdom ("Cannot read properties of undefined (reading 'clear')").
+    // Desligamos o do Node só para os testes.
+    poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] }, threads: { execArgv: ['--no-experimental-webstorage'] } },
   },
 });

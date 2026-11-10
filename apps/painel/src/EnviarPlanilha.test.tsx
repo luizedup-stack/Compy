@@ -70,7 +70,7 @@ describe('login', () => {
     await entrar('cliente@exemplo.com', 'senha1234');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Esta área é para mercados. Use o aplicativo Bolso Certo.',
+      'Esta área é para comércios. Use o aplicativo Bolso Certo.',
     );
     expect(localStorage.length).toBe(0);
     expect(screen.queryByRole('heading', { name: 'Enviar planilha' })).not.toBeInTheDocument();
@@ -141,7 +141,7 @@ describe('envio de planilha', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
 
     const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('Mercado atualizado');
+    expect(status).toHaveTextContent('Comércio atualizado');
     expect(status).toHaveTextContent('26 produtos importados');
     expect(screen.getByRole('heading', { name: 'Linhas com problema' })).toBeInTheDocument();
     expect(screen.getByText('Linha 7: preço inválido')).toBeInTheDocument();
@@ -164,7 +164,7 @@ describe('envio de planilha', () => {
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
 
     const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent('Mercado criado');
+    expect(status).toHaveTextContent('Comércio criado');
     expect(status).toHaveTextContent('1 produto importado');
     expect(status).not.toHaveTextContent('1 produtos');
     expect(screen.queryByRole('heading', { name: 'Linhas com problema' })).not.toBeInTheDocument();

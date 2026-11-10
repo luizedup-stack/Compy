@@ -31,7 +31,7 @@ describe('perguntarSeQuerIr', () => {
   it('pergunta com o nome e o endereço e oferece Google Maps, Waze e "Agora não"', () => {
     perguntarSeQuerIr(MERCADO);
     expect(alerta).toHaveBeenCalledTimes(1);
-    expect(alerta.mock.calls[0]![0]).toBe('Ir até o mercado?');
+    expect(alerta.mock.calls[0]![0]).toBe('Ir até o estabelecimento?');
     expect(alerta.mock.calls[0]![1]).toBe(`${MERCADO.nome}\n${MERCADO.endereco}`);
     expect(botoes().map((b) => b.text)).toEqual(['Google Maps', 'Waze', 'Agora não']);
     expect(botoes()[2]!.style).toBe('cancel');

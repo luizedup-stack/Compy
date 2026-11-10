@@ -13,7 +13,7 @@ import { cores, estilos as comuns } from '../tema';
 
 export const AVISO_CONTA_EXCLUIDA = 'Conta excluída.';
 /** Crédito das fotos: a licença do Open Food Facts (CC BY-SA) pede que elas sejam atribuídas. */
-export const CREDITO_FOTOS = 'Fotos dos produtos: Open Food Facts (licença CC BY-SA) e enviadas pelos mercados.';
+export const CREDITO_FOTOS = 'Fotos dos produtos: Open Food Facts (licença CC BY-SA) e enviadas pelos comércios.';
 
 /**
  * Aba Conta. O app funciona sem login: quem não entrou vê aqui as opções de Entrar e Criar conta;

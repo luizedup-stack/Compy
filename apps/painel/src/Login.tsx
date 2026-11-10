@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ErroApi, guardarSessao, listarMeusMercados, login } from './api';
 
-const MSG_CLIENTE = 'Esta área é para mercados. Use o aplicativo Bolso Certo.';
+const MSG_CLIENTE = 'Esta área é para comércios. Use o aplicativo Bolso Certo.';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,11 +27,11 @@ export default function Login() {
       guardarSessao({ token: r.token, papel: r.papel });
       if (r.papel === 'mercado') {
         // Guarda a lista de mercados da conta (o seletor do topo a usa). Sem mercado nenhum, a conta é nova: vai
-        // direto para "Meu mercado" cadastrar o primeiro. Se a consulta falhar, segue para Produtos normalmente.
+        // direto para "Meu comércio" cadastrar o primeiro. Se a consulta falhar, segue para Produtos normalmente.
         try {
           const meus = await listarMeusMercados();
           if (meus.length === 0) {
-            navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu mercado para começar.' } });
+            navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu comércio para começar.' } });
             return;
           }
         } catch {
@@ -49,7 +49,7 @@ export default function Login() {
   return (
     <section className="cartao">
       <h1>Entrar</h1>
-      <p>Acesse com o e-mail e a senha da conta do seu mercado.</p>
+      <p>Acesse com o e-mail e a senha da conta do seu comércio.</p>
       {typeof aviso === 'string' && aviso && (
         <div role="status">
           <p className="aviso aviso-ok">{aviso}</p>
@@ -87,7 +87,7 @@ export default function Login() {
         <Link to="/esqueci-senha">Esqueci minha senha</Link>
       </p>
       <p>
-        Ainda não tem conta? <Link to="/cadastrar">Cadastrar meu mercado</Link>
+        Ainda não tem conta? <Link to="/cadastrar">Cadastrar meu comércio</Link>
       </p>
     </section>
   );

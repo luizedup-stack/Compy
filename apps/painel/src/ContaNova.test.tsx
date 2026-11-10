@@ -1,4 +1,4 @@
-// Conta de mercado recém-criada, que ainda não cadastrou o mercado: é levada para "Meu mercado" para cadastrar.
+// Conta de mercado recém-criada, que ainda não cadastrou o mercado: é levada para "Meu comércio" para cadastrar.
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe('conta de mercado sem mercado cadastrado', () => {
-  it('ao entrar, vai direto para "Meu mercado" com o formulário de cadastro', async () => {
+  it('ao entrar, vai direto para "Meu comércio" com o formulário de cadastro', async () => {
     simularApi(
       (c) => {
         if (c.caminho === '/auth/login') return resposta({ token: 'tok-novo', papel: 'mercado', emailVerificado: false });
@@ -29,11 +29,11 @@ describe('conta de mercado sem mercado cadastrado', () => {
     await usuario.type(screen.getByLabelText('Senha'), 'senha1234');
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Cadastre o seu mercado para começar.');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Cadastre o seu comércio para começar.');
   });
 
-  it('se abrir Produtos sem mercado, é levada para "Meu mercado" (em vez de ver um erro)', async () => {
+  it('se abrir Produtos sem mercado, é levada para "Meu comércio" (em vez de ver um erro)', async () => {
     comSessao();
     simularApi(
       (c) =>
@@ -44,7 +44,7 @@ describe('conta de mercado sem mercado cadastrado', () => {
     );
     abrir('/produtos');
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu mercado' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Cadastre o seu mercado para começar a cadastrar produtos.');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cadastre o seu comércio' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Cadastre o seu comércio para começar a cadastrar produtos.');
   });
 });

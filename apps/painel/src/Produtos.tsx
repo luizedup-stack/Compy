@@ -249,7 +249,7 @@ function Linha({ produto, aoAtualizar, aoRemover, aoSessaoRecusada }: LinhaProps
           <span className="sem-foto">Sem foto</span>
         )}
         {produto.fotoOrigem === 'ilustrativa' && <span className="sem-foto">Foto ilustrativa (do tipo de produto)</span>}
-        {produto.fotoSoDoMercado && <span className="sem-foto">Esta foto aparece só no seu mercado (o produto já tinha outra foto)</span>}
+        {produto.fotoSoDoMercado && <span className="sem-foto">Esta foto aparece só no seu comércio (o produto já tinha outra foto)</span>}
         <div className="acoes-botoes">
           <input
             ref={entradaFoto}
@@ -504,9 +504,9 @@ export default function Produtos() {
           navigate('/entrar', { replace: true });
           return;
         }
-        // Conta de mercado nova, que ainda não cadastrou o mercado: leva para "Meu mercado" para cadastrar.
+        // Conta de mercado nova, que ainda não cadastrou o mercado: leva para "Meu comércio" para cadastrar.
         if (e instanceof ErroApi && e.message === MSG_SEM_MERCADO && lerSessao()?.papel === 'mercado') {
-          navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu mercado para começar a cadastrar produtos.' } });
+          navigate('/meu-mercado', { replace: true, state: { aviso: 'Cadastre o seu comércio para começar a cadastrar produtos.' } });
           return;
         }
         setErro(mensagemDoErro(e));
@@ -573,7 +573,7 @@ export default function Produtos() {
               onChange={(e) => escolherMercado(Number(e.target.value))}
               disabled={mercados.length === 0}
             >
-              {mercados.length === 0 && <option value="">Nenhum mercado ainda</option>}
+              {mercados.length === 0 && <option value="">Nenhum comércio ainda</option>}
               {mercados.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.nome} ({m.totalProdutos})
@@ -586,7 +586,7 @@ export default function Produtos() {
 
       {ehAdmin && carregouMercados && mercados.length === 0 && (
         <div className="vazio">
-          <p>Nenhum mercado cadastrado. Envie uma planilha para criar o primeiro.</p>
+          <p>Nenhum comércio cadastrado. Envie uma planilha para criar o primeiro.</p>
           <Link to="/planilha" className="botao botao-link">
             Enviar planilha
           </Link>
@@ -659,7 +659,7 @@ export default function Produtos() {
           <p className="resumo">{plural(total)}</p>
           <div className="tabela-rolagem">
             <table className="tabela-produtos">
-              <caption className="so-leitor">Produtos do mercado</caption>
+              <caption className="so-leitor">Produtos do comércio</caption>
               <thead>
                 <tr>
                   <th scope="col">Código de barras</th>

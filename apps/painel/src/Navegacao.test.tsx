@@ -20,7 +20,7 @@ describe('navegação por papel', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Principal' });
     const links = within(nav).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Meu mercado', 'Cobrança']);
+    expect(links.map((l) => l.textContent)).toEqual(['Produtos', 'Enviar planilha', 'Meu comércio', 'Cobrança']);
     expect(links.map((l) => l.getAttribute('href'))).toEqual(['/produtos', '/planilha', '/meu-mercado', '/cobranca']);
     expect(within(nav).getByRole('link', { name: 'Enviar planilha' })).toHaveAttribute('aria-current', 'page');
   });
