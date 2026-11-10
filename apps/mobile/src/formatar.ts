@@ -20,6 +20,15 @@ export function textoIdade(dias: number): string {
   return `atualizado há ${inteiros} ${inteiros === 1 ? 'dia' : 'dias'}`;
 }
 
+/** "2026-11-12T00:00:00.000Z" → "até 11/11" (o dia em que a promoção acaba; vale o dia do horário de Brasília, UTC−3). Sem data: "sem data para acabar". */
+export function textoPromocaoAte(fim: string | null | undefined): string {
+  if (!fim) return 'sem data para acabar';
+  const t = Date.parse(fim);
+  if (!Number.isFinite(t)) return 'sem data para acabar';
+  const d = new Date(t - 3 * 3600 * 1000);
+  return `até ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 /** "R$ 1,24 por rolo", "R$ 5,80 por kg", "R$ 2,50 por unidade"; nulo quando não há preço por unidade. Serve para ofertas e produtos de mercado. */
 export function textoPorUnidade(oferta: Pick<Oferta, 'precoPorUnidade' | 'unidade'>): string | null {
   if (oferta.precoPorUnidade === null || oferta.unidade === null) return null;

@@ -28,6 +28,10 @@ export interface Oferta {
   atualizadoEm: string;
   diasDesdeAtualizacao: number;
   desatualizado: boolean;
+  /** Quando há promoção valendo: `preco` já é o preço promocional e este é o preço normal (riscado na tela). */
+  precoOriginal?: number;
+  /** Até quando a promoção vale (texto ISO), ou null se não tem fim. */
+  promocaoAte?: string | null;
 }
 
 export interface GrupoProduto {
@@ -55,6 +59,10 @@ export interface ProdutoMercado {
   atualizadoEm: string;
   diasDesdeAtualizacao: number;
   desatualizado: boolean;
+  /** Quando há promoção valendo: `preco` já é o preço promocional e este é o preço normal. */
+  precoOriginal?: number;
+  /** Até quando a promoção vale (texto ISO), ou null se não tem fim. */
+  promocaoAte?: string | null;
   /** Caminho da foto na API (veja GrupoProduto.foto). */
   foto?: string | null;
   /** true quando a foto é só ILUSTRATIVA (a do tipo de produto, não a do produto exato). */

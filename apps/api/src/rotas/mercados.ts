@@ -1,4 +1,4 @@
-import { caminhoDaFoto, mercadosDoCatalogo, type Catalogo, type ProdutoMercado } from '@mercado/shared';
+import { caminhoDaFoto, mercadosDoCatalogo, promocaoAtiva, type Catalogo, type ProdutoMercado } from '@mercado/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { precoPorUnidadeDaOferta } from '../busca/buscar';
 import type { FotosEmbutidas } from '../fotos/embutidas';
@@ -10,12 +10,20 @@ const MSG_NAO_ACHOU = 'Mercado não encontrado';
 
 const comparar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** Promoção que vale agora para a oferta (preço promocional, menor que o normal, dentro do período), ou null. */
+const promocaoDe = (o: OfertaArmazenada, agora: Date): number | null =>
+  promocaoAtiva({ preco: o.preco, precoPromocional: o.promocaoPreco, promocaoInicio: o.promocaoInicio?.toISOString() ?? null, promocaoFim: o.promocaoFim?.toISOString() ?? null }, agora)
+    ? (o.promocaoPreco as number)
+    : null;
+
 const aProdutoMercado = (o: OfertaArmazenada, agora: Date, comFoto: Set<string>, ilustrativas: Set<string>, proprias: Map<string, Date>): ProdutoMercado => ({
   codigoBarras: o.codigoBarras,
   nome: o.nome,
-  preco: o.preco,
+  // Com promoção valendo, o preço mostrado é o promocional e o normal vai em precoOriginal (riscado na tela).
+  preco: promocaoDe(o, agora) ?? o.preco,
   quantidadeTexto: o.quantidadeTexto,
-  ...precoPorUnidadeDaOferta(o),
+  ...precoPorUnidadeDaOferta({ ...o, preco: promocaoDe(o, agora) ?? o.preco }),
+  ...(promocaoDe(o, agora) !== null ? { precoOriginal: o.preco, promocaoAte: o.promocaoFim?.toISOString() ?? null } : {}),
   atualizadoEm: o.precoAtualizadoEm.toISOString(),
   diasDesdeAtualizacao: diasDesde(o.precoAtualizadoEm, agora),
   desatualizado: precoDesatualizado(o.precoAtualizadoEm, agora),

@@ -1,7 +1,7 @@
 import type { ProdutoMercado } from '@mercado/shared';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { formatarPreco, textoIdade, textoPorUnidade } from '../formatar';
+import { formatarPreco, textoIdade, textoPorUnidade, textoPromocaoAte } from '../formatar';
 import { cores } from '../tema';
 import { AVISO_SEM_QUANTIDADE } from './CartaoOferta';
 import { FotoDoProduto } from './FotoDoProduto';
@@ -11,10 +11,13 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
   const porUnidade = textoPorUnidade(produto);
   const idade = textoIdade(produto.diasDesdeAtualizacao);
   const preco = formatarPreco(produto.preco);
+  const emPromocao = produto.precoOriginal !== undefined;
+  const ate = emPromocao ? textoPromocaoAte(produto.promocaoAte) : null;
 
   // A linha inteira é lida como uma frase só, na ordem: nome, preço, preço por unidade, idade.
   const partes = [
     produto.nome,
+    ...(emPromocao ? [`em promoção, de ${formatarPreco(produto.precoOriginal as number)} por ${preco}, ${ate}`] : []),
     produto.quantidadeTexto ? `${preco}, ${produto.quantidadeTexto}` : preco,
     porUnidade ?? AVISO_SEM_QUANTIDADE,
     idade,
@@ -22,14 +25,21 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
   if (produto.desatualizado) partes.push('preço antigo');
 
   return (
-    <View testID="produto" accessible accessibilityLabel={partes.join(', ')} style={estilos.linha}>
+    <View testID="produto" accessible accessibilityLabel={partes.join(', ')} style={[estilos.linha, emPromocao ? estilos.linhaPromocao : null]}>
+      {emPromocao ? (
+        <View testID="selo-promocao" style={estilos.faixaPromocao}>
+          <Text style={estilos.textoFaixaPromocao}>🔥 PROMOÇÃO</Text>
+          <Text style={estilos.textoFaixaPromocao}>{ate}</Text>
+        </View>
+      ) : null}
       <View style={estilos.topo}>
         <FotoDoProduto foto={produto.foto} nome={produto.nome} tamanho={56} ilustrativa={produto.fotoIlustrativa === true} />
         <Text style={estilos.nome}>{produto.nome}</Text>
       </View>
 
       <View style={estilos.linhaPreco}>
-        <Text style={estilos.preco}>{preco}</Text>
+        <Text style={[estilos.preco, emPromocao ? estilos.precoPromocao : null]}>{preco}</Text>
+        {emPromocao ? <Text style={estilos.precoAntigo}>{formatarPreco(produto.precoOriginal as number)}</Text> : null}
         {produto.quantidadeTexto ? <Text style={estilos.quantidade}>{produto.quantidadeTexto}</Text> : null}
       </View>
 
@@ -49,6 +59,11 @@ export function LinhaProduto({ produto }: { produto: ProdutoMercado }) {
 
 const estilos = StyleSheet.create({
   linha: { paddingVertical: 10, gap: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: cores.borda },
+  linhaPromocao: { backgroundColor: cores.fundoPromocao, borderWidth: 2, borderColor: cores.promocao, borderRadius: 10, paddingHorizontal: 10, marginTop: 6 },
+  faixaPromocao: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.promocao, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 4 },
+  textoFaixaPromocao: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  precoPromocao: { color: cores.promocaoEscura, fontSize: 26 },
+  precoAntigo: { fontSize: 15, color: cores.textoSuave, textDecorationLine: 'line-through' },
   topo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   nome: { flex: 1, fontSize: 16, fontWeight: '700', color: cores.texto },
   linhaPreco: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginTop: 4 },
